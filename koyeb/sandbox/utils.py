@@ -21,14 +21,14 @@ from koyeb.api.models.instance_status import InstanceStatus
 
 
 def get_api_client(
-    api_token: Optional[str] = None, host: str = "https://app.koyeb.com"
+    api_token: Optional[str] = None, host: Optional[str] = None
 ) -> tuple[AppsApi, ServicesApi, InstancesApi]:
     """
     Get configured API clients for Koyeb operations.
 
     Args:
         api_token: Koyeb API token. If not provided, will try to get from KOYEB_API_TOKEN env var
-        host: Koyeb API host URL
+        host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 
     Returns:
         Tuple of (AppsApi, ServicesApi, InstancesApi) instances
@@ -42,7 +42,8 @@ def get_api_client(
             "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
         )
 
-    configuration = Configuration(host=host)
+    api_host = host or os.getenv("KOYEB_API_HOST", "https://app.koyeb.com")
+    configuration = Configuration(host=api_host)
     configuration.api_key["Bearer"] = token
     configuration.api_key_prefix["Bearer"] = "Bearer"
 
