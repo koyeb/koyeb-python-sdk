@@ -15,7 +15,7 @@ def main():
     # Find all Python files, excluding this script and async variants
     example_files = sorted([
         f for f in examples_dir.glob("*.py")
-        if f.name not in ["00_run_all.py", "00_async_run_all.py"]
+        if f.name not in ["00_run_all.py", "00_run_all.py"]
         and not f.name.endswith("_async.py")
     ])
     
