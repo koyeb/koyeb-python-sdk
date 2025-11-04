@@ -9,7 +9,7 @@ import asyncio
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional
 
 from .executor_client import SandboxClient
 from .utils import SandboxError
@@ -58,7 +58,7 @@ class SandboxExecutor:
     """
     Synchronous command execution interface for Koyeb Sandbox instances.
     Bound to a specific sandbox instance.
-    
+
     For async usage, use AsyncSandboxExecutor instead.
     """
 
@@ -93,7 +93,7 @@ class SandboxExecutor:
             command: Command to execute as a string (e.g., "python -c 'print(2+2)'")
             cwd: Working directory for the command
             env: Environment variables for the command
-            timeout: Command timeout in seconds
+            timeout: Command timeout in seconds (not currently enforced, reserved for future use)
             on_stdout: Optional callback for streaming stdout chunks
             on_stderr: Optional callback for streaming stderr chunks
 
@@ -114,20 +114,20 @@ class SandboxExecutor:
             ```
         """
         start_time = time.time()
-        
+
         # Use streaming if callbacks are provided
         if on_stdout or on_stderr:
             stdout_buffer = []
             stderr_buffer = []
             exit_code = 0
-            
+
             try:
                 client = self._get_client()
                 for event in client.run_streaming(cmd=command, cwd=cwd, env=env):
                     if "stream" in event:
                         stream_type = event["stream"]
                         data = event["data"]
-                        
+
                         if stream_type == "stdout":
                             stdout_buffer.append(data)
                             if on_stdout:
@@ -148,12 +148,16 @@ class SandboxExecutor:
                             duration=time.time() - start_time,
                             command=command,
                         )
-                
+
                 return CommandResult(
                     stdout="".join(stdout_buffer),
                     stderr="".join(stderr_buffer),
                     exit_code=exit_code,
-                    status=CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED,
+                    status=(
+                        CommandStatus.FINISHED
+                        if exit_code == 0
+                        else CommandStatus.FAILED
+                    ),
                     duration=time.time() - start_time,
                     command=command,
                 )
@@ -166,21 +170,23 @@ class SandboxExecutor:
                     duration=time.time() - start_time,
                     command=command,
                 )
-        
+
         # Use regular run for non-streaming execution
         try:
             client = self._get_client()
             response = client.run(cmd=command, cwd=cwd, env=env)
-            
-            stdout = response.get('stdout', '')
-            stderr = response.get('stderr', '')
-            exit_code = response.get('exit_code', 0)
-            
+
+            stdout = response.get("stdout", "")
+            stderr = response.get("stderr", "")
+            exit_code = response.get("exit_code", 0)
+
             return CommandResult(
                 stdout=stdout,
                 stderr=stderr,
                 exit_code=exit_code,
-                status=CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED,
+                status=(
+                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                ),
                 duration=time.time() - start_time,
                 command=command,
             )
@@ -199,7 +205,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
     """
     Async command execution interface for Koyeb Sandbox instances.
     Bound to a specific sandbox instance.
-    
+
     Inherits from SandboxExecutor and provides async command execution.
     """
 
@@ -219,7 +225,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
             command: Command to execute as a string (e.g., "python -c 'print(2+2)'")
             cwd: Working directory for the command
             env: Environment variables for the command
-            timeout: Command timeout in seconds
+            timeout: Command timeout in seconds (not currently enforced, reserved for future use)
             on_stdout: Optional callback for streaming stdout chunks
             on_stderr: Optional callback for streaming stderr chunks
 
@@ -240,31 +246,31 @@ class AsyncSandboxExecutor(SandboxExecutor):
             ```
         """
         start_time = time.time()
-        
+
         # Use streaming if callbacks are provided
         if on_stdout or on_stderr:
             stdout_buffer = []
             stderr_buffer = []
             exit_code = 0
-            
+
             try:
                 client = self._get_client()
                 # Run streaming in executor to avoid blocking
                 loop = asyncio.get_running_loop()
-                
+
                 def stream_command():
                     events = []
                     for event in client.run_streaming(cmd=command, cwd=cwd, env=env):
                         events.append(event)
                     return events
-                
+
                 events = await loop.run_in_executor(None, stream_command)
-                
+
                 for event in events:
                     if "stream" in event:
                         stream_type = event["stream"]
                         data = event["data"]
-                        
+
                         if stream_type == "stdout":
                             stdout_buffer.append(data)
                             if on_stdout:
@@ -285,12 +291,16 @@ class AsyncSandboxExecutor(SandboxExecutor):
                             duration=time.time() - start_time,
                             command=command,
                         )
-                
+
                 return CommandResult(
                     stdout="".join(stdout_buffer),
                     stderr="".join(stderr_buffer),
                     exit_code=exit_code,
-                    status=CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED,
+                    status=(
+                        CommandStatus.FINISHED
+                        if exit_code == 0
+                        else CommandStatus.FAILED
+                    ),
                     duration=time.time() - start_time,
                     command=command,
                 )
@@ -303,26 +313,27 @@ class AsyncSandboxExecutor(SandboxExecutor):
                     duration=time.time() - start_time,
                     command=command,
                 )
-        
+
         # Run in executor to avoid blocking
         loop = asyncio.get_running_loop()
-        
+
         try:
             client = self._get_client()
             response = await loop.run_in_executor(
-                None, 
-                lambda: client.run(cmd=command, cwd=cwd, env=env)
+                None, lambda: client.run(cmd=command, cwd=cwd, env=env)
             )
-            
-            stdout = response.get('stdout', '')
-            stderr = response.get('stderr', '')
-            exit_code = response.get('exit_code', 0)
-            
+
+            stdout = response.get("stdout", "")
+            stderr = response.get("stderr", "")
+            exit_code = response.get("exit_code", 0)
+
             return CommandResult(
                 stdout=stdout,
                 stderr=stderr,
                 exit_code=exit_code,
-                status=CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED,
+                status=(
+                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                ),
                 duration=time.time() - start_time,
                 command=command,
             )

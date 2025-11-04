@@ -6,7 +6,6 @@ Using SandboxClient HTTP API
 """
 
 import asyncio
-import base64
 import os
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -39,13 +38,14 @@ class SandboxFilesystem:
     """
     Synchronous filesystem operations for Koyeb Sandbox instances.
     Using SandboxClient HTTP API.
-    
+
     For async usage, use AsyncSandboxFilesystem instead.
     """
 
     def __init__(self, sandbox):
         self.sandbox = sandbox
         self._client = None
+        self._executor = None
 
     def _get_client(self) -> SandboxClient:
         """Get or create SandboxClient instance"""
@@ -57,6 +57,14 @@ class SandboxFilesystem:
                 raise SandboxError("Sandbox secret not available")
             self._client = SandboxClient(sandbox_url, self.sandbox.sandbox_secret)
         return self._client
+
+    def _get_executor(self):
+        """Get or create SandboxExecutor instance"""
+        if self._executor is None:
+            from .exec import SandboxExecutor
+
+            self._executor = SandboxExecutor(self.sandbox)
+        return self._executor
 
     def write_file(
         self, path: str, content: Union[str, bytes], encoding: str = "utf-8"
@@ -70,12 +78,12 @@ class SandboxFilesystem:
             encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
         """
         client = self._get_client()
-        
+
         if isinstance(content, bytes):
             content_str = content.decode("utf-8")
         else:
             content_str = content
-        
+
         try:
             client.write_file(path, content_str)
         except Exception as e:
@@ -93,10 +101,10 @@ class SandboxFilesystem:
             FileInfo: Object with content and encoding
         """
         client = self._get_client()
-        
+
         try:
             response = client.read_file(path)
-            content = response.get('content', '')
+            content = response.get("content", "")
             return FileInfo(content=content, encoding=encoding)
         except Exception as e:
             error_msg = str(e)
@@ -110,10 +118,10 @@ class SandboxFilesystem:
 
         Args:
             path: Absolute path to the directory
-            recursive: Create parent directories if needed (default: False)
+            recursive: Create parent directories if needed (default: False, not used - API always creates parents)
         """
         client = self._get_client()
-        
+
         try:
             client.make_dir(path)
         except Exception as e:
@@ -133,10 +141,10 @@ class SandboxFilesystem:
             List[str]: Names of files and directories within the specified path.
         """
         client = self._get_client()
-        
+
         try:
             response = client.list_dir(path)
-            entries = response.get('entries', [])
+            entries = response.get("entries", [])
             return entries
         except Exception as e:
             error_msg = str(e)
@@ -152,7 +160,7 @@ class SandboxFilesystem:
             path: Absolute path to the file
         """
         client = self._get_client()
-        
+
         try:
             client.delete_file(path)
         except Exception as e:
@@ -169,7 +177,7 @@ class SandboxFilesystem:
             path: Absolute path to the directory
         """
         client = self._get_client()
-        
+
         try:
             client.delete_dir(path)
         except Exception as e:
@@ -189,10 +197,9 @@ class SandboxFilesystem:
             new_path: New file path
         """
         # Use exec since there's no direct rename in SandboxClient
-        from .exec import SandboxExecutor
-        executor = SandboxExecutor(self.sandbox)
+        executor = self._get_executor()
         result = executor(f"mv {old_path} {new_path}")
-        
+
         if not result.success:
             if "No such file" in result.stderr:
                 raise FileNotFoundError(f"File not found: {old_path}")
@@ -207,10 +214,9 @@ class SandboxFilesystem:
             destination_path: Destination path
         """
         # Use exec since there's no direct move in SandboxClient
-        from .exec import SandboxExecutor
-        executor = SandboxExecutor(self.sandbox)
+        executor = self._get_executor()
         result = executor(f"mv {source_path} {destination_path}")
-        
+
         if not result.success:
             if "No such file" in result.stderr:
                 raise FileNotFoundError(f"File not found: {source_path}")
@@ -231,22 +237,19 @@ class SandboxFilesystem:
 
     def exists(self, path: str) -> bool:
         """Check if file/directory exists synchronously"""
-        from .exec import SandboxExecutor
-        executor = SandboxExecutor(self.sandbox)
+        executor = self._get_executor()
         result = executor(f"test -e {path}")
         return result.success
 
     def is_file(self, path: str) -> bool:
         """Check if path is a file synchronously"""
-        from .exec import SandboxExecutor
-        executor = SandboxExecutor(self.sandbox)
+        executor = self._get_executor()
         result = executor(f"test -f {path}")
         return result.success
 
     def is_dir(self, path: str) -> bool:
         """Check if path is a directory synchronously"""
-        from .exec import SandboxExecutor
-        executor = SandboxExecutor(self.sandbox)
+        executor = self._get_executor()
         result = executor(f"test -d {path}")
         return result.success
 
@@ -263,7 +266,7 @@ class SandboxFilesystem:
 
         with open(local_path, "rb") as f:
             content = f.read().decode("utf-8")
-        
+
         self.write_file(remote_path, content)
 
     def download_file(self, remote_path: str, local_path: str) -> None:
@@ -276,7 +279,7 @@ class SandboxFilesystem:
         """
         file_info = self.read_file(remote_path)
         content = file_info.content.encode("utf-8")
-        
+
         with open(local_path, "wb") as f:
             f.write(content)
 
@@ -300,9 +303,8 @@ class SandboxFilesystem:
             path: Path to remove
             recursive: Remove recursively
         """
-        from .exec import SandboxExecutor
-        executor = SandboxExecutor(self.sandbox)
-        
+        executor = self._get_executor()
+
         if recursive:
             result = executor(f"rm -rf {path}")
         else:
@@ -345,7 +347,12 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
         """
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self.write_file, path, content, encoding)
+        await loop.run_in_executor(
+            None,
+            lambda: super(AsyncSandboxFilesystem, self).write_file(
+                path, content, encoding
+            ),
+        )
 
     async def read_file(self, path: str, encoding: str = "utf-8") -> FileInfo:
         """
@@ -360,8 +367,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).read_file(path, encoding)
+            None, lambda: super(AsyncSandboxFilesystem, self).read_file(path, encoding)
         )
 
     async def mkdir(self, path: str, recursive: bool = False) -> None:
@@ -370,12 +376,11 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
 
         Args:
             path: Absolute path to the directory
-            recursive: Create parent directories if needed (default: False)
+            recursive: Create parent directories if needed (default: False, not used - API always creates parents)
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).mkdir(path, recursive)
+            None, lambda: super(AsyncSandboxFilesystem, self).mkdir(path, recursive)
         )
 
     async def list_dir(self, path: str = ".") -> List[str]:
@@ -390,8 +395,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).list_dir(path)
+            None, lambda: super(AsyncSandboxFilesystem, self).list_dir(path)
         )
 
     async def delete_file(self, path: str) -> None:
@@ -403,8 +407,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).delete_file(path)
+            None, lambda: super(AsyncSandboxFilesystem, self).delete_file(path)
         )
 
     async def delete_dir(self, path: str) -> None:
@@ -416,8 +419,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).delete_dir(path)
+            None, lambda: super(AsyncSandboxFilesystem, self).delete_dir(path)
         )
 
     async def rename_file(self, old_path: str, new_path: str) -> None:
@@ -430,8 +432,8 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).rename_file(old_path, new_path)
+            None,
+            lambda: super(AsyncSandboxFilesystem, self).rename_file(old_path, new_path),
         )
 
     async def move_file(self, source_path: str, destination_path: str) -> None:
@@ -444,8 +446,10 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).move_file(source_path, destination_path)
+            None,
+            lambda: super(AsyncSandboxFilesystem, self).move_file(
+                source_path, destination_path
+            ),
         )
 
     async def write_files(self, files: List[Dict[str, str]]) -> None:
@@ -465,24 +469,21 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """Check if file/directory exists asynchronously"""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).exists(path)
+            None, lambda: super(AsyncSandboxFilesystem, self).exists(path)
         )
 
     async def is_file(self, path: str) -> bool:
         """Check if path is a file asynchronously"""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).is_file(path)
+            None, lambda: super(AsyncSandboxFilesystem, self).is_file(path)
         )
 
     async def is_dir(self, path: str) -> bool:
         """Check if path is a directory asynchronously"""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).is_dir(path)
+            None, lambda: super(AsyncSandboxFilesystem, self).is_dir(path)
         )
 
     async def upload_file(self, local_path: str, remote_path: str) -> None:
@@ -495,8 +496,10 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).upload_file(local_path, remote_path)
+            None,
+            lambda: super(AsyncSandboxFilesystem, self).upload_file(
+                local_path, remote_path
+            ),
         )
 
     async def download_file(self, remote_path: str, local_path: str) -> None:
@@ -509,8 +512,10 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).download_file(remote_path, local_path)
+            None,
+            lambda: super(AsyncSandboxFilesystem, self).download_file(
+                remote_path, local_path
+            ),
         )
 
     async def ls(self, path: str = ".") -> List[str]:
@@ -535,8 +540,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            None, 
-            lambda: super(AsyncSandboxFilesystem, self).rm(path, recursive)
+            None, lambda: super(AsyncSandboxFilesystem, self).rm(path, recursive)
         )
 
     def open(self, path: str, mode: str = "r") -> "AsyncSandboxFileIO":

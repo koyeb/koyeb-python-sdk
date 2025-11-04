@@ -16,10 +16,10 @@ from .utils import (
     build_env_vars,
     create_deployment_definition,
     create_docker_source,
+    create_koyeb_sandbox_ports,
+    create_koyeb_sandbox_routes,
     get_api_client,
     is_sandbox_healthy,
-    create_koyeb_sandbox_ports,
-    create_koyeb_sandbox_routes
 )
 
 
@@ -129,7 +129,7 @@ class Sandbox:
 
         # Generate secure sandbox secret
         sandbox_secret = secrets.token_urlsafe(32)
-        
+
         # Add SANDBOX_SECRET to environment variables
         if env is None:
             env = {}
@@ -220,12 +220,12 @@ class Sandbox:
                 if sandbox_url is None:
                     time.sleep(poll_interval)
                     continue
-            
+
             is_healthy = is_sandbox_healthy(
-                self.instance_id, 
+                self.instance_id,
                 sandbox_url=sandbox_url,
                 sandbox_secret=self.sandbox_secret,
-                api_token=self.api_token
+                api_token=self.api_token,
             )
 
             if is_healthy:
@@ -245,12 +245,13 @@ class Sandbox:
         """
         Get the public URL of the sandbox.
         Caches the URL after first retrieval.
-        
+
         Returns:
             Optional[str]: The sandbox URL or None if unavailable
         """
         if self._sandbox_url is None:
             from .utils import get_sandbox_url
+
             self._sandbox_url = get_sandbox_url(self.service_id, self.api_token)
         return self._sandbox_url
 
@@ -265,10 +266,10 @@ class Sandbox:
         """Check if sandbox is healthy and ready for operations"""
         sandbox_url = self.get_sandbox_url()
         return is_sandbox_healthy(
-            self.instance_id, 
+            self.instance_id,
             sandbox_url=sandbox_url,
             sandbox_secret=self.sandbox_secret,
-            api_token=self.api_token
+            api_token=self.api_token,
         )
 
     @property
@@ -378,9 +379,7 @@ class AsyncSandbox(Sandbox):
 
         while time.time() - start_time < timeout:
             loop = asyncio.get_running_loop()
-            is_healthy = await loop.run_in_executor(
-                None, super().is_healthy
-            )
+            is_healthy = await loop.run_in_executor(None, super().is_healthy)
 
             if is_healthy:
                 return True
@@ -397,17 +396,13 @@ class AsyncSandbox(Sandbox):
     async def status(self) -> str:
         """Get current sandbox status asynchronously"""
         loop = asyncio.get_running_loop()
-        status_value = await loop.run_in_executor(
-            None, super().status
-        )
+        status_value = await loop.run_in_executor(None, super().status)
         return status_value
 
     async def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations asynchronously"""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            None, super().is_healthy
-        )
+        return await loop.run_in_executor(None, super().is_healthy)
 
     @property
     def exec(self):
@@ -422,4 +417,3 @@ class AsyncSandbox(Sandbox):
         from .filesystem import AsyncSandboxFilesystem
 
         return AsyncSandboxFilesystem(self)
-
