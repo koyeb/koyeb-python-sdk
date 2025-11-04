@@ -236,7 +236,7 @@ class Sandbox:
         while time.time() - start_time < timeout:
             # Get sandbox URL on first iteration or if not yet retrieved
             if sandbox_url is None:
-                sandbox_url = self.get_sandbox_url()
+                sandbox_url = self._get_sandbox_url()
                 # If URL is not available yet, wait and retry
                 if sandbox_url is None:
                     time.sleep(poll_interval)
@@ -262,9 +262,9 @@ class Sandbox:
         services_api.delete_service(self.service_id)
         apps_api.delete_app(self.app_id)
 
-    def get_sandbox_url(self) -> Optional[str]:
+    def _get_sandbox_url(self) -> Optional[str]:
         """
-        Get the public URL of the sandbox.
+        Internal method to get the sandbox URL for health checks and client initialization.
         Caches the URL after first retrieval.
 
         Returns:
@@ -285,7 +285,7 @@ class Sandbox:
 
     def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations"""
-        sandbox_url = self.get_sandbox_url()
+        sandbox_url = self._get_sandbox_url()
         return is_sandbox_healthy(
             self.instance_id,
             sandbox_url=sandbox_url,

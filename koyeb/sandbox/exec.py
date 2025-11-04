@@ -74,7 +74,7 @@ class SandboxExecutor:
     def _get_client(self) -> SandboxClient:
         """Get or create SandboxClient instance"""
         if self._client is None:
-            sandbox_url = self.sandbox.get_sandbox_url()
+            sandbox_url = self.sandbox._get_sandbox_url()
             if not sandbox_url:
                 raise SandboxError("Unable to get sandbox URL")
             if not self.sandbox.sandbox_secret:
