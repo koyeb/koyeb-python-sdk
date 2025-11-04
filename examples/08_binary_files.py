@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Binary file operations"""
 
-import asyncio
 import base64
 import os
 
 from koyeb import Sandbox
 
 
-async def main():
+def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
@@ -16,7 +15,7 @@ async def main():
 
     sandbox = None
     try:
-        sandbox = await Sandbox.create(
+        sandbox = Sandbox.create(
             image="python:3.11",
             name="binary-files",
             wait_ready=True,
@@ -28,10 +27,10 @@ async def main():
         # Write binary data
         binary_data = b"Binary data: \x00\x01\x02\x03\xff\xfe\xfd"
         base64_data = base64.b64encode(binary_data).decode("utf-8")
-        await fs.write_file("/tmp/binary.bin", base64_data, encoding="base64")
+        fs.write_file("/tmp/binary.bin", base64_data, encoding="base64")
 
         # Read binary data
-        file_info = await fs.read_file("/tmp/binary.bin", encoding="base64")
+        file_info = fs.read_file("/tmp/binary.bin", encoding="base64")
         decoded = base64.b64decode(file_info.content)
         print(f"Original: {binary_data}")
         print(f"Decoded: {decoded}")
@@ -41,8 +40,8 @@ async def main():
         print(f"Error: {e}")
     finally:
         if sandbox:
-            await sandbox.delete()
+            sandbox.delete()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

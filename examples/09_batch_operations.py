@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Batch file operations"""
 
-import asyncio
 import os
 
 from koyeb import Sandbox
 
 
-async def main():
+def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
@@ -15,7 +14,7 @@ async def main():
 
     sandbox = None
     try:
-        sandbox = await Sandbox.create(
+        sandbox = Sandbox.create(
             image="python:3.11",
             name="batch-ops",
             wait_ready=True,
@@ -31,11 +30,11 @@ async def main():
             {"path": "/tmp/file3.txt", "content": "Content of file 3"},
         ]
 
-        await fs.write_files(files_to_create)
+        fs.write_files(files_to_create)
         print("Created 3 files")
 
         # Verify
-        created_files = await fs.ls("/tmp")
+        created_files = fs.ls("/tmp")
         batch_files = [f for f in created_files if f.startswith("file")]
         print(f"Files: {batch_files}")
 
@@ -46,16 +45,16 @@ async def main():
             {"path": "/tmp/project/README.md", "content": "# My Project"},
         ]
 
-        await fs.mkdir("/tmp/project", recursive=True)
-        await fs.write_files(project_files)
+        fs.mkdir("/tmp/project", recursive=True)
+        fs.write_files(project_files)
         print("Created project structure")
 
     except Exception as e:
         print(f"Error: {e}")
     finally:
         if sandbox:
-            await sandbox.delete()
+            sandbox.delete()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

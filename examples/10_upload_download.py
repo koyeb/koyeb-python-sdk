@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Upload and download files"""
 
-import asyncio
 import os
 import tempfile
 
 from koyeb import Sandbox
 
 
-async def main():
+def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
@@ -16,7 +15,7 @@ async def main():
 
     sandbox = None
     try:
-        sandbox = await Sandbox.create(
+        sandbox = Sandbox.create(
             image="python:3.11",
             name="upload-download",
             wait_ready=True,
@@ -32,14 +31,14 @@ async def main():
             local_file = f.name
 
         try:
-            await fs.upload_file(local_file, "/tmp/uploaded_file.txt")
-            uploaded_info = await fs.read_file("/tmp/uploaded_file.txt")
+            fs.upload_file(local_file, "/tmp/uploaded_file.txt")
+            uploaded_info = fs.read_file("/tmp/uploaded_file.txt")
             print(uploaded_info.content)
         finally:
             os.unlink(local_file)
 
         # Download file from sandbox
-        await fs.write_file(
+        fs.write_file(
             "/tmp/download_source.txt", "Download test content\nMultiple lines"
         )
 
@@ -47,7 +46,7 @@ async def main():
             download_path = f.name
 
         try:
-            await fs.download_file("/tmp/download_source.txt", download_path)
+            fs.download_file("/tmp/download_source.txt", download_path)
             with open(download_path, "r") as f:
                 print(f.read())
         finally:
@@ -57,8 +56,8 @@ async def main():
         print(f"Error: {e}")
     finally:
         if sandbox:
-            await sandbox.delete()
+            sandbox.delete()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

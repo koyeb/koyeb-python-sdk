@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Create and manage a sandbox"""
 
-import asyncio
 import os
 
 from koyeb import Sandbox
 
 
-async def main():
+def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
@@ -15,7 +14,7 @@ async def main():
 
     sandbox = None
     try:
-        sandbox = await Sandbox.create(
+        sandbox = Sandbox.create(
             image="python:3.11",
             name="example-sandbox",
             wait_ready=True,
@@ -23,20 +22,20 @@ async def main():
         )
 
         # Check status
-        status = await sandbox.status()
-        is_healthy = await sandbox.is_healthy()
+        status = sandbox.status()
+        is_healthy = sandbox.is_healthy()
         print(f"Status: {status}, Healthy: {is_healthy}")
 
         # Test command
-        result = await sandbox.exec("echo 'Sandbox is ready!'")
+        result = sandbox.exec("echo 'Sandbox is ready!'")
         print(result.stdout.strip())
 
     except Exception as e:
         print(f"Error: {e}")
     finally:
         if sandbox:
-            await sandbox.delete()
+            sandbox.delete()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
