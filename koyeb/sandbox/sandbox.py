@@ -262,6 +262,20 @@ class Sandbox:
         services_api.delete_service(self.service_id)
         apps_api.delete_app(self.app_id)
 
+    def get_domain(self) -> Optional[str]:
+        """
+        Get the public domain of the sandbox.
+
+        Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
+        To construct the URL, use: f"https://{sandbox.get_domain()}"
+
+        Returns:
+            Optional[str]: The domain name or None if unavailable
+        """
+        from .utils import _get_sandbox_domain
+
+        return _get_sandbox_domain(self.service_id, self.api_token)
+
     def _get_sandbox_url(self) -> Optional[str]:
         """
         Internal method to get the sandbox URL for health checks and client initialization.
@@ -271,9 +285,9 @@ class Sandbox:
             Optional[str]: The sandbox URL or None if unavailable
         """
         if self._sandbox_url is None:
-            from .utils import get_sandbox_url
-
-            self._sandbox_url = get_sandbox_url(self.service_id, self.api_token)
+            domain = self.get_domain()
+            if domain:
+                self._sandbox_url = f"https://{domain}/koyeb-sandbox"
         return self._sandbox_url
 
     def status(self) -> str:

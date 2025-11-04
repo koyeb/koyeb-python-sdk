@@ -418,19 +418,24 @@ def get_sandbox_status(
         return InstanceStatus.ERROR
 
 
-def get_sandbox_url(service_id: str, api_token: Optional[str] = None) -> Optional[str]:
+def _get_sandbox_domain(
+    service_id: str, api_token: Optional[str] = None
+) -> Optional[str]:
     """
-    Get the public URL of a sandbox service.
+    Internal function to get the public domain of a sandbox service.
 
-    Returns the URL with /koyeb-sandbox path prepended since the sandbox
-    executor API is exposed on port 3030 which is mounted at /koyeb-sandbox/.
+    Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
+
+    Args:
+        service_id: The service ID
+        api_token: Optional API token (if None, will try to get from KOYEB_API_TOKEN env var)
+
+    Returns:
+        Optional[str]: The domain name or None if unavailable
     """
     try:
         _, services_api, _, _ = get_api_client(api_token)
         service_response = services_api.get_service(service_id)
-
-        # Get the service app URL (this would be like: app-name-org.koyeb.app)
-        # The URL is typically constructed from the app name and organization
         service = service_response.service
 
         if service.app_id:
@@ -439,7 +444,7 @@ def get_sandbox_url(service_id: str, api_token: Optional[str] = None) -> Optiona
             app = app_response.app
             if hasattr(app, "domains") and app.domains:
                 # Use the first public domain
-                return f"https://{app.domains[0].name}/koyeb-sandbox"
+                return app.domains[0].name
         return None
     except (NotFoundException, ApiException, Exception):
         return None
