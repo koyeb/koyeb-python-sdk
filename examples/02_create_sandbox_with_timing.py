@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 """Create and manage a sandbox with detailed timing information for debugging"""
 
+import argparse
 import os
 import time
-from datetime import datetime
 from collections import defaultdict
-try:
-    from tqdm import tqdm
-except ImportError:
-    print("Warning: tqdm not installed. Install with: pip install tqdm")
-    print("Continuing without progress bars...\n")
-    tqdm = None
+from datetime import datetime
 
 
 from koyeb import Sandbox
@@ -42,59 +37,37 @@ class TimingTracker:
     
     def print_recap(self):
         """Print a detailed recap of all timings"""
-        print("\n" + "="*60)
-        print("TIMING RECAP")
-        print("="*60)
+        print("\n" + "="*70)
+        print(" TIMING SUMMARY")
+        print("="*70)
         
         if not self.operations:
             print("No operations recorded")
             return
         
+        total_time = self.get_total_time()
+        
         # Print individual operations
-        print("\nIndividual Operations:")
-        print("-" * 60)
-        max_name_len = max(len(op['name']) for op in self.operations)
+        print()
         
         for op in self.operations:
-            bar_length = int(op['duration'] * 10)  # Scale for visualization
-            bar = "█" * min(bar_length, 40)
-            print(f"  {op['name']:<{max_name_len}} : {op['duration']:6.3f}s {bar}")
+            percentage = (op['duration'] / total_time * 100) if total_time > 0 else 0
+            bar_length = int(percentage / 2)  # 50 chars = 100%
+            bar = "█" * bar_length
+            
+            print(f"  {op['name']:<30} {op['duration']:6.2f}s  {percentage:5.1f}%  {bar}")
         
-        # Print category summaries
-        if len(self.categories) > 1:
-            print("\nCategory Summaries:")
-            print("-" * 60)
-            for category, times in sorted(self.categories.items()):
-                total = sum(times)
-                count = len(times)
-                avg = total / count if count > 0 else 0
-                print(f"  {category.capitalize():<20} : {total:6.3f}s total, {avg:6.3f}s avg ({count} ops)")
-        
-        # Print total time with progress bar
-        total_time = self.get_total_time()
-        print("\n" + "-" * 60)
-        print(f"  {'TOTAL TIME':<{max_name_len}} : {total_time:6.3f}s")
-        print("="*60)
+        print()
+        print("-" * 70)
+        print(f"  {'TOTAL':<30} {total_time:6.2f}s  100.0%")
+        print("="*70)
 
 
-def log_with_timestamp(message, start_time=None):
-    """Log a message with timestamp and optionally elapsed time"""
-    current_time = datetime.now()
-    timestamp = current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-    
-    if start_time:
-        elapsed = time.time() - start_time
-        print(f"[{timestamp}] (+{elapsed:.3f}s) {message}")
-    else:
-        print(f"[{timestamp}] {message}")
-    
-    return time.time()
-
-
-def main():
+def main(run_long_tests=False):
     script_start = time.time()
     tracker = TimingTracker()
-    log_with_timestamp("=== Starting sandbox creation with timing debug ===")
+    
+    print("Starting sandbox operations...")
     
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
@@ -104,7 +77,8 @@ def main():
     sandbox = None
     try:
         # Create sandbox with timing
-        create_start = log_with_timestamp("Creating sandbox...")
+        print("  → Creating sandbox...")
+        create_start = time.time()
         sandbox = Sandbox.create(
             image="python:3.11",
             name="example-sandbox-timed",
@@ -113,84 +87,80 @@ def main():
         )
         create_duration = time.time() - create_start
         tracker.record("Sandbox creation", create_duration, "setup")
-        log_with_timestamp("Sandbox created successfully", create_start)
+        print(f"    ✓ took {create_duration:.1f}s")
 
         # Check status with timing
-        status_start = log_with_timestamp("Checking sandbox status...")
+        print("  → Checking sandbox status...")
+        status_start = time.time()
         status = sandbox.status()
         is_healthy = sandbox.is_healthy()
         status_duration = time.time() - status_start
         tracker.record("Status check", status_duration, "monitoring")
-        log_with_timestamp(
-            f"Status check complete - Status: {status}, Healthy: {is_healthy}",
-            status_start
-        )
+        print(f"    ✓ took {status_duration:.1f}s")
 
         # Test command execution with timing
-        exec_start = log_with_timestamp("Executing test command...")
+        print("  → Executing initial test command...")
+        exec_start = time.time()
         result = sandbox.exec("echo 'Sandbox is ready!'")
         exec_duration = time.time() - exec_start
         tracker.record("Initial exec command", exec_duration, "execution")
-        log_with_timestamp(
-            f"Command executed - Output: {result.stdout.strip()}",
-            exec_start
-        )
+        print(f"    ✓ took {exec_duration:.1f}s")
 
-        # Additional timing tests
-        log_with_timestamp("\n=== Running additional timing tests ===")
-        
-        # Test multiple commands
-        test_range = range(3)
-        iterator = tqdm(test_range, desc="Running test commands", unit="cmd") if tqdm else test_range
-        
-        for i in iterator:
-            cmd_start = log_with_timestamp(f"Running command {i+1}/3...")
-            result = sandbox.exec(f"echo 'Test {i+1}'")
-            cmd_duration = time.time() - cmd_start
-            tracker.record(f"Test command {i+1}", cmd_duration, "execution")
-            log_with_timestamp(
-                f"Command {i+1} completed - Output: {result.stdout.strip()}",
-                cmd_start
-            )
+        if run_long_tests:
+            # Long test 1: Install a package
+            print("  → [LONG TEST] Installing a package...")
+            install_start = time.time()
+            result = sandbox.exec("pip install requests")
+            install_duration = time.time() - install_start
+            tracker.record("Package installation", install_duration, "long_tests")
+            print(f"    ✓ took {install_duration:.1f}s")
 
-        # Test a longer-running command
-        long_cmd_start = log_with_timestamp("Running longer command (sleep 2)...")
-        
-        # Show progress bar for long command if tqdm is available
-        if tqdm:
-            with tqdm(total=100, desc="Long command progress", bar_format='{l_bar}{bar}| {elapsed}') as pbar:
-                for _ in range(10):
-                    time.sleep(0.2)
-                    pbar.update(10)
-        result = sandbox.exec("sleep 2 && echo 'Done sleeping'")
-        long_cmd_duration = time.time() - long_cmd_start
-        tracker.record("Long command (sleep 2)", long_cmd_duration, "execution")
-        log_with_timestamp(
-            f"Long command completed - Output: {result.stdout.strip()}",
-            long_cmd_start
-        )
+            # Long test 2: Run a computation
+            print("  → [LONG TEST] Running computation...")
+            compute_start = time.time()
+            result = sandbox.exec("python -c 'import time; sum(range(10000000)); time.sleep(2)'")
+            compute_duration = time.time() - compute_start
+            tracker.record("Heavy computation", compute_duration, "long_tests")
+            print(f"    ✓ took {compute_duration:.1f}s")
+
+            # Long test 3: Multiple status checks
+            print("  → [LONG TEST] Multiple status checks...")
+            multi_check_start = time.time()
+            for i in range(5):
+                sandbox.status()
+                time.sleep(0.5)
+            multi_check_duration = time.time() - multi_check_start
+            tracker.record("Multiple status checks (5x)", multi_check_duration, "long_tests")
+            print(f"    ✓ took {multi_check_duration:.1f}s")
 
     except Exception as e:
-        log_with_timestamp(f"Error occurred: {e}")
+        print(f"\n✗ Error occurred: {e}")
         import traceback
         traceback.print_exc()
     finally:
         if sandbox:
-            delete_start = log_with_timestamp("Deleting sandbox...")
+            print("  → Deleting sandbox...")
+            delete_start = time.time()
             sandbox.delete()
             delete_duration = time.time() - delete_start
             tracker.record("Sandbox deletion", delete_duration, "cleanup")
-            log_with_timestamp("Sandbox deleted successfully", delete_start)
+            print(f"    ✓ took {delete_duration:.1f}s")
         
-        total_script_time = time.time() - script_start
-        log_with_timestamp(
-            f"\n=== Script completed ===",
-            script_start
-        )
+        print("\n✓ All operations completed")
         
         # Print detailed recap
         tracker.print_recap()
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Create and manage a sandbox with detailed timing information"
+    )
+    parser.add_argument(
+        "--long",
+        action="store_true",
+        help="Run longer tests (package installation, computation, etc.)"
+    )
+    
+    args = parser.parse_args()
+    main(run_long_tests=args.long)
