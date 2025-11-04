@@ -47,6 +47,7 @@ class Sandbox:
         self.api_token = api_token
         self.sandbox_secret = sandbox_secret
         self._created_at = time.time()
+        self._sandbox_url = None
 
     @classmethod
     def create(
@@ -226,6 +227,19 @@ class Sandbox:
         services_api.delete_service(self.service_id)
         apps_api.delete_app(self.app_id)
 
+    def get_sandbox_url(self) -> Optional[str]:
+        """
+        Get the public URL of the sandbox.
+        Caches the URL after first retrieval.
+        
+        Returns:
+            Optional[str]: The sandbox URL or None if unavailable
+        """
+        if self._sandbox_url is None:
+            from .utils import get_sandbox_url
+            self._sandbox_url = get_sandbox_url(self.service_id, self.api_token)
+        return self._sandbox_url
+
     def status(self) -> str:
         """Get current sandbox status"""
         from .utils import get_sandbox_status
@@ -235,7 +249,13 @@ class Sandbox:
 
     def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations"""
-        return is_sandbox_healthy(self.instance_id, self.api_token)
+        sandbox_url = self.get_sandbox_url()
+        return is_sandbox_healthy(
+            self.instance_id, 
+            self.api_token,
+            sandbox_url=sandbox_url,
+            sandbox_secret=self.sandbox_secret
+        )
 
     @property
     def filesystem(self):
