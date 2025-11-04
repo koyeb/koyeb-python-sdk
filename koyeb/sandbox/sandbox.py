@@ -13,14 +13,12 @@ import time
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from koyeb.api.models.create_app import CreateApp
-from koyeb.api.models.deployment_port import DeploymentPort
 
 from .utils import (
     IdleTimeout,
     build_env_vars,
     create_deployment_definition,
     create_docker_source,
-    create_koyeb_sandbox_ports,
     create_koyeb_sandbox_routes,
     get_api_client,
     is_sandbox_healthy,
@@ -64,7 +62,7 @@ class Sandbox:
         name: str = "quick-sandbox",
         wait_ready: bool = True,
         instance_type: str = "nano",
-        ports: Optional[List[DeploymentPort]] = None,
+        exposed_port_protocol: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         regions: Optional[List[str]] = None,
         api_token: Optional[str] = None,
@@ -79,7 +77,9 @@ class Sandbox:
                 name: Name of the sandbox
                 wait_ready: Wait for sandbox to be ready (default: True)
                 instance_type: Instance type (default: nano)
-                ports: List of ports to expose
+                exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
+                    If None, defaults to "http".
+                    If provided, must be one of "http" or "http2".
                 env: Environment variables
                 regions: List of regions to deploy to (default: ["na"])
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
@@ -104,7 +104,7 @@ class Sandbox:
             name=name,
             image=image,
             instance_type=instance_type,
-            ports=ports,
+            exposed_port_protocol=exposed_port_protocol,
             env=env,
             regions=regions,
             api_token=api_token,
@@ -123,7 +123,7 @@ class Sandbox:
         name: str,
         image: str = "koyeb/sandbox",
         instance_type: str = "nano",
-        ports: Optional[List[DeploymentPort]] = None,
+        exposed_port_protocol: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         regions: Optional[List[str]] = None,
         api_token: Optional[str] = None,
@@ -136,9 +136,7 @@ class Sandbox:
         """
         apps_api, services_api, _, catalog_instances_api = get_api_client(api_token)
 
-        # Auto-configure ports for koyeb/sandbox image if not explicitly provided
-        if ports is None:
-            ports = create_koyeb_sandbox_ports()
+        # Always create routes (ports are always exposed, default to "http")
         routes = create_koyeb_sandbox_routes()
 
         # Generate secure sandbox secret
@@ -167,7 +165,7 @@ class Sandbox:
             docker_source=docker_source,
             env_vars=env_vars,
             instance_type=instance_type,
-            ports=ports,
+            exposed_port_protocol=exposed_port_protocol,
             regions=regions,
             routes=routes,
             idle_timeout=idle_timeout,
@@ -323,7 +321,7 @@ class AsyncSandbox(Sandbox):
         name: str = "quick-sandbox",
         wait_ready: bool = True,
         instance_type: str = "nano",
-        ports: Optional[List[DeploymentPort]] = None,
+        exposed_port_protocol: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         regions: Optional[List[str]] = None,
         api_token: Optional[str] = None,
@@ -338,7 +336,9 @@ class AsyncSandbox(Sandbox):
                 name: Name of the sandbox
                 wait_ready: Wait for sandbox to be ready (default: True)
                 instance_type: Instance type (default: nano)
-                ports: List of ports to expose
+                exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
+                    If None, defaults to "http".
+                    If provided, must be one of "http" or "http2".
                 env: Environment variables
                 regions: List of regions to deploy to (default: ["na"])
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
@@ -366,7 +366,7 @@ class AsyncSandbox(Sandbox):
                 name=name,
                 image=image,
                 instance_type=instance_type,
-                ports=ports,
+                exposed_port_protocol=exposed_port_protocol,
                 env=env,
                 regions=regions,
                 api_token=api_token,

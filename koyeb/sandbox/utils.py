@@ -43,6 +43,41 @@ IdleTimeout = Union[
     IdleTimeoutConfig,  # Explicit light_sleep/deep_sleep configuration
 ]
 
+# Valid protocols for DeploymentPort (from OpenAPI spec: http, http2, tcp)
+# For sandboxes, we only support http and http2
+VALID_DEPLOYMENT_PORT_PROTOCOLS = ("http", "http2")
+
+
+def _validate_port_protocol(protocol: str) -> str:
+    """
+    Validate port protocol using API model structure.
+
+    Args:
+        protocol: Protocol string to validate
+
+    Returns:
+        Validated protocol string
+
+    Raises:
+        ValueError: If protocol is invalid
+    """
+    # Validate by attempting to create a DeploymentPort instance
+    # This ensures we're using the API model's validation structure
+    try:
+        port = DeploymentPort(port=3030, protocol=protocol)
+        # Additional validation: check if protocol is in allowed values
+        if protocol not in VALID_DEPLOYMENT_PORT_PROTOCOLS:
+            raise ValueError(
+                f"Invalid protocol '{protocol}'. Must be one of {VALID_DEPLOYMENT_PORT_PROTOCOLS}"
+            )
+        return port.protocol or "http"
+    except Exception as e:
+        if isinstance(e, ValueError):
+            raise
+        raise ValueError(
+            f"Invalid protocol '{protocol}'. Must be one of {VALID_DEPLOYMENT_PORT_PROTOCOLS}"
+        ) from e
+
 
 def get_api_client(
     api_token: Optional[str] = None, host: Optional[str] = None
@@ -115,13 +150,16 @@ def create_docker_source(image: str, command_args: List[str]) -> DockerSource:
     )
 
 
-def create_koyeb_sandbox_ports() -> List[DeploymentPort]:
+def create_koyeb_sandbox_ports(protocol: str = "http") -> List[DeploymentPort]:
     """
     Create port configuration for koyeb/sandbox image.
 
     Creates two ports:
     - Port 3030 exposed on HTTP, mounted on /koyeb-sandbox/
-    - Port 3031 exposed on HTTP, mounted on /
+    - Port 3031 exposed with the specified protocol, mounted on /
+
+    Args:
+        protocol: Protocol to use for port 3031 ("http" or "http2"), defaults to "http"
 
     Returns:
         List of DeploymentPort objects configured for koyeb/sandbox
@@ -133,7 +171,7 @@ def create_koyeb_sandbox_ports() -> List[DeploymentPort]:
         ),
         DeploymentPort(
             port=3031,
-            protocol="http",
+            protocol=protocol,
         ),
     ]
 
@@ -304,7 +342,7 @@ def create_deployment_definition(
     docker_source: DockerSource,
     env_vars: List[DeploymentEnv],
     instance_type: str,
-    ports: Optional[List[DeploymentPort]] = None,
+    exposed_port_protocol: Optional[str] = None,
     regions: List[str] = None,
     routes: Optional[List[DeploymentRoute]] = None,
     idle_timeout: Optional[IdleTimeout] = None,
@@ -318,8 +356,10 @@ def create_deployment_definition(
         docker_source: Docker configuration
         env_vars: Environment variables
         instance_type: Instance type
-        ports: List of ports (if provided, type becomes WEB, otherwise WORKER)
-        regions: List of regions (defaults to North America)
+        exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
+            If None, defaults to "http".
+            If provided, must be one of "http" or "http2".
+        regions: List of regions (defaults to ["na"])
         routes: List of routes for public access
         idle_timeout: Idle timeout configuration (see IdleTimeout type)
         light_sleep_enabled: Whether light sleep is enabled for the instance type (default: True)
@@ -328,11 +368,16 @@ def create_deployment_definition(
         DeploymentDefinition object
     """
     if regions is None:
-        regions = ["eu"]
+        regions = ["na"]
 
-    deployment_type = (
-        DeploymentDefinitionType.WEB if ports else DeploymentDefinitionType.WORKER
-    )
+    # Always create ports with protocol (default to "http" if not specified)
+    protocol = exposed_port_protocol if exposed_port_protocol is not None else "http"
+    # Validate protocol using API model structure
+    protocol = _validate_port_protocol(protocol)
+    ports = create_koyeb_sandbox_ports(protocol)
+
+    # Always use WEB type
+    deployment_type = DeploymentDefinitionType.WEB
 
     # Process idle_timeout
     sleep_idle_delay = _process_idle_timeout(idle_timeout, light_sleep_enabled)
