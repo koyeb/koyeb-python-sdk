@@ -5,6 +5,7 @@ A simple Python client for interacting with the Sandbox Executor API.
 """
 
 import requests
+import time
 from typing import Optional, Dict, List, Any
 
 
@@ -25,6 +26,58 @@ class SandboxClient:
             'Authorization': f'Bearer {secret}',
             'Content-Type': 'application/json'
         }
+    
+def _request_with_retry(
+    self,
+    method: str,
+    url: str,
+    max_retries: int = 3,
+    initial_backoff: float = 1.0,
+    **kwargs
+) -> requests.Response:
+    """
+    Make an HTTP request with retry logic for 503 errors.
+    
+    Args:
+        method: HTTP method (e.g., 'GET', 'POST')
+        url: The URL to request
+        max_retries: Maximum number of retry attempts
+        initial_backoff: Initial backoff time in seconds (doubles each retry)
+        **kwargs: Additional arguments to pass to requests
+        
+    Returns:
+        Response object
+        
+    Raises:
+        requests.HTTPError: If the request fails after all retries
+    """
+    backoff = initial_backoff
+    last_exception = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            response = requests.request(method, url, **kwargs)
+            
+            # If we get a 503, retry with backoff
+            if response.status_code == 503 and attempt < max_retries:
+                time.sleep(backoff)
+                backoff *= 2  # Exponential backoff
+                continue
+            
+            response.raise_for_status()
+            return response
+            
+        except requests.HTTPError as e:
+            if e.response.status_code == 503 and attempt < max_retries:
+                time.sleep(backoff)
+                backoff *= 2
+                last_exception = e
+                continue
+            raise
+    
+    # If we exhausted all retries, raise the last exception
+    if last_exception:
+        raise last_exception
     
     def health(self) -> Dict[str, str]:
         """
@@ -62,12 +115,12 @@ class SandboxClient:
         if env is not None:
             payload['env'] = env
         
-        response = requests.post(
+        response = self._request_with_retry(
+            'POST',
             f'{self.base_url}/run',
             json=payload,
             headers=self.headers
         )
-        response.raise_for_status()
         return response.json()
     
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
@@ -85,12 +138,12 @@ class SandboxClient:
             'path': path,
             'content': content
         }
-        response = requests.post(
+        response = self._request_with_retry(
+            'POST',
             f'{self.base_url}/write_file',
             json=payload,
             headers=self.headers
         )
-        response.raise_for_status()
         return response.json()
     
     def read_file(self, path: str) -> Dict[str, Any]:
@@ -104,12 +157,12 @@ class SandboxClient:
             Dict with file content and error if any
         """
         payload = {'path': path}
-        response = requests.post(
+        response = self._request_with_retry(
+            'POST',
             f'{self.base_url}/read_file',
             json=payload,
             headers=self.headers
         )
-        response.raise_for_status()
         return response.json()
     
     def delete_file(self, path: str) -> Dict[str, Any]:
@@ -123,12 +176,12 @@ class SandboxClient:
             Dict with success status and error if any
         """
         payload = {'path': path}
-        response = requests.post(
+        response = self._request_with_retry(
+            'POST',
             f'{self.base_url}/delete_file',
             json=payload,
             headers=self.headers
         )
-        response.raise_for_status()
         return response.json()
     
     def make_dir(self, path: str) -> Dict[str, Any]:
@@ -142,12 +195,12 @@ class SandboxClient:
             Dict with success status and error if any
         """
         payload = {'path': path}
-        response = requests.post(
+        response = self._request_with_retry(
+            'POST',
             f'{self.base_url}/make_dir',
             json=payload,
             headers=self.headers
         )
-        response.raise_for_status()
         return response.json()
     
     def delete_dir(self, path: str) -> Dict[str, Any]:
@@ -161,12 +214,12 @@ class SandboxClient:
             Dict with success status and error if any
         """
         payload = {'path': path}
-        response = requests.post(
+        response = self._request_with_retry(
+            'POST',
             f'{self.base_url}/delete_dir',
             json=payload,
             headers=self.headers
         )
-        response.raise_for_status()
         return response.json()
     
     def list_dir(self, path: str) -> Dict[str, Any]:
@@ -180,11 +233,11 @@ class SandboxClient:
             Dict with entries list and error if any
         """
         payload = {'path': path}
-        response = requests.post(
+        response = self._request_with_retry(
+            'POST',
             f'{self.base_url}/list_dir',
             json=payload,
             headers=self.headers
         )
-        response.raise_for_status()
         return response.json()
 
