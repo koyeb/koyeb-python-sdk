@@ -418,14 +418,14 @@ class Sandbox:
         )
 
     @property
-    def filesystem(self) -> SandboxFilesystem:
+    def filesystem(self) -> "SandboxFilesystem":
         """Get filesystem operations interface"""
         from .filesystem import SandboxFilesystem
 
         return SandboxFilesystem(self)
 
     @property
-    def exec(self) -> SandboxExecutor:
+    def exec(self) -> "SandboxExecutor":
         """Get command execution interface"""
         from .exec import SandboxExecutor
 
@@ -851,14 +851,14 @@ class AsyncSandbox(Sandbox):
         return await loop.run_in_executor(None, super().is_healthy)
 
     @property
-    def exec(self) -> AsyncSandboxExecutor:
+    def exec(self) -> "AsyncSandboxExecutor":
         """Get async command execution interface"""
         from .exec import AsyncSandboxExecutor
 
         return AsyncSandboxExecutor(self)
 
     @property
-    def filesystem(self) -> AsyncSandboxFilesystem:
+    def filesystem(self) -> "AsyncSandboxFilesystem":
         """Get filesystem operations interface"""
         from .filesystem import AsyncSandboxFilesystem
 
