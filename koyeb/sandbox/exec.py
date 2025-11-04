@@ -11,10 +11,10 @@ import asyncio
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional
 
 from .executor_client import SandboxClient
-from .utils import SandboxError
+from .utils import SandboxError, create_sandbox_client
 
 if TYPE_CHECKING:
     from .sandbox import Sandbox
@@ -75,11 +75,9 @@ class SandboxExecutor:
         """Get or create SandboxClient instance"""
         if self._client is None:
             sandbox_url = self.sandbox._get_sandbox_url()
-            if not sandbox_url:
-                raise SandboxError("Unable to get sandbox URL")
-            if not self.sandbox.sandbox_secret:
-                raise SandboxError("Sandbox secret not available")
-            self._client = SandboxClient(sandbox_url, self.sandbox.sandbox_secret)
+            self._client = create_sandbox_client(
+                sandbox_url, self.sandbox.sandbox_secret
+            )
         return self._client
 
     def __call__(
@@ -98,7 +96,7 @@ class SandboxExecutor:
             command: Command to execute as a string (e.g., "python -c 'print(2+2)'")
             cwd: Working directory for the command
             env: Environment variables for the command
-            timeout: Command timeout in seconds (not currently enforced, reserved for future use)
+            timeout: Command timeout in seconds (enforced for HTTP requests)
             on_stdout: Optional callback for streaming stdout chunks
             on_stderr: Optional callback for streaming stderr chunks
 
@@ -128,7 +126,9 @@ class SandboxExecutor:
 
             try:
                 client = self._get_client()
-                for event in client.run_streaming(cmd=command, cwd=cwd, env=env):
+                for event in client.run_streaming(
+                    cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+                ):
                     if "stream" in event:
                         stream_type = event["stream"]
                         data = event["data"]
@@ -179,7 +179,7 @@ class SandboxExecutor:
         # Use regular run for non-streaming execution
         try:
             client = self._get_client()
-            response = client.run(cmd=command, cwd=cwd, env=env)
+            response = client.run(cmd=command, cwd=cwd, env=env, timeout=float(timeout))
 
             stdout = response.get("stdout", "")
             stderr = response.get("stderr", "")
@@ -230,7 +230,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
             command: Command to execute as a string (e.g., "python -c 'print(2+2)'")
             cwd: Working directory for the command
             env: Environment variables for the command
-            timeout: Command timeout in seconds (not currently enforced, reserved for future use)
+            timeout: Command timeout in seconds (enforced for HTTP requests)
             on_stdout: Optional callback for streaming stdout chunks
             on_stderr: Optional callback for streaming stderr chunks
 
@@ -260,18 +260,57 @@ class AsyncSandboxExecutor(SandboxExecutor):
 
             try:
                 client = self._get_client()
-                # Run streaming in executor to avoid blocking
-                loop = asyncio.get_running_loop()
 
-                def stream_command():
-                    events = []
-                    for event in client.run_streaming(cmd=command, cwd=cwd, env=env):
-                        events.append(event)
-                    return events
+                # Create async generator for streaming events
+                async def stream_events() -> AsyncIterator[Dict[str, Any]]:
+                    """Async generator that yields events as they arrive."""
+                    import queue
+                    from threading import Thread
 
-                events = await loop.run_in_executor(None, stream_command)
+                    event_queue: queue.Queue[Dict[str, Any] | None] = queue.Queue()
+                    done = False
 
-                for event in events:
+                    def sync_stream():
+                        """Synchronous generator for streaming."""
+                        nonlocal done
+                        try:
+                            for event in client.run_streaming(
+                                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+                            ):
+                                event_queue.put(event)
+                            event_queue.put(None)  # Sentinel
+                        except Exception as e:
+                            event_queue.put({"error": str(e)})
+                            event_queue.put(None)
+                        finally:
+                            done = True
+
+                    # Start streaming in a thread
+                    thread = Thread(target=sync_stream, daemon=True)
+                    thread.start()
+
+                    # Yield events as they arrive
+                    while True:
+                        try:
+                            # Use get_nowait to avoid blocking in executor
+                            event = event_queue.get_nowait()
+                            if event is None:
+                                # Sentinel received, streaming is complete
+                                break
+                            yield event
+                        except queue.Empty:
+                            # Check if thread is done and queue is empty
+                            if done and event_queue.empty():
+                                break
+                            # Wait a bit before checking again
+                            await asyncio.sleep(0.01)
+                            continue
+
+                    # Wait for thread to complete (should be done by now)
+                    thread.join(timeout=1.0)
+
+                # Process events as they arrive
+                async for event in stream_events():
                     if "stream" in event:
                         stream_type = event["stream"]
                         data = event["data"]
@@ -325,7 +364,10 @@ class AsyncSandboxExecutor(SandboxExecutor):
         try:
             client = self._get_client()
             response = await loop.run_in_executor(
-                None, lambda: client.run(cmd=command, cwd=cwd, env=env)
+                None,
+                lambda: client.run(
+                    cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+                ),
             )
 
             stdout = response.get("stdout", "")

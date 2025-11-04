@@ -15,16 +15,19 @@ uv run python examples/01_create_sandbox.py
 ## Examples
 
 - **01_create_sandbox.py** - Create and manage sandbox instances
-- **02_basic_commands.py** - Basic command execution
-- **03_streaming_output.py** - Real-time streaming output
-- **04_environment_variables.py** - Environment variable configuration
-- **05_working_directory.py** - Working directory management
-- **06_file_operations.py** - File read/write operations
-- **07_directory_operations.py** - Directory management
-- **08_binary_files.py** - Binary file handling
-- **09_batch_operations.py** - Batch file operations
-- **10_upload_download.py** - File upload and download
-- **11_file_manipulation.py** - File manipulation operations
+- **02_create_sandbox_with_timing.py** - Create sandbox with timing measurements
+- **03_basic_commands.py** - Basic command execution
+- **04_streaming_output.py** - Real-time streaming output
+- **05_environment_variables.py** - Environment variable configuration
+- **06_working_directory.py** - Working directory management
+- **07_file_operations.py** - File read/write operations
+- **08_directory_operations.py** - Directory management
+- **09_binary_files.py** - Binary file handling
+- **10_batch_operations.py** - Batch file operations
+- **11_upload_download.py** - File upload and download
+- **12_file_manipulation.py** - File manipulation operations
+- **13_background_processes.py** - Background process management (launch, list, kill)
+- **14_expose_port.py** - Port exposure via TCP proxy with HTTP verification
 
 ## Basic Usage
 

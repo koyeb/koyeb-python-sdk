@@ -4,8 +4,11 @@
 Utility functions for Koyeb Sandbox
 """
 
+import asyncio
+import logging
 import os
-from typing import Dict, List, Literal, Optional, TypedDict, Union
+import shlex
+from typing import Any, Callable, Dict, List, Literal, Optional, TypedDict, Union
 
 from koyeb.api import ApiClient, Configuration
 from koyeb.api.api import AppsApi, CatalogInstancesApi, InstancesApi, ServicesApi
@@ -26,7 +29,23 @@ from koyeb.api.models.docker_source import DockerSource
 from koyeb.api.models.instance_status import InstanceStatus
 from koyeb.api.models.proxy_port_protocol import ProxyPortProtocol
 
-from .executor_client import SandboxClient
+# Setup logging
+logger = logging.getLogger(__name__)
+
+# Constants
+MIN_PORT = 1
+MAX_PORT = 65535
+DEFAULT_INSTANCE_WAIT_TIMEOUT = 60  # seconds
+DEFAULT_POLL_INTERVAL = 2.0  # seconds
+DEFAULT_COMMAND_TIMEOUT = 30  # seconds
+DEFAULT_HTTP_TIMEOUT = 30  # seconds for HTTP requests
+
+# Error messages
+ERROR_MESSAGES = {
+    "NO_SUCH_FILE": ["No such file", "not found", "No such file or directory"],
+    "FILE_EXISTS": ["exists", "already exists"],
+    "DIR_NOT_EMPTY": ["not empty", "Directory not empty"],
+}
 
 # Type definitions for idle timeout
 IdleTimeoutSeconds = int
@@ -442,7 +461,11 @@ def get_sandbox_status(
         _, _, instances_api, _ = get_api_client(api_token)
         instance_response = instances_api.get_instance(instance_id)
         return instance_response.instance.status
-    except (NotFoundException, ApiException, Exception):
+    except (NotFoundException, ApiException) as e:
+        logger.debug(f"Failed to get sandbox status: {e}")
+        return InstanceStatus.ERROR
+    except Exception as e:
+        logger.warning(f"Unexpected error getting sandbox status: {e}")
         return InstanceStatus.ERROR
 
 
@@ -487,17 +510,128 @@ def is_sandbox_healthy(
 
     # Check executor health
     try:
+        from .executor_client import SandboxClient
+
         client = SandboxClient(sandbox_url, sandbox_secret)
         health_response = client.health()
         # Check if health response indicates the server is healthy
         # The exact response format may vary, but typically has a "status" field
         if isinstance(health_response, dict):
             status = health_response.get("status", "").lower()
-            return status in ["ok", "healthy", "ready"]
+            is_healthy = status in ["ok", "healthy", "ready"]
+            if not is_healthy:
+                logger.debug(f"Sandbox executor health check returned status: {status}")
+            return is_healthy
         return True  # If we got a response, consider it healthy
-    except Exception:
+    except Exception as e:
         # If we can't reach the executor API, consider it unhealthy
+        logger.debug(f"Sandbox executor health check failed: {e}")
         return False
+
+
+def escape_shell_arg(arg: str) -> str:
+    """
+    Escape a shell argument for safe use in shell commands.
+
+    Args:
+        arg: The argument to escape
+
+    Returns:
+        Properly escaped shell argument
+    """
+    return shlex.quote(arg)
+
+
+def validate_port(port: int) -> None:
+    """
+    Validate that a port number is in the valid range.
+
+    Args:
+        port: Port number to validate
+
+    Raises:
+        ValueError: If port is not in valid range [1, 65535]
+    """
+    if not isinstance(port, int) or port < MIN_PORT or port > MAX_PORT:
+        raise ValueError(
+            f"Port must be an integer between {MIN_PORT} and {MAX_PORT}, got {port}"
+        )
+
+
+def check_error_message(error_msg: str, error_type: str) -> bool:
+    """
+    Check if an error message matches a specific error type.
+    Uses case-insensitive matching against known error patterns.
+
+    Args:
+        error_msg: The error message to check
+        error_type: The type of error to check for (key in ERROR_MESSAGES)
+
+    Returns:
+        True if error message matches the error type
+    """
+    if error_type not in ERROR_MESSAGES:
+        return False
+
+    error_msg_lower = error_msg.lower()
+    patterns = ERROR_MESSAGES[error_type]
+    return any(pattern.lower() in error_msg_lower for pattern in patterns)
+
+
+async def run_sync_in_executor(
+    method: Callable[..., Any], *args: Any, **kwargs: Any
+) -> Any:
+    """
+    Run a synchronous method in an async executor.
+
+    Helper function to wrap synchronous methods for async execution.
+    Used by AsyncSandbox and AsyncSandboxFilesystem to wrap sync parent methods.
+
+    Args:
+        method: The synchronous method to run
+        *args: Positional arguments for the method
+        **kwargs: Keyword arguments for the method
+
+    Returns:
+        Result of the synchronous method call
+    """
+    loop = asyncio.get_running_loop()
+    return loop.run_in_executor(None, lambda: method(*args, **kwargs))
+
+
+def create_sandbox_client(
+    sandbox_url: Optional[str],
+    sandbox_secret: Optional[str],
+    existing_client: Optional[Any] = None,
+) -> Any:
+    """
+    Create or return existing SandboxClient instance with validation.
+
+    Helper function to create SandboxClient instances with consistent validation.
+    Used by Sandbox, SandboxExecutor, and SandboxFilesystem to avoid duplication.
+
+    Args:
+        sandbox_url: The sandbox URL (from _get_sandbox_url() or sandbox._get_sandbox_url())
+        sandbox_secret: The sandbox secret
+        existing_client: Existing client instance to return if not None
+
+    Returns:
+        SandboxClient: Configured client instance
+
+    Raises:
+        SandboxError: If sandbox URL or secret is not available
+    """
+    if existing_client is not None:
+        return existing_client
+
+    if not sandbox_url:
+        raise SandboxError("Unable to get sandbox URL")
+    if not sandbox_secret:
+        raise SandboxError("Sandbox secret not available")
+
+    from .executor_client import SandboxClient
+
+    return SandboxClient(sandbox_url, sandbox_secret)
 
 
 class SandboxError(Exception):

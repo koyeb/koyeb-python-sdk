@@ -11,24 +11,46 @@ import os
 import secrets
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, TypedDict
 
+from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.models.create_app import CreateApp
+from koyeb.api.models.create_service import CreateService
 
 from .utils import (
+    DEFAULT_INSTANCE_WAIT_TIMEOUT,
+    DEFAULT_POLL_INTERVAL,
     IdleTimeout,
     SandboxError,
+    _is_light_sleep_enabled,
     build_env_vars,
     create_deployment_definition,
     create_docker_source,
     create_koyeb_sandbox_routes,
+    create_sandbox_client,
     get_api_client,
     is_sandbox_healthy,
+    logger,
+    run_sync_in_executor,
+    validate_port,
 )
 
 if TYPE_CHECKING:
     from .exec import AsyncSandboxExecutor, SandboxExecutor
+    from .executor_client import SandboxClient
     from .filesystem import AsyncSandboxFilesystem, SandboxFilesystem
+
+
+class ProcessInfo(TypedDict, total=False):
+    """Type definition for process information returned by list_processes."""
+
+    id: str  # Process ID (UUID string)
+    cmd: str  # The command that was executed
+    status: str  # Process status (e.g., "running", "completed")
+    pid: int  # OS process ID (if running)
+    exit_code: int  # Exit code (if completed)
+    started_at: str  # ISO 8601 timestamp when process started
+    completed_at: str  # ISO 8601 timestamp when process completed (if applicable)
 
 
 @dataclass
@@ -67,6 +89,7 @@ class Sandbox:
         self.sandbox_secret = sandbox_secret
         self._created_at = time.time()
         self._sandbox_url = None
+        self._client = None
 
     @classmethod
     def create(
@@ -165,8 +188,6 @@ class Sandbox:
         env["SANDBOX_SECRET"] = sandbox_secret
 
         # Check if light sleep is enabled for this instance type
-        from .utils import _is_light_sleep_enabled
-
         light_sleep_enabled = _is_light_sleep_enabled(
             instance_type, catalog_instances_api
         )
@@ -190,14 +211,10 @@ class Sandbox:
             enable_tcp_proxy=enable_tcp_proxy,
         )
 
-        from koyeb.api.models.create_service import CreateService
-
         create_service = CreateService(app_id=app_id, definition=deployment_definition)
         service_response = services_api.create_service(service=create_service)
         service_id = service_response.service.id
         deployment_id = service_response.service.latest_deployment_id
-
-        from koyeb.api.api.deployments_api import DeploymentsApi
 
         deployments_api = DeploymentsApi(services_api.api_client)
 
@@ -215,15 +232,15 @@ class Sandbox:
                     instance_id = scaling_response.replicas[0].instances[0].id
                     break
                 else:
-                    print(
+                    logger.debug(
                         f"Waiting for instances to be created... (elapsed: {time.time() - start_time:.1f}s)"
                     )
                     time.sleep(wait_interval)
             except Exception as e:
-                print(f"Error getting deployment scaling: {e}")
+                logger.warning(f"Error getting deployment scaling: {e}")
                 time.sleep(wait_interval)
         else:
-            raise Exception(
+            raise SandboxError(
                 f"No instances found in deployment after {max_wait} seconds"
             )
 
@@ -237,7 +254,11 @@ class Sandbox:
             sandbox_secret=sandbox_secret,
         )
 
-    def wait_ready(self, timeout: int = 60, poll_interval: float = 2.0) -> bool:
+    def wait_ready(
+        self,
+        timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
+    ) -> bool:
         """
         Wait for sandbox to become ready with proper polling.
 
@@ -275,7 +296,9 @@ class Sandbox:
         return False
 
     def wait_tcp_proxy_ready(
-        self, timeout: int = 60, poll_interval: float = 2.0
+        self,
+        timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
     ) -> bool:
         """
         Wait for TCP proxy to become ready and available.
@@ -361,8 +384,6 @@ class Sandbox:
                 return None
 
             # Get the active deployment
-            from koyeb.api.api.deployments_api import DeploymentsApi
-
             deployments_api = DeploymentsApi()
             deployments_api.api_client = services_api.api_client
             deployment_response = deployments_api.get_deployment(
@@ -399,6 +420,36 @@ class Sandbox:
             if domain:
                 self._sandbox_url = f"https://{domain}/koyeb-sandbox"
         return self._sandbox_url
+
+    def _get_client(self) -> "SandboxClient":  # type: ignore[name-defined]
+        """
+        Get or create SandboxClient instance with validation.
+
+        Returns:
+            SandboxClient: Configured client instance
+
+        Raises:
+            SandboxError: If sandbox URL or secret is not available
+        """
+        if self._client is None:
+            sandbox_url = self._get_sandbox_url()
+            self._client = create_sandbox_client(sandbox_url, self.sandbox_secret)
+        return self._client
+
+    def _check_response_error(self, response: Dict, operation: str) -> None:
+        """
+        Check if a response indicates an error and raise SandboxError if so.
+
+        Args:
+            response: The response dictionary to check
+            operation: Description of the operation (e.g., "expose port 8080")
+
+        Raises:
+            SandboxError: If response indicates failure
+        """
+        if not response.get("success", False):
+            error_msg = response.get("error", "Unknown error")
+            raise SandboxError(f"Failed to {operation}: {error_msg}")
 
     def status(self) -> str:
         """Get current sandbox status"""
@@ -440,7 +491,7 @@ class Sandbox:
         Automatically unbinds any existing port before binding the new one.
 
         Args:
-            port: The internal port number to expose (must be a valid port number)
+            port: The internal port number to expose (must be a valid port number between 1 and 65535)
 
         Returns:
             ExposedPort: An object with `port` and `exposed_at` attributes:
@@ -448,6 +499,7 @@ class Sandbox:
                 - exposed_at: The full URL with https:// protocol (e.g., "https://app-name-org.koyeb.app")
 
         Raises:
+            ValueError: If port is not in valid range [1, 65535]
             SandboxError: If the port binding operation fails
 
         Notes:
@@ -463,28 +515,20 @@ class Sandbox:
             >>> result.exposed_at
             'https://app-name-org.koyeb.app'
         """
-        from .executor_client import SandboxClient
-
-        sandbox_url = self._get_sandbox_url()
-        if not sandbox_url:
-            raise SandboxError("Unable to get sandbox URL")
-        if not self.sandbox_secret:
-            raise SandboxError("Sandbox secret not available")
-
-        client = SandboxClient(sandbox_url, self.sandbox_secret)
+        validate_port(port)
+        client = self._get_client()
         try:
             # Always unbind any existing port first
             try:
                 client.unbind_port()
-            except Exception:
+            except Exception as e:
                 # Ignore errors when unbinding - it's okay if no port was bound
+                logger.debug(f"Error unbinding existing port (this is okay): {e}")
                 pass
 
             # Now bind the new port
             response = client.bind_port(port)
-            if not response.get("success", False):
-                error_msg = response.get("error", "Unknown error")
-                raise SandboxError(f"Failed to expose port {port}: {error_msg}")
+            self._check_response_error(response, f"expose port {port}")
 
             # Get domain for exposed_at
             domain = self.get_domain()
@@ -514,20 +558,10 @@ class Sandbox:
             - After unexposing, the TCP proxy will no longer forward traffic
             - Safe to call even if no port is currently bound
         """
-        from .executor_client import SandboxClient
-
-        sandbox_url = self._get_sandbox_url()
-        if not sandbox_url:
-            raise SandboxError("Unable to get sandbox URL")
-        if not self.sandbox_secret:
-            raise SandboxError("Sandbox secret not available")
-
-        client = SandboxClient(sandbox_url, self.sandbox_secret)
+        client = self._get_client()
         try:
             response = client.unbind_port()
-            if not response.get("success", False):
-                error_msg = response.get("error", "Unknown error")
-                raise SandboxError(f"Failed to unexpose port: {error_msg}")
+            self._check_response_error(response, "unexpose port")
         except Exception as e:
             if isinstance(e, SandboxError):
                 raise
@@ -557,15 +591,7 @@ class Sandbox:
             >>> process_id = sandbox.launch_process("python -u server.py")
             >>> print(f"Started process: {process_id}")
         """
-        from .executor_client import SandboxClient
-
-        sandbox_url = self._get_sandbox_url()
-        if not sandbox_url:
-            raise SandboxError("Unable to get sandbox URL")
-        if not self.sandbox_secret:
-            raise SandboxError("Sandbox secret not available")
-
-        client = SandboxClient(sandbox_url, self.sandbox_secret)
+        client = self._get_client()
         try:
             response = client.start_process(cmd, cwd, env)
             # Check for process ID - if it exists, the process was launched successfully
@@ -597,26 +623,16 @@ class Sandbox:
         Example:
             >>> sandbox.kill_process("550e8400-e29b-41d4-a716-446655440000")
         """
-        from .executor_client import SandboxClient
-
-        sandbox_url = self._get_sandbox_url()
-        if not sandbox_url:
-            raise SandboxError("Unable to get sandbox URL")
-        if not self.sandbox_secret:
-            raise SandboxError("Sandbox secret not available")
-
-        client = SandboxClient(sandbox_url, self.sandbox_secret)
+        client = self._get_client()
         try:
             response = client.kill_process(process_id)
-            if not response.get("success", False):
-                error_msg = response.get("error", "Unknown error")
-                raise SandboxError(f"Failed to kill process {process_id}: {error_msg}")
+            self._check_response_error(response, f"kill process {process_id}")
         except Exception as e:
             if isinstance(e, SandboxError):
                 raise
             raise SandboxError(f"Failed to kill process {process_id}: {str(e)}") from e
 
-    def list_processes(self) -> List[Dict[str, Any]]:
+    def list_processes(self) -> List[ProcessInfo]:
         """
         List all background processes.
 
@@ -625,7 +641,7 @@ class Sandbox:
         (which remain in memory until server restart).
 
         Returns:
-            List[Dict[str, Any]]: List of process dictionaries, each containing:
+            List[ProcessInfo]: List of process dictionaries, each containing:
                 - id: Process ID (UUID string)
                 - cmd: The command that was executed
                 - status: Process status (e.g., "running", "completed")
@@ -642,15 +658,7 @@ class Sandbox:
             >>> for process in processes:
             ...     print(f"{process['id']}: {process['cmd']} - {process['status']}")
         """
-        from .executor_client import SandboxClient
-
-        sandbox_url = self._get_sandbox_url()
-        if not sandbox_url:
-            raise SandboxError("Unable to get sandbox URL")
-        if not self.sandbox_secret:
-            raise SandboxError("Sandbox secret not available")
-
-        client = SandboxClient(sandbox_url, self.sandbox_secret)
+        client = self._get_client()
         try:
             response = client.list_processes()
             return response.get("processes", [])
@@ -691,12 +699,40 @@ class Sandbox:
                     pass
         return killed_count
 
+    def __enter__(self) -> "Sandbox":
+        """Context manager entry - returns self."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit - automatically deletes the sandbox."""
+        try:
+            # Clean up client if it exists
+            if self._client is not None:
+                self._client.close()
+            self.delete()
+        except Exception as e:
+            logger.warning(f"Error during sandbox cleanup: {e}")
+
 
 class AsyncSandbox(Sandbox):
     """
     Async sandbox for running code on Koyeb infrastructure.
     Inherits from Sandbox and provides async wrappers for all operations.
     """
+
+    def _run_sync(self, method, *args, **kwargs):
+        """
+        Helper method to run a synchronous method in an executor.
+
+        Args:
+            method: The sync method to run (from super())
+            *args: Positional arguments for the method
+            **kwargs: Keyword arguments for the method
+
+        Returns:
+            Result of the synchronous method call
+        """
+        return run_sync_in_executor(method, *args, **kwargs)
 
     @classmethod
     async def create(
@@ -779,7 +815,11 @@ class AsyncSandbox(Sandbox):
 
         return sandbox
 
-    async def wait_ready(self, timeout: int = 60, poll_interval: float = 2.0) -> bool:
+    async def wait_ready(
+        self,
+        timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
+    ) -> bool:
         """
         Wait for sandbox to become ready with proper async polling.
 
@@ -804,7 +844,9 @@ class AsyncSandbox(Sandbox):
         return False
 
     async def wait_tcp_proxy_ready(
-        self, timeout: int = 60, poll_interval: float = 2.0
+        self,
+        timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
     ) -> bool:
         """
         Wait for TCP proxy to become ready and available asynchronously.
@@ -836,19 +878,15 @@ class AsyncSandbox(Sandbox):
 
     async def delete(self) -> None:
         """Delete the sandbox instance asynchronously."""
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, super().delete)
+        await self._run_sync(super().delete)
 
     async def status(self) -> str:
         """Get current sandbox status asynchronously"""
-        loop = asyncio.get_running_loop()
-        status_value = await loop.run_in_executor(None, super().status)
-        return status_value
+        return await self._run_sync(super().status)
 
     async def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations asynchronously"""
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, super().is_healthy)
+        return await self._run_sync(super().is_healthy)
 
     @property
     def exec(self) -> "AsyncSandboxExecutor":
@@ -866,44 +904,40 @@ class AsyncSandbox(Sandbox):
 
     async def expose_port(self, port: int) -> ExposedPort:
         """Expose a port to external connections via TCP proxy asynchronously."""
-        import asyncio
-
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, super().expose_port, port)
+        return await self._run_sync(super().expose_port, port)
 
     async def unexpose_port(self) -> None:
         """Unexpose a port from external connections asynchronously."""
-        import asyncio
-
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, super().unexpose_port)
+        await self._run_sync(super().unexpose_port)
 
     async def launch_process(
         self, cmd: str, cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None
     ) -> str:
         """Launch a background process in the sandbox asynchronously."""
-        import asyncio
-
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, super().launch_process, cmd, cwd, env)
+        return await self._run_sync(super().launch_process, cmd, cwd, env)
 
     async def kill_process(self, process_id: str) -> None:
         """Kill a background process by its ID asynchronously."""
-        import asyncio
+        await self._run_sync(super().kill_process, process_id)
 
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, super().kill_process, process_id)
-
-    async def list_processes(self) -> List[Dict[str, Any]]:
+    async def list_processes(self) -> List[ProcessInfo]:
         """List all background processes asynchronously."""
-        import asyncio
-
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, super().list_processes)
+        return await self._run_sync(super().list_processes)
 
     async def kill_all_processes(self) -> int:
         """Kill all running background processes asynchronously."""
-        import asyncio
+        return await self._run_sync(super().kill_all_processes)
 
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, super().kill_all_processes)
+    async def __aenter__(self) -> "AsyncSandbox":
+        """Async context manager entry - returns self."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit - automatically deletes the sandbox."""
+        try:
+            # Clean up client if it exists
+            if self._client is not None:
+                self._client.close()
+            await self.delete()
+        except Exception as e:
+            logger.warning(f"Error during sandbox cleanup: {e}")

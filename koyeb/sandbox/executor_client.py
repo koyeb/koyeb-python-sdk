@@ -5,29 +5,61 @@ A simple Python client for interacting with the Sandbox Executor API.
 """
 
 import json
+import logging
 import time
 from typing import Any, Dict, Iterator, Optional
 
 import requests
 
+from .utils import DEFAULT_HTTP_TIMEOUT
+
+logger = logging.getLogger(__name__)
+
 
 class SandboxClient:
     """Client for the Sandbox Executor API."""
 
-    def __init__(self, base_url: str, secret: str):
+    def __init__(
+        self, base_url: str, secret: str, timeout: float = DEFAULT_HTTP_TIMEOUT
+    ):
         """
         Initialize the Sandbox Client.
 
         Args:
             base_url: The base URL of the sandbox server (e.g., 'http://localhost:8080')
             secret: The authentication secret/token
+            timeout: Request timeout in seconds (default: 30)
         """
         self.base_url = base_url.rstrip("/")
         self.secret = secret
+        self.timeout = timeout
         self.headers = {
             "Authorization": f"Bearer {secret}",
             "Content-Type": "application/json",
         }
+        # Use session for connection pooling
+        self._session = requests.Session()
+        self._session.headers.update(self.headers)
+        self._closed = False
+
+    def close(self) -> None:
+        """Close the HTTP session and release resources."""
+        if not self._closed and hasattr(self, "_session"):
+            self._session.close()
+            self._closed = True
+
+    def __enter__(self):
+        """Context manager entry - returns self."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit - automatically closes the session."""
+        self.close()
+
+    def __del__(self):
+        """Clean up session on deletion (fallback, not guaranteed to run)."""
+        if not self._closed:
+            self.close()
 
     def _request_with_retry(
         self,
@@ -56,12 +88,20 @@ class SandboxClient:
         backoff = initial_backoff
         last_exception = None
 
+        # Set default timeout if not provided
+        if "timeout" not in kwargs:
+            kwargs["timeout"] = self.timeout
+
         for attempt in range(max_retries + 1):
             try:
-                response = requests.request(method, url, **kwargs)
+                # Use session for connection pooling
+                response = self._session.request(method, url, **kwargs)
 
                 # If we get a 503, retry with backoff
                 if response.status_code == 503 and attempt < max_retries:
+                    logger.debug(
+                        f"Received 503 error, retrying... (attempt {attempt + 1}/{max_retries + 1})"
+                    )
                     time.sleep(backoff)
                     backoff *= 2  # Exponential backoff
                     continue
@@ -70,11 +110,24 @@ class SandboxClient:
                 return response
 
             except requests.HTTPError as e:
-                if e.response.status_code == 503 and attempt < max_retries:
+                if (
+                    e.response
+                    and e.response.status_code == 503
+                    and attempt < max_retries
+                ):
+                    logger.debug(
+                        f"Received 503 error, retrying... (attempt {attempt + 1}/{max_retries + 1})"
+                    )
                     time.sleep(backoff)
                     backoff *= 2
                     last_exception = e
                     continue
+                raise
+            except requests.Timeout as e:
+                logger.warning(f"Request timeout after {self.timeout}s: {e}")
+                raise
+            except requests.RequestException as e:
+                logger.warning(f"Request failed: {e}")
                 raise
 
         # If we exhausted all retries, raise the last exception
@@ -87,13 +140,21 @@ class SandboxClient:
 
         Returns:
             Dict with status information
+
+        Raises:
+            requests.HTTPError: If the health check fails
         """
-        response = requests.get(f"{self.base_url}/health")
-        response.raise_for_status()
+        response = self._request_with_retry(
+            "GET", f"{self.base_url}/health", timeout=self.timeout
+        )
         return response.json()
 
     def run(
-        self, cmd: str, cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None
+        self,
+        cmd: str,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        timeout: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Execute a shell command in the sandbox.
@@ -102,6 +163,7 @@ class SandboxClient:
             cmd: The shell command to execute
             cwd: Optional working directory for command execution
             env: Optional environment variables to set/override
+            timeout: Optional timeout in seconds for the request
 
         Returns:
             Dict containing stdout, stderr, error (if any), and exit code
@@ -112,13 +174,22 @@ class SandboxClient:
         if env is not None:
             payload["env"] = env
 
+        request_timeout = timeout if timeout is not None else self.timeout
         response = self._request_with_retry(
-            "POST", f"{self.base_url}/run", json=payload, headers=self.headers
+            "POST",
+            f"{self.base_url}/run",
+            json=payload,
+            headers=self.headers,
+            timeout=request_timeout,
         )
         return response.json()
 
     def run_streaming(
-        self, cmd: str, cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None
+        self,
+        cmd: str,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        timeout: Optional[float] = None,
     ) -> Iterator[Dict[str, Any]]:
         """
         Execute a shell command in the sandbox and stream the output in real-time.
@@ -131,6 +202,7 @@ class SandboxClient:
             cmd: The shell command to execute
             cwd: Optional working directory for command execution
             env: Optional environment variables to set/override
+            timeout: Optional timeout in seconds for the streaming request
 
         Yields:
             Dict events with the following types:
@@ -158,11 +230,12 @@ class SandboxClient:
         if env is not None:
             payload["env"] = env
 
-        response = requests.post(
+        response = self._session.post(
             f"{self.base_url}/run_streaming",
             json=payload,
             headers=self.headers,
             stream=True,
+            timeout=timeout if timeout is not None else self.timeout,
         )
         response.raise_for_status()
 

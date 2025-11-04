@@ -16,7 +16,7 @@ from .exec import (
     SandboxExecutor,
 )
 from .filesystem import FileInfo, SandboxFilesystem
-from .sandbox import AsyncSandbox, ExposedPort, Sandbox
+from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
 from .utils import SandboxError
 
 __all__ = [
@@ -32,4 +32,5 @@ __all__ = [
     "CommandStatus",
     "SandboxCommandError",
     "ExposedPort",
+    "ProcessInfo",
 ]
