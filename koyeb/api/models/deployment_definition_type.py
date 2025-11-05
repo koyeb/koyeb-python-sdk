@@ -30,6 +30,7 @@ class DeploymentDefinitionType(str, Enum):
     WEB = 'WEB'
     WORKER = 'WORKER'
     DATABASE = 'DATABASE'
+    SANDBOX = 'SANDBOX'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

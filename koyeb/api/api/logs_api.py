@@ -18,7 +18,7 @@ from typing_extensions import Annotated
 
 from datetime import datetime
 from pydantic import Field, StrictStr
-from typing import Optional
+from typing import List, Optional
 from typing_extensions import Annotated
 from koyeb.api.models.query_logs_reply import QueryLogsReply
 from koyeb.api.models.stream_result_of_log_entry import StreamResultOfLogEntry
@@ -44,19 +44,22 @@ class LogsApi:
     @validate_call
     def query_logs(
         self,
-        type: Optional[StrictStr] = None,
-        app_id: Optional[StrictStr] = None,
-        service_id: Optional[StrictStr] = None,
-        deployment_id: Optional[StrictStr] = None,
-        instance_id: Optional[StrictStr] = None,
-        stream: Optional[StrictStr] = None,
-        regional_deployment_id: Optional[StrictStr] = None,
+        type: Annotated[Optional[StrictStr], Field(description="Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".")] = None,
+        app_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        regional_deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        instance_id: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using instance_ids instead.")] = None,
+        instance_ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        stream: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using streams instead.")] = None,
+        streams: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).")] = None,
         start: Annotated[Optional[datetime], Field(description="(Optional) Must always be before `end`. Defaults to 15 minutes ago.")] = None,
         end: Annotated[Optional[datetime], Field(description="(Optional) Must always be after `start`. Defaults to now.")] = None,
         order: Annotated[Optional[StrictStr], Field(description="(Optional) `asc` or `desc`. Defaults to `desc`.")] = None,
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) Defaults to 100. Maximum of 1000.")] = None,
         regex: Annotated[Optional[StrictStr], Field(description="(Optional) Apply a regex to filter logs. Can't be used with `text`.")] = None,
         text: Annotated[Optional[StrictStr], Field(description="(Optional) Looks for this string in logs. Can't be used with `regex`.")] = None,
+        regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -73,20 +76,24 @@ class LogsApi:
         """Query logs
 
 
-        :param type:
+        :param type: Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".
         :type type: str
-        :param app_id:
+        :param app_id: (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type app_id: str
-        :param service_id:
+        :param service_id: (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type service_id: str
-        :param deployment_id:
+        :param deployment_id: (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type deployment_id: str
-        :param instance_id:
-        :type instance_id: str
-        :param stream:
-        :type stream: str
-        :param regional_deployment_id:
+        :param regional_deployment_id: (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type regional_deployment_id: str
+        :param instance_id: Deprecated, prefer using instance_ids instead.
+        :type instance_id: str
+        :param instance_ids: (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
+        :type instance_ids: List[str]
+        :param stream: Deprecated, prefer using streams instead.
+        :type stream: str
+        :param streams: (Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).
+        :type streams: List[str]
         :param start: (Optional) Must always be before `end`. Defaults to 15 minutes ago.
         :type start: datetime
         :param end: (Optional) Must always be after `start`. Defaults to now.
@@ -99,6 +106,8 @@ class LogsApi:
         :type regex: str
         :param text: (Optional) Looks for this string in logs. Can't be used with `regex`.
         :type text: str
+        :param regions: (Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).
+        :type regions: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -126,15 +135,18 @@ class LogsApi:
             app_id=app_id,
             service_id=service_id,
             deployment_id=deployment_id,
-            instance_id=instance_id,
-            stream=stream,
             regional_deployment_id=regional_deployment_id,
+            instance_id=instance_id,
+            instance_ids=instance_ids,
+            stream=stream,
+            streams=streams,
             start=start,
             end=end,
             order=order,
             limit=limit,
             regex=regex,
             text=text,
+            regions=regions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -164,19 +176,22 @@ class LogsApi:
     @validate_call
     def query_logs_with_http_info(
         self,
-        type: Optional[StrictStr] = None,
-        app_id: Optional[StrictStr] = None,
-        service_id: Optional[StrictStr] = None,
-        deployment_id: Optional[StrictStr] = None,
-        instance_id: Optional[StrictStr] = None,
-        stream: Optional[StrictStr] = None,
-        regional_deployment_id: Optional[StrictStr] = None,
+        type: Annotated[Optional[StrictStr], Field(description="Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".")] = None,
+        app_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        regional_deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        instance_id: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using instance_ids instead.")] = None,
+        instance_ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        stream: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using streams instead.")] = None,
+        streams: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).")] = None,
         start: Annotated[Optional[datetime], Field(description="(Optional) Must always be before `end`. Defaults to 15 minutes ago.")] = None,
         end: Annotated[Optional[datetime], Field(description="(Optional) Must always be after `start`. Defaults to now.")] = None,
         order: Annotated[Optional[StrictStr], Field(description="(Optional) `asc` or `desc`. Defaults to `desc`.")] = None,
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) Defaults to 100. Maximum of 1000.")] = None,
         regex: Annotated[Optional[StrictStr], Field(description="(Optional) Apply a regex to filter logs. Can't be used with `text`.")] = None,
         text: Annotated[Optional[StrictStr], Field(description="(Optional) Looks for this string in logs. Can't be used with `regex`.")] = None,
+        regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -193,20 +208,24 @@ class LogsApi:
         """Query logs
 
 
-        :param type:
+        :param type: Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".
         :type type: str
-        :param app_id:
+        :param app_id: (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type app_id: str
-        :param service_id:
+        :param service_id: (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type service_id: str
-        :param deployment_id:
+        :param deployment_id: (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type deployment_id: str
-        :param instance_id:
-        :type instance_id: str
-        :param stream:
-        :type stream: str
-        :param regional_deployment_id:
+        :param regional_deployment_id: (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type regional_deployment_id: str
+        :param instance_id: Deprecated, prefer using instance_ids instead.
+        :type instance_id: str
+        :param instance_ids: (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
+        :type instance_ids: List[str]
+        :param stream: Deprecated, prefer using streams instead.
+        :type stream: str
+        :param streams: (Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).
+        :type streams: List[str]
         :param start: (Optional) Must always be before `end`. Defaults to 15 minutes ago.
         :type start: datetime
         :param end: (Optional) Must always be after `start`. Defaults to now.
@@ -219,6 +238,8 @@ class LogsApi:
         :type regex: str
         :param text: (Optional) Looks for this string in logs. Can't be used with `regex`.
         :type text: str
+        :param regions: (Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).
+        :type regions: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -246,15 +267,18 @@ class LogsApi:
             app_id=app_id,
             service_id=service_id,
             deployment_id=deployment_id,
-            instance_id=instance_id,
-            stream=stream,
             regional_deployment_id=regional_deployment_id,
+            instance_id=instance_id,
+            instance_ids=instance_ids,
+            stream=stream,
+            streams=streams,
             start=start,
             end=end,
             order=order,
             limit=limit,
             regex=regex,
             text=text,
+            regions=regions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -284,19 +308,22 @@ class LogsApi:
     @validate_call
     def query_logs_without_preload_content(
         self,
-        type: Optional[StrictStr] = None,
-        app_id: Optional[StrictStr] = None,
-        service_id: Optional[StrictStr] = None,
-        deployment_id: Optional[StrictStr] = None,
-        instance_id: Optional[StrictStr] = None,
-        stream: Optional[StrictStr] = None,
-        regional_deployment_id: Optional[StrictStr] = None,
+        type: Annotated[Optional[StrictStr], Field(description="Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".")] = None,
+        app_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        regional_deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        instance_id: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using instance_ids instead.")] = None,
+        instance_ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        stream: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using streams instead.")] = None,
+        streams: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).")] = None,
         start: Annotated[Optional[datetime], Field(description="(Optional) Must always be before `end`. Defaults to 15 minutes ago.")] = None,
         end: Annotated[Optional[datetime], Field(description="(Optional) Must always be after `start`. Defaults to now.")] = None,
         order: Annotated[Optional[StrictStr], Field(description="(Optional) `asc` or `desc`. Defaults to `desc`.")] = None,
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) Defaults to 100. Maximum of 1000.")] = None,
         regex: Annotated[Optional[StrictStr], Field(description="(Optional) Apply a regex to filter logs. Can't be used with `text`.")] = None,
         text: Annotated[Optional[StrictStr], Field(description="(Optional) Looks for this string in logs. Can't be used with `regex`.")] = None,
+        regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -313,20 +340,24 @@ class LogsApi:
         """Query logs
 
 
-        :param type:
+        :param type: Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".
         :type type: str
-        :param app_id:
+        :param app_id: (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type app_id: str
-        :param service_id:
+        :param service_id: (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type service_id: str
-        :param deployment_id:
+        :param deployment_id: (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type deployment_id: str
-        :param instance_id:
-        :type instance_id: str
-        :param stream:
-        :type stream: str
-        :param regional_deployment_id:
+        :param regional_deployment_id: (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type regional_deployment_id: str
+        :param instance_id: Deprecated, prefer using instance_ids instead.
+        :type instance_id: str
+        :param instance_ids: (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
+        :type instance_ids: List[str]
+        :param stream: Deprecated, prefer using streams instead.
+        :type stream: str
+        :param streams: (Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).
+        :type streams: List[str]
         :param start: (Optional) Must always be before `end`. Defaults to 15 minutes ago.
         :type start: datetime
         :param end: (Optional) Must always be after `start`. Defaults to now.
@@ -339,6 +370,8 @@ class LogsApi:
         :type regex: str
         :param text: (Optional) Looks for this string in logs. Can't be used with `regex`.
         :type text: str
+        :param regions: (Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).
+        :type regions: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -366,15 +399,18 @@ class LogsApi:
             app_id=app_id,
             service_id=service_id,
             deployment_id=deployment_id,
-            instance_id=instance_id,
-            stream=stream,
             regional_deployment_id=regional_deployment_id,
+            instance_id=instance_id,
+            instance_ids=instance_ids,
+            stream=stream,
+            streams=streams,
             start=start,
             end=end,
             order=order,
             limit=limit,
             regex=regex,
             text=text,
+            regions=regions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -403,15 +439,18 @@ class LogsApi:
         app_id,
         service_id,
         deployment_id,
-        instance_id,
-        stream,
         regional_deployment_id,
+        instance_id,
+        instance_ids,
+        stream,
+        streams,
         start,
         end,
         order,
         limit,
         regex,
         text,
+        regions,
         _request_auth,
         _content_type,
         _headers,
@@ -421,6 +460,9 @@ class LogsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'instance_ids': 'multi',
+            'streams': 'multi',
+            'regions': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -450,17 +492,25 @@ class LogsApi:
             
             _query_params.append(('deployment_id', deployment_id))
             
+        if regional_deployment_id is not None:
+            
+            _query_params.append(('regional_deployment_id', regional_deployment_id))
+            
         if instance_id is not None:
             
             _query_params.append(('instance_id', instance_id))
+            
+        if instance_ids is not None:
+            
+            _query_params.append(('instance_ids', instance_ids))
             
         if stream is not None:
             
             _query_params.append(('stream', stream))
             
-        if regional_deployment_id is not None:
+        if streams is not None:
             
-            _query_params.append(('regional_deployment_id', regional_deployment_id))
+            _query_params.append(('streams', streams))
             
         if start is not None:
             if isinstance(start, datetime):
@@ -504,6 +554,10 @@ class LogsApi:
             
             _query_params.append(('text', text))
             
+        if regions is not None:
+            
+            _query_params.append(('regions', regions))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -544,17 +598,20 @@ class LogsApi:
     @validate_call
     def tail_logs(
         self,
-        type: Optional[StrictStr] = None,
-        app_id: Optional[StrictStr] = None,
-        service_id: Optional[StrictStr] = None,
-        deployment_id: Optional[StrictStr] = None,
-        regional_deployment_id: Optional[StrictStr] = None,
-        instance_id: Optional[StrictStr] = None,
-        stream: Optional[StrictStr] = None,
-        start: Optional[datetime] = None,
-        limit: Optional[StrictStr] = None,
+        type: Annotated[Optional[StrictStr], Field(description="Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".")] = None,
+        app_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        regional_deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        instance_id: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using instance_ids instead.")] = None,
+        instance_ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        stream: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using streams instead.")] = None,
+        streams: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).")] = None,
+        start: Annotated[Optional[datetime], Field(description="(Optional) Defaults to 24 hours ago.")] = None,
+        limit: Annotated[Optional[StrictStr], Field(description="(Optional) Defaults to 1000. Maximum of 1000.")] = None,
         regex: Annotated[Optional[StrictStr], Field(description="(Optional) Apply a regex to filter logs. Can't be used with `text`.")] = None,
         text: Annotated[Optional[StrictStr], Field(description="(Optional) Looks for this string in logs. Can't be used with `regex`.")] = None,
+        regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -571,28 +628,34 @@ class LogsApi:
         """Tails logs
 
 
-        :param type:
+        :param type: Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".
         :type type: str
-        :param app_id:
+        :param app_id: (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type app_id: str
-        :param service_id:
+        :param service_id: (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type service_id: str
-        :param deployment_id:
+        :param deployment_id: (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type deployment_id: str
-        :param regional_deployment_id:
+        :param regional_deployment_id: (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type regional_deployment_id: str
-        :param instance_id:
+        :param instance_id: Deprecated, prefer using instance_ids instead.
         :type instance_id: str
-        :param stream:
+        :param instance_ids: (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
+        :type instance_ids: List[str]
+        :param stream: Deprecated, prefer using streams instead.
         :type stream: str
-        :param start:
+        :param streams: (Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).
+        :type streams: List[str]
+        :param start: (Optional) Defaults to 24 hours ago.
         :type start: datetime
-        :param limit:
+        :param limit: (Optional) Defaults to 1000. Maximum of 1000.
         :type limit: str
         :param regex: (Optional) Apply a regex to filter logs. Can't be used with `text`.
         :type regex: str
         :param text: (Optional) Looks for this string in logs. Can't be used with `regex`.
         :type text: str
+        :param regions: (Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).
+        :type regions: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -622,11 +685,14 @@ class LogsApi:
             deployment_id=deployment_id,
             regional_deployment_id=regional_deployment_id,
             instance_id=instance_id,
+            instance_ids=instance_ids,
             stream=stream,
+            streams=streams,
             start=start,
             limit=limit,
             regex=regex,
             text=text,
+            regions=regions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -656,17 +722,20 @@ class LogsApi:
     @validate_call
     def tail_logs_with_http_info(
         self,
-        type: Optional[StrictStr] = None,
-        app_id: Optional[StrictStr] = None,
-        service_id: Optional[StrictStr] = None,
-        deployment_id: Optional[StrictStr] = None,
-        regional_deployment_id: Optional[StrictStr] = None,
-        instance_id: Optional[StrictStr] = None,
-        stream: Optional[StrictStr] = None,
-        start: Optional[datetime] = None,
-        limit: Optional[StrictStr] = None,
+        type: Annotated[Optional[StrictStr], Field(description="Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".")] = None,
+        app_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        regional_deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        instance_id: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using instance_ids instead.")] = None,
+        instance_ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        stream: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using streams instead.")] = None,
+        streams: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).")] = None,
+        start: Annotated[Optional[datetime], Field(description="(Optional) Defaults to 24 hours ago.")] = None,
+        limit: Annotated[Optional[StrictStr], Field(description="(Optional) Defaults to 1000. Maximum of 1000.")] = None,
         regex: Annotated[Optional[StrictStr], Field(description="(Optional) Apply a regex to filter logs. Can't be used with `text`.")] = None,
         text: Annotated[Optional[StrictStr], Field(description="(Optional) Looks for this string in logs. Can't be used with `regex`.")] = None,
+        regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -683,28 +752,34 @@ class LogsApi:
         """Tails logs
 
 
-        :param type:
+        :param type: Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".
         :type type: str
-        :param app_id:
+        :param app_id: (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type app_id: str
-        :param service_id:
+        :param service_id: (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type service_id: str
-        :param deployment_id:
+        :param deployment_id: (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type deployment_id: str
-        :param regional_deployment_id:
+        :param regional_deployment_id: (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type regional_deployment_id: str
-        :param instance_id:
+        :param instance_id: Deprecated, prefer using instance_ids instead.
         :type instance_id: str
-        :param stream:
+        :param instance_ids: (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
+        :type instance_ids: List[str]
+        :param stream: Deprecated, prefer using streams instead.
         :type stream: str
-        :param start:
+        :param streams: (Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).
+        :type streams: List[str]
+        :param start: (Optional) Defaults to 24 hours ago.
         :type start: datetime
-        :param limit:
+        :param limit: (Optional) Defaults to 1000. Maximum of 1000.
         :type limit: str
         :param regex: (Optional) Apply a regex to filter logs. Can't be used with `text`.
         :type regex: str
         :param text: (Optional) Looks for this string in logs. Can't be used with `regex`.
         :type text: str
+        :param regions: (Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).
+        :type regions: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -734,11 +809,14 @@ class LogsApi:
             deployment_id=deployment_id,
             regional_deployment_id=regional_deployment_id,
             instance_id=instance_id,
+            instance_ids=instance_ids,
             stream=stream,
+            streams=streams,
             start=start,
             limit=limit,
             regex=regex,
             text=text,
+            regions=regions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -768,17 +846,20 @@ class LogsApi:
     @validate_call
     def tail_logs_without_preload_content(
         self,
-        type: Optional[StrictStr] = None,
-        app_id: Optional[StrictStr] = None,
-        service_id: Optional[StrictStr] = None,
-        deployment_id: Optional[StrictStr] = None,
-        regional_deployment_id: Optional[StrictStr] = None,
-        instance_id: Optional[StrictStr] = None,
-        stream: Optional[StrictStr] = None,
-        start: Optional[datetime] = None,
-        limit: Optional[StrictStr] = None,
+        type: Annotated[Optional[StrictStr], Field(description="Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".")] = None,
+        app_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        regional_deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        instance_id: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using instance_ids instead.")] = None,
+        instance_ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.")] = None,
+        stream: Annotated[Optional[StrictStr], Field(description="Deprecated, prefer using streams instead.")] = None,
+        streams: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).")] = None,
+        start: Annotated[Optional[datetime], Field(description="(Optional) Defaults to 24 hours ago.")] = None,
+        limit: Annotated[Optional[StrictStr], Field(description="(Optional) Defaults to 1000. Maximum of 1000.")] = None,
         regex: Annotated[Optional[StrictStr], Field(description="(Optional) Apply a regex to filter logs. Can't be used with `text`.")] = None,
         text: Annotated[Optional[StrictStr], Field(description="(Optional) Looks for this string in logs. Can't be used with `regex`.")] = None,
+        regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -795,28 +876,34 @@ class LogsApi:
         """Tails logs
 
 
-        :param type:
+        :param type: Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".
         :type type: str
-        :param app_id:
+        :param app_id: (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type app_id: str
-        :param service_id:
+        :param service_id: (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type service_id: str
-        :param deployment_id:
+        :param deployment_id: (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type deployment_id: str
-        :param regional_deployment_id:
+        :param regional_deployment_id: (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
         :type regional_deployment_id: str
-        :param instance_id:
+        :param instance_id: Deprecated, prefer using instance_ids instead.
         :type instance_id: str
-        :param stream:
+        :param instance_ids: (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.
+        :type instance_ids: List[str]
+        :param stream: Deprecated, prefer using streams instead.
         :type stream: str
-        :param start:
+        :param streams: (Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).
+        :type streams: List[str]
+        :param start: (Optional) Defaults to 24 hours ago.
         :type start: datetime
-        :param limit:
+        :param limit: (Optional) Defaults to 1000. Maximum of 1000.
         :type limit: str
         :param regex: (Optional) Apply a regex to filter logs. Can't be used with `text`.
         :type regex: str
         :param text: (Optional) Looks for this string in logs. Can't be used with `regex`.
         :type text: str
+        :param regions: (Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).
+        :type regions: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -846,11 +933,14 @@ class LogsApi:
             deployment_id=deployment_id,
             regional_deployment_id=regional_deployment_id,
             instance_id=instance_id,
+            instance_ids=instance_ids,
             stream=stream,
+            streams=streams,
             start=start,
             limit=limit,
             regex=regex,
             text=text,
+            regions=regions,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -881,11 +971,14 @@ class LogsApi:
         deployment_id,
         regional_deployment_id,
         instance_id,
+        instance_ids,
         stream,
+        streams,
         start,
         limit,
         regex,
         text,
+        regions,
         _request_auth,
         _content_type,
         _headers,
@@ -895,6 +988,9 @@ class LogsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'instance_ids': 'multi',
+            'streams': 'multi',
+            'regions': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -932,9 +1028,17 @@ class LogsApi:
             
             _query_params.append(('instance_id', instance_id))
             
+        if instance_ids is not None:
+            
+            _query_params.append(('instance_ids', instance_ids))
+            
         if stream is not None:
             
             _query_params.append(('stream', stream))
+            
+        if streams is not None:
+            
+            _query_params.append(('streams', streams))
             
         if start is not None:
             if isinstance(start, datetime):
@@ -960,6 +1064,10 @@ class LogsApi:
         if text is not None:
             
             _query_params.append(('text', text))
+            
+        if regions is not None:
+            
+            _query_params.append(('regions', regions))
             
         # process the header parameters
         # process the form parameters

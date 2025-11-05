@@ -3900,7 +3900,8 @@
                 "INVALID_TYPE",
                 "WEB",
                 "WORKER",
-                "DATABASE"
+                "DATABASE",
+                "SANDBOX"
               ]
             },
             "collectionFormat": "multi"
@@ -6285,45 +6286,74 @@
         "parameters": [
           {
             "name": "type",
+            "description": "Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "app_id",
+            "description": "(Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "service_id",
+            "description": "(Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "deployment_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "instance_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "stream",
+            "description": "(Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "regional_deployment_id",
+            "description": "(Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "instance_id",
+            "description": "Deprecated, prefer using instance_ids instead.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "instance_ids",
+            "description": "(Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "stream",
+            "description": "Deprecated, prefer using streams instead.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "streams",
+            "description": "(Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
           },
           {
             "name": "start",
@@ -6369,6 +6399,17 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "regions",
+            "description": "(Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
           }
         ],
         "tags": [
@@ -6442,48 +6483,78 @@
         "parameters": [
           {
             "name": "type",
+            "description": "Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\".",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "app_id",
+            "description": "(Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "service_id",
+            "description": "(Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "deployment_id",
+            "description": "(Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "regional_deployment_id",
+            "description": "(Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "instance_id",
+            "description": "Deprecated, prefer using instance_ids instead.",
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "instance_ids",
+            "description": "(Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set.",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
           },
           {
             "name": "stream",
+            "description": "Deprecated, prefer using streams instead.",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
+            "name": "streams",
+            "description": "(Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs).",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
             "name": "start",
+            "description": "(Optional) Defaults to 24 hours ago.",
             "in": "query",
             "required": false,
             "type": "string",
@@ -6491,6 +6562,7 @@
           },
           {
             "name": "limit",
+            "description": "(Optional) Defaults to 1000. Maximum of 1000.",
             "in": "query",
             "required": false,
             "type": "string",
@@ -6509,6 +6581,17 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "regions",
+            "description": "(Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]).",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
           }
         ],
         "tags": [
@@ -13385,7 +13468,8 @@
       "enum": [
         "INVALID",
         "WEB",
-        "WORKER"
+        "WORKER",
+        "SANDBOX"
       ],
       "default": "INVALID"
     },
@@ -13766,7 +13850,8 @@
         "INVALID",
         "WEB",
         "WORKER",
-        "DATABASE"
+        "DATABASE",
+        "SANDBOX"
       ],
       "default": "INVALID"
     },
@@ -14157,7 +14242,8 @@
         "INVALID_TYPE",
         "WEB",
         "WORKER",
-        "DATABASE"
+        "DATABASE",
+        "SANDBOX"
       ],
       "default": "INVALID_TYPE"
     },
@@ -18905,6 +18991,9 @@
         },
         "external_id": {
           "type": "string"
+        },
+        "provisioning": {
+          "type": "boolean"
         },
         "address1": {
           "type": "string"

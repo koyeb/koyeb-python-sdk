@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **str** |  | [optional] 
 **external_id** | **str** |  | [optional] 
+**provisioning** | **bool** |  | [optional] 
 **address1** | **str** |  | [optional] 
 **address2** | **str** |  | [optional] 
 **city** | **str** |  | [optional] 

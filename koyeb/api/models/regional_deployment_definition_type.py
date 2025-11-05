@@ -29,6 +29,7 @@ class RegionalDeploymentDefinitionType(str, Enum):
     INVALID = 'INVALID'
     WEB = 'WEB'
     WORKER = 'WORKER'
+    SANDBOX = 'SANDBOX'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

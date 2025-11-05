@@ -9,7 +9,7 @@ Method | HTTP request | Description
 
 
 # **query_logs**
-> QueryLogsReply query_logs(type=type, app_id=app_id, service_id=service_id, deployment_id=deployment_id, instance_id=instance_id, stream=stream, regional_deployment_id=regional_deployment_id, start=start, end=end, order=order, limit=limit, regex=regex, text=text)
+> QueryLogsReply query_logs(type=type, app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, instance_id=instance_id, instance_ids=instance_ids, stream=stream, streams=streams, start=start, end=end, order=order, limit=limit, regex=regex, text=text, regions=regions)
 
 Query logs
 
@@ -44,23 +44,26 @@ configuration.api_key['Bearer'] = os.environ["API_KEY"]
 with koyeb.api.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = koyeb.api.LogsApi(api_client)
-    type = 'type_example' # str |  (optional)
-    app_id = 'app_id_example' # str |  (optional)
-    service_id = 'service_id_example' # str |  (optional)
-    deployment_id = 'deployment_id_example' # str |  (optional)
-    instance_id = 'instance_id_example' # str |  (optional)
-    stream = 'stream_example' # str |  (optional)
-    regional_deployment_id = 'regional_deployment_id_example' # str |  (optional)
+    type = 'type_example' # str | Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\". (optional)
+    app_id = 'app_id_example' # str | (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    service_id = 'service_id_example' # str | (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    deployment_id = 'deployment_id_example' # str | (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    regional_deployment_id = 'regional_deployment_id_example' # str | (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    instance_id = 'instance_id_example' # str | Deprecated, prefer using instance_ids instead. (optional)
+    instance_ids = ['instance_ids_example'] # List[str] | (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    stream = 'stream_example' # str | Deprecated, prefer using streams instead. (optional)
+    streams = ['streams_example'] # List[str] | (Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs). (optional)
     start = '2013-10-20T19:20:30+01:00' # datetime | (Optional) Must always be before `end`. Defaults to 15 minutes ago. (optional)
     end = '2013-10-20T19:20:30+01:00' # datetime | (Optional) Must always be after `start`. Defaults to now. (optional)
     order = 'order_example' # str | (Optional) `asc` or `desc`. Defaults to `desc`. (optional)
     limit = 'limit_example' # str | (Optional) Defaults to 100. Maximum of 1000. (optional)
     regex = 'regex_example' # str | (Optional) Apply a regex to filter logs. Can't be used with `text`. (optional)
     text = 'text_example' # str | (Optional) Looks for this string in logs. Can't be used with `regex`. (optional)
+    regions = ['regions_example'] # List[str] | (Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]). (optional)
 
     try:
         # Query logs
-        api_response = api_instance.query_logs(type=type, app_id=app_id, service_id=service_id, deployment_id=deployment_id, instance_id=instance_id, stream=stream, regional_deployment_id=regional_deployment_id, start=start, end=end, order=order, limit=limit, regex=regex, text=text)
+        api_response = api_instance.query_logs(type=type, app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, instance_id=instance_id, instance_ids=instance_ids, stream=stream, streams=streams, start=start, end=end, order=order, limit=limit, regex=regex, text=text, regions=regions)
         print("The response of LogsApi->query_logs:\n")
         pprint(api_response)
     except Exception as e:
@@ -74,19 +77,22 @@ with koyeb.api.ApiClient(configuration) as api_client:
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **type** | **str**|  | [optional] 
- **app_id** | **str**|  | [optional] 
- **service_id** | **str**|  | [optional] 
- **deployment_id** | **str**|  | [optional] 
- **instance_id** | **str**|  | [optional] 
- **stream** | **str**|  | [optional] 
- **regional_deployment_id** | **str**|  | [optional] 
+ **type** | **str**| Type of logs to retrieve, either \&quot;build\&quot; or \&quot;runtime\&quot;. Defaults to \&quot;runtime\&quot;. | [optional] 
+ **app_id** | **str**| (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **service_id** | **str**| (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **deployment_id** | **str**| (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **regional_deployment_id** | **str**| (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **instance_id** | **str**| Deprecated, prefer using instance_ids instead. | [optional] 
+ **instance_ids** | [**List[str]**](str.md)| (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **stream** | **str**| Deprecated, prefer using streams instead. | [optional] 
+ **streams** | [**List[str]**](str.md)| (Optional) Filter on stream: either \&quot;stdout\&quot;, \&quot;stderr\&quot; or \&quot;koyeb\&quot; (for system logs). | [optional] 
  **start** | **datetime**| (Optional) Must always be before &#x60;end&#x60;. Defaults to 15 minutes ago. | [optional] 
  **end** | **datetime**| (Optional) Must always be after &#x60;start&#x60;. Defaults to now. | [optional] 
  **order** | **str**| (Optional) &#x60;asc&#x60; or &#x60;desc&#x60;. Defaults to &#x60;desc&#x60;. | [optional] 
  **limit** | **str**| (Optional) Defaults to 100. Maximum of 1000. | [optional] 
  **regex** | **str**| (Optional) Apply a regex to filter logs. Can&#39;t be used with &#x60;text&#x60;. | [optional] 
  **text** | **str**| (Optional) Looks for this string in logs. Can&#39;t be used with &#x60;regex&#x60;. | [optional] 
+ **regions** | [**List[str]**](str.md)| (Optional) Filter on the provided regions (e.g. [\&quot;fra\&quot;, \&quot;was\&quot;]). | [optional] 
 
 ### Return type
 
@@ -117,7 +123,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **tail_logs**
-> StreamResultOfLogEntry tail_logs(type=type, app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, instance_id=instance_id, stream=stream, start=start, limit=limit, regex=regex, text=text)
+> StreamResultOfLogEntry tail_logs(type=type, app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, instance_id=instance_id, instance_ids=instance_ids, stream=stream, streams=streams, start=start, limit=limit, regex=regex, text=text, regions=regions)
 
 Tails logs
 
@@ -152,21 +158,24 @@ configuration.api_key['Bearer'] = os.environ["API_KEY"]
 with koyeb.api.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = koyeb.api.LogsApi(api_client)
-    type = 'type_example' # str |  (optional)
-    app_id = 'app_id_example' # str |  (optional)
-    service_id = 'service_id_example' # str |  (optional)
-    deployment_id = 'deployment_id_example' # str |  (optional)
-    regional_deployment_id = 'regional_deployment_id_example' # str |  (optional)
-    instance_id = 'instance_id_example' # str |  (optional)
-    stream = 'stream_example' # str |  (optional)
-    start = '2013-10-20T19:20:30+01:00' # datetime |  (optional)
-    limit = 'limit_example' # str |  (optional)
+    type = 'type_example' # str | Type of logs to retrieve, either \"build\" or \"runtime\". Defaults to \"runtime\". (optional)
+    app_id = 'app_id_example' # str | (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    service_id = 'service_id_example' # str | (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    deployment_id = 'deployment_id_example' # str | (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    regional_deployment_id = 'regional_deployment_id_example' # str | (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    instance_id = 'instance_id_example' # str | Deprecated, prefer using instance_ids instead. (optional)
+    instance_ids = ['instance_ids_example'] # List[str] | (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. (optional)
+    stream = 'stream_example' # str | Deprecated, prefer using streams instead. (optional)
+    streams = ['streams_example'] # List[str] | (Optional) Filter on stream: either \"stdout\", \"stderr\" or \"koyeb\" (for system logs). (optional)
+    start = '2013-10-20T19:20:30+01:00' # datetime | (Optional) Defaults to 24 hours ago. (optional)
+    limit = 'limit_example' # str | (Optional) Defaults to 1000. Maximum of 1000. (optional)
     regex = 'regex_example' # str | (Optional) Apply a regex to filter logs. Can't be used with `text`. (optional)
     text = 'text_example' # str | (Optional) Looks for this string in logs. Can't be used with `regex`. (optional)
+    regions = ['regions_example'] # List[str] | (Optional) Filter on the provided regions (e.g. [\"fra\", \"was\"]). (optional)
 
     try:
         # Tails logs
-        api_response = api_instance.tail_logs(type=type, app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, instance_id=instance_id, stream=stream, start=start, limit=limit, regex=regex, text=text)
+        api_response = api_instance.tail_logs(type=type, app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, instance_id=instance_id, instance_ids=instance_ids, stream=stream, streams=streams, start=start, limit=limit, regex=regex, text=text, regions=regions)
         print("The response of LogsApi->tail_logs:\n")
         pprint(api_response)
     except Exception as e:
@@ -180,17 +189,20 @@ with koyeb.api.ApiClient(configuration) as api_client:
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **type** | **str**|  | [optional] 
- **app_id** | **str**|  | [optional] 
- **service_id** | **str**|  | [optional] 
- **deployment_id** | **str**|  | [optional] 
- **regional_deployment_id** | **str**|  | [optional] 
- **instance_id** | **str**|  | [optional] 
- **stream** | **str**|  | [optional] 
- **start** | **datetime**|  | [optional] 
- **limit** | **str**|  | [optional] 
+ **type** | **str**| Type of logs to retrieve, either \&quot;build\&quot; or \&quot;runtime\&quot;. Defaults to \&quot;runtime\&quot;. | [optional] 
+ **app_id** | **str**| (Optional) Filter on the provided app_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **service_id** | **str**| (Optional) Filter on the provided service_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **deployment_id** | **str**| (Optional) Filter on the provided deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **regional_deployment_id** | **str**| (Optional) Filter on the provided regional_deployment_id. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **instance_id** | **str**| Deprecated, prefer using instance_ids instead. | [optional] 
+ **instance_ids** | [**List[str]**](str.md)| (Optional) Filter on the provided instance_ids. At least one of app_id, service_id, deployment_id, regional_deployment_id or instance_ids must be set. | [optional] 
+ **stream** | **str**| Deprecated, prefer using streams instead. | [optional] 
+ **streams** | [**List[str]**](str.md)| (Optional) Filter on stream: either \&quot;stdout\&quot;, \&quot;stderr\&quot; or \&quot;koyeb\&quot; (for system logs). | [optional] 
+ **start** | **datetime**| (Optional) Defaults to 24 hours ago. | [optional] 
+ **limit** | **str**| (Optional) Defaults to 1000. Maximum of 1000. | [optional] 
  **regex** | **str**| (Optional) Apply a regex to filter logs. Can&#39;t be used with &#x60;text&#x60;. | [optional] 
  **text** | **str**| (Optional) Looks for this string in logs. Can&#39;t be used with &#x60;regex&#x60;. | [optional] 
+ **regions** | [**List[str]**](str.md)| (Optional) Filter on the provided regions (e.g. [\&quot;fra\&quot;, \&quot;was\&quot;]). | [optional] 
 
 ### Return type
 
