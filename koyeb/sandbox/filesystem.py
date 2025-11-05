@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Dict, List, Union
 from .executor_client import SandboxClient
 from .utils import (
     SandboxError,
+    async_wrapper,
     check_error_message,
     create_sandbox_client,
     escape_shell_arg,
@@ -451,6 +452,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         return await run_sync_in_executor(method, *args, **kwargs)
 
+    @async_wrapper("write_file")
     async def write_file(
         self, path: str, content: Union[str, bytes], encoding: str = "utf-8"
     ) -> None:
@@ -462,8 +464,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             content: Content to write (string or bytes)
             encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
         """
-        await self._run_sync(super().write_file, path, content, encoding)
+        pass
 
+    @async_wrapper("read_file")
     async def read_file(self, path: str, encoding: str = "utf-8") -> FileInfo:
         """
         Read a file from the sandbox asynchronously.
@@ -475,8 +478,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         Returns:
             FileInfo: Object with content and encoding
         """
-        return await self._run_sync(super().read_file, path, encoding)
+        pass
 
+    @async_wrapper("mkdir")
     async def mkdir(self, path: str, recursive: bool = False) -> None:
         """
         Create a directory asynchronously.
@@ -485,8 +489,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             path: Absolute path to the directory
             recursive: Create parent directories if needed (default: False, not used - API always creates parents)
         """
-        await self._run_sync(super().mkdir, path, recursive)
+        pass
 
+    @async_wrapper("list_dir")
     async def list_dir(self, path: str = ".") -> List[str]:
         """
         List contents of a directory asynchronously.
@@ -497,8 +502,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         Returns:
             List[str]: Names of files and directories within the specified path.
         """
-        return await self._run_sync(super().list_dir, path)
+        pass
 
+    @async_wrapper("delete_file")
     async def delete_file(self, path: str) -> None:
         """
         Delete a file asynchronously.
@@ -506,8 +512,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         Args:
             path: Absolute path to the file
         """
-        await self._run_sync(super().delete_file, path)
+        pass
 
+    @async_wrapper("delete_dir")
     async def delete_dir(self, path: str) -> None:
         """
         Delete a directory asynchronously.
@@ -515,8 +522,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         Args:
             path: Absolute path to the directory
         """
-        await self._run_sync(super().delete_dir, path)
+        pass
 
+    @async_wrapper("rename_file")
     async def rename_file(self, old_path: str, new_path: str) -> None:
         """
         Rename a file asynchronously.
@@ -525,8 +533,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             old_path: Current file path
             new_path: New file path
         """
-        await self._run_sync(super().rename_file, old_path, new_path)
+        pass
 
+    @async_wrapper("move_file")
     async def move_file(self, source_path: str, destination_path: str) -> None:
         """
         Move a file to a different directory asynchronously.
@@ -535,7 +544,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             source_path: Current file path
             destination_path: Destination path
         """
-        await self._run_sync(super().move_file, source_path, destination_path)
+        pass
 
     async def write_files(self, files: List[Dict[str, str]]) -> None:
         """
@@ -550,18 +559,22 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             encoding = file_info.get("encoding", "utf-8")
             await self.write_file(path, content, encoding)
 
+    @async_wrapper("exists")
     async def exists(self, path: str) -> bool:
         """Check if file/directory exists asynchronously"""
-        return await self._run_sync(super().exists, path)
+        pass
 
+    @async_wrapper("is_file")
     async def is_file(self, path: str) -> bool:
         """Check if path is a file asynchronously"""
-        return await self._run_sync(super().is_file, path)
+        pass
 
+    @async_wrapper("is_dir")
     async def is_dir(self, path: str) -> bool:
         """Check if path is a directory asynchronously"""
-        return await self._run_sync(super().is_dir, path)
+        pass
 
+    @async_wrapper("upload_file")
     async def upload_file(
         self, local_path: str, remote_path: str, encoding: str = "utf-8"
     ) -> None:
@@ -573,8 +586,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             remote_path: Destination path in the sandbox
             encoding: File encoding (default: "utf-8"). Use "base64" for binary files.
         """
-        await self._run_sync(super().upload_file, local_path, remote_path, encoding)
+        pass
 
+    @async_wrapper("download_file")
     async def download_file(
         self, remote_path: str, local_path: str, encoding: str = "utf-8"
     ) -> None:
@@ -586,7 +600,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             local_path: Destination path on the local filesystem
             encoding: File encoding (default: "utf-8"). Use "base64" for binary files.
         """
-        await self._run_sync(super().download_file, remote_path, local_path, encoding)
+        pass
 
     async def ls(self, path: str = ".") -> List[str]:
         """
@@ -600,6 +614,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         return await self.list_dir(path)
 
+    @async_wrapper("rm")
     async def rm(self, path: str, recursive: bool = False) -> None:
         """
         Remove file or directory asynchronously.
@@ -608,7 +623,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             path: Path to remove
             recursive: Remove recursively
         """
-        await self._run_sync(super().rm, path, recursive)
+        pass
 
     def open(self, path: str, mode: str = "r") -> AsyncSandboxFileIO:
         """

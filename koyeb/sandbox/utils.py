@@ -599,6 +599,44 @@ async def run_sync_in_executor(
     return await loop.run_in_executor(None, lambda: method(*args, **kwargs))
 
 
+def async_wrapper(method_name: str):
+    """
+    Decorator to automatically create async wrapper for sync methods.
+
+    This decorator creates an async method that wraps a sync method from the parent class.
+    The sync method is called via super() and executed in an executor.
+
+    Args:
+        method_name: Name of the sync method to wrap (from parent class)
+
+    Usage:
+        @async_wrapper("delete")
+        async def delete(self) -> None:
+            \"\"\"Delete the sandbox instance asynchronously.\"\"\"
+            pass  # Implementation is handled by decorator
+    """
+
+    def decorator(func):
+        async def wrapper(self, *args, **kwargs):
+            # Get the parent class from MRO (Method Resolution Order)
+            # __mro__[0] is the current class, __mro__[1] is the parent
+            parent_class = self.__class__.__mro__[1]
+            # Get the unbound method from parent class
+            sync_method = getattr(parent_class, method_name)
+            # Bind it to self (equivalent to super().method_name)
+            bound_method = sync_method.__get__(self, parent_class)
+            return await self._run_sync(bound_method, *args, **kwargs)
+
+        # Preserve function metadata
+        wrapper.__name__ = func.__name__
+        wrapper.__qualname__ = func.__qualname__
+        wrapper.__doc__ = func.__doc__ or f"{method_name} (async version)"
+        wrapper.__annotations__ = func.__annotations__
+        return wrapper
+
+    return decorator
+
+
 def create_sandbox_client(
     sandbox_url: Optional[str],
     sandbox_secret: Optional[str],

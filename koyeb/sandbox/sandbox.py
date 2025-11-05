@@ -23,6 +23,7 @@ from .utils import (
     IdleTimeout,
     SandboxError,
     _is_light_sleep_enabled,
+    async_wrapper,
     build_env_vars,
     create_deployment_definition,
     create_docker_source,
@@ -880,17 +881,20 @@ class AsyncSandbox(Sandbox):
 
         return False
 
+    @async_wrapper("delete")
     async def delete(self) -> None:
         """Delete the sandbox instance asynchronously."""
-        await self._run_sync(super().delete)
+        pass
 
+    @async_wrapper("status")
     async def status(self) -> str:
         """Get current sandbox status asynchronously"""
-        return await self._run_sync(super().status)
+        pass
 
+    @async_wrapper("is_healthy")
     async def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations asynchronously"""
-        return await self._run_sync(super().is_healthy)
+        pass
 
     @property
     def exec(self) -> "AsyncSandboxExecutor":
@@ -906,27 +910,32 @@ class AsyncSandbox(Sandbox):
 
         return AsyncSandboxFilesystem(self)
 
+    @async_wrapper("expose_port")
     async def expose_port(self, port: int) -> ExposedPort:
         """Expose a port to external connections via TCP proxy asynchronously."""
-        return await self._run_sync(super().expose_port, port)
+        pass
 
+    @async_wrapper("unexpose_port")
     async def unexpose_port(self) -> None:
         """Unexpose a port from external connections asynchronously."""
-        await self._run_sync(super().unexpose_port)
+        pass
 
+    @async_wrapper("launch_process")
     async def launch_process(
         self, cmd: str, cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None
     ) -> str:
         """Launch a background process in the sandbox asynchronously."""
-        return await self._run_sync(super().launch_process, cmd, cwd, env)
+        pass
 
+    @async_wrapper("kill_process")
     async def kill_process(self, process_id: str) -> None:
         """Kill a background process by its ID asynchronously."""
-        await self._run_sync(super().kill_process, process_id)
+        pass
 
+    @async_wrapper("list_processes")
     async def list_processes(self) -> List[ProcessInfo]:
         """List all background processes asynchronously."""
-        return await self._run_sync(super().list_processes)
+        pass
 
     async def kill_all_processes(self) -> int:
         """Kill all running background processes asynchronously."""
