@@ -28,6 +28,7 @@ uv run python examples/01_create_sandbox.py
 - **12_file_manipulation.py** - File manipulation operations
 - **13_background_processes.py** - Background process management (launch, list, kill)
 - **14_expose_port.py** - Port exposure via TCP proxy with HTTP verification
+- **15_get_sandbox.py** - Create a sandbox and then retrieve it by ID
 
 ## Basic Usage
 

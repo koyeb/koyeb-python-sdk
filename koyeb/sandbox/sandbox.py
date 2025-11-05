@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from koyeb.api.api.deployments_api import DeploymentsApi
+from koyeb.api.exceptions import ApiException, NotFoundException
 from koyeb.api.models.create_app import CreateApp
 from koyeb.api.models.create_service import CreateService
 
@@ -94,6 +95,11 @@ class Sandbox:
         self._created_at = time.time()
         self._sandbox_url = None
         self._client = None
+
+    @property
+    def id(self) -> str:
+        """Get the service ID of the sandbox."""
+        return self.service_id
 
     @classmethod
     def create(
@@ -203,7 +209,7 @@ class Sandbox:
         env_vars = build_env_vars(env)
         docker_source = create_docker_source(image, [])
         deployment_definition = create_deployment_definition(
-            name=f"sandbox-service-{name}",
+            name=name,
             docker_source=docker_source,
             env_vars=env_vars,
             instance_type=instance_type,
@@ -254,6 +260,106 @@ class Sandbox:
             service_id=service_id,
             instance_id=instance_id,
             name=name,
+            api_token=api_token,
+            sandbox_secret=sandbox_secret,
+        )
+
+    @classmethod
+    def get_from_id(
+        cls,
+        id: str,
+        api_token: Optional[str] = None,
+    ) -> "Sandbox":
+        """
+        Get a sandbox by service ID.
+
+        Args:
+            id: Service ID of the sandbox
+            api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+
+        Returns:
+            Sandbox: The Sandbox instance
+
+        Raises:
+            ValueError: If API token is not provided or id is invalid
+            SandboxError: If sandbox is not found or retrieval fails
+        """
+        if api_token is None:
+            api_token = os.getenv("KOYEB_API_TOKEN")
+            if not api_token:
+                raise ValueError(
+                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
+                )
+
+        if not id:
+            raise ValueError("id is required")
+
+        _, services_api, _, _ = get_api_client(api_token)
+        deployments_api = DeploymentsApi(services_api.api_client)
+
+        # Get service by ID
+        try:
+            service_response = services_api.get_service(id=id)
+            service = service_response.service
+        except NotFoundException as e:
+            raise SandboxError(f"Sandbox not found with id: {id}") from e
+        except ApiException as e:
+            raise SandboxError(f"Failed to retrieve sandbox with id: {id}: {e}") from e
+
+        if service is None:
+            raise SandboxError(f"Sandbox not found with id: {id}")
+
+        sandbox_name = service.name
+
+        # Get deployment to extract sandbox_secret from env vars
+        deployment_id = service.active_deployment_id or service.latest_deployment_id
+        sandbox_secret = None
+        instance_id = None
+
+        if deployment_id:
+            try:
+                deployment_response = deployments_api.get_deployment(id=deployment_id)
+                if (
+                    deployment_response.deployment
+                    and deployment_response.deployment.definition
+                    and deployment_response.deployment.definition.env
+                ):
+                    # Find SANDBOX_SECRET in env vars
+                    for env_var in deployment_response.deployment.definition.env:
+                        if env_var.key == "SANDBOX_SECRET":
+                            sandbox_secret = env_var.value
+                            break
+
+                # Get instance_id from deployment scaling
+                try:
+                    scaling_response = deployments_api.get_deployment_scaling(
+                        id=deployment_id
+                    )
+                    if (
+                        scaling_response.replicas
+                        and scaling_response.replicas[0].instances
+                        and len(scaling_response.replicas[0].instances) > 0
+                    ):
+                        instance_id = scaling_response.replicas[0].instances[0].id
+                except Exception:
+                    logger.debug(
+                        f"Could not get instance for deployment {deployment_id}"
+                    )
+            except Exception as e:
+                logger.debug(f"Could not get deployment {deployment_id}: {e}")
+
+        if not instance_id:
+            raise SandboxError(
+                f"Could not find instance for sandbox {id}. "
+                "The sandbox may not be fully provisioned yet."
+            )
+
+        return cls(
+            sandbox_id=service.id,
+            app_id=service.app_id,
+            service_id=service.id,
+            instance_id=instance_id,
+            name=sandbox_name,
             api_token=api_token,
             sandbox_secret=sandbox_secret,
         )
@@ -738,6 +844,44 @@ class AsyncSandbox(Sandbox):
             Result of the synchronous method call
         """
         return await run_sync_in_executor(method, *args, **kwargs)
+
+    @classmethod
+    async def get_from_id(
+        cls,
+        id: str,
+        api_token: Optional[str] = None,
+    ) -> "AsyncSandbox":
+        """
+        Get a sandbox by service ID asynchronously.
+
+        Args:
+            id: Service ID of the sandbox
+            api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+
+        Returns:
+            AsyncSandbox: The AsyncSandbox instance
+
+        Raises:
+            ValueError: If API token is not provided or id is invalid
+            SandboxError: If sandbox is not found or retrieval fails
+        """
+        sync_sandbox = await run_sync_in_executor(
+            Sandbox.get_from_id, id=id, api_token=api_token
+        )
+
+        # Convert Sandbox instance to AsyncSandbox instance
+        async_sandbox = cls(
+            sandbox_id=sync_sandbox.sandbox_id,
+            app_id=sync_sandbox.app_id,
+            service_id=sync_sandbox.service_id,
+            instance_id=sync_sandbox.instance_id,
+            name=sync_sandbox.name,
+            api_token=sync_sandbox.api_token,
+            sandbox_secret=sync_sandbox.sandbox_secret,
+        )
+        async_sandbox._created_at = sync_sandbox._created_at
+
+        return async_sandbox
 
     @classmethod
     async def create(
