@@ -11,7 +11,7 @@ import os
 import secrets
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, TypedDict
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.models.create_app import CreateApp
@@ -41,16 +41,19 @@ if TYPE_CHECKING:
     from .filesystem import AsyncSandboxFilesystem, SandboxFilesystem
 
 
-class ProcessInfo(TypedDict, total=False):
+@dataclass
+class ProcessInfo:
     """Type definition for process information returned by list_processes."""
 
     id: str  # Process ID (UUID string)
     command: str  # The command that was executed
     status: str  # Process status (e.g., "running", "completed")
-    pid: int  # OS process ID (if running)
-    exit_code: int  # Exit code (if completed)
-    started_at: str  # ISO 8601 timestamp when process started
-    completed_at: str  # ISO 8601 timestamp when process completed (if applicable)
+    pid: Optional[int] = None  # OS process ID (if running)
+    exit_code: Optional[int] = None  # Exit code (if completed)
+    started_at: Optional[str] = None  # ISO 8601 timestamp when process started
+    completed_at: Optional[str] = (
+        None  # ISO 8601 timestamp when process completed (if applicable)
+    )
 
 
 @dataclass
@@ -641,7 +644,7 @@ class Sandbox:
         (which remain in memory until server restart).
 
         Returns:
-            List[ProcessInfo]: List of process dictionaries, each containing:
+            List[ProcessInfo]: List of process objects, each containing:
                 - id: Process ID (UUID string)
                 - command: The command that was executed
                 - status: Process status (e.g., "running", "completed")
@@ -656,12 +659,13 @@ class Sandbox:
         Example:
             >>> processes = sandbox.list_processes()
             >>> for process in processes:
-            ...     print(f"{process['id']}: {process['command']} - {process['status']}")
+            ...     print(f"{process.id}: {process.command} - {process.status}")
         """
         client = self._get_client()
         try:
             response = client.list_processes()
-            return response.get("processes", [])
+            processes_data = response.get("processes", [])
+            return [ProcessInfo(**process) for process in processes_data]
         except Exception as e:
             if isinstance(e, SandboxError):
                 raise
@@ -687,8 +691,8 @@ class Sandbox:
         processes = self.list_processes()
         killed_count = 0
         for process in processes:
-            process_id = process.get("id")
-            status = process.get("status", "")
+            process_id = process.id
+            status = process.status
             # Only kill running processes
             if process_id and status == "running":
                 try:
@@ -720,7 +724,7 @@ class AsyncSandbox(Sandbox):
     Inherits from Sandbox and provides async wrappers for all operations.
     """
 
-    def _run_sync(self, method, *args, **kwargs):
+    async def _run_sync(self, method, *args, **kwargs):
         """
         Helper method to run a synchronous method in an executor.
 
@@ -732,7 +736,7 @@ class AsyncSandbox(Sandbox):
         Returns:
             Result of the synchronous method call
         """
-        return run_sync_in_executor(method, *args, **kwargs)
+        return await run_sync_in_executor(method, *args, **kwargs)
 
     @classmethod
     async def create(
@@ -926,7 +930,20 @@ class AsyncSandbox(Sandbox):
 
     async def kill_all_processes(self) -> int:
         """Kill all running background processes asynchronously."""
-        return await self._run_sync(super().kill_all_processes)
+        processes = await self.list_processes()
+        killed_count = 0
+        for process in processes:
+            process_id = process.id
+            status = process.status
+            # Only kill running processes
+            if process_id and status == "running":
+                try:
+                    await self.kill_process(process_id)
+                    killed_count += 1
+                except SandboxError:
+                    # Continue killing other processes even if one fails
+                    pass
+        return killed_count
 
     async def __aenter__(self) -> "AsyncSandbox":
         """Async context manager entry - returns self."""

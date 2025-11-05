@@ -596,7 +596,7 @@ async def run_sync_in_executor(
         Result of the synchronous method call
     """
     loop = asyncio.get_running_loop()
-    return loop.run_in_executor(None, lambda: method(*args, **kwargs))
+    return await loop.run_in_executor(None, lambda: method(*args, **kwargs))
 
 
 def create_sandbox_client(

@@ -437,7 +437,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
     Inherits from SandboxFilesystem and provides async methods.
     """
 
-    def _run_sync(self, method, *args, **kwargs):
+    async def _run_sync(self, method, *args, **kwargs):
         """
         Helper method to run a synchronous method in an executor.
 
@@ -449,7 +449,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         Returns:
             Result of the synchronous method call
         """
-        return run_sync_in_executor(method, *args, **kwargs)
+        return await run_sync_in_executor(method, *args, **kwargs)
 
     async def write_file(
         self, path: str, content: Union[str, bytes], encoding: str = "utf-8"

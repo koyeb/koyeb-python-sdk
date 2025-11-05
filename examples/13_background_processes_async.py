@@ -43,11 +43,11 @@ async def main():
         print("\nListing all processes:")
         processes = await sandbox.list_processes()
         for process in processes:
-            print(f"  ID: {process.get('id', 'N/A')}")
-            print(f"  Command: {process.get('command', 'N/A')}")
-            print(f"  Status: {process.get('status', 'N/A')}")
-            if process.get("pid"):
-                print(f"  PID: {process.get('pid')}")
+            print(f"  ID: {process.id}")
+            print(f"  Command: {process.command}")
+            print(f"  Status: {process.status}")
+            if process.pid:
+                print(f"  PID: {process.pid}")
             print()
 
         # Kill a specific process
@@ -62,9 +62,9 @@ async def main():
         print("\nListing processes after kill:")
         processes = await sandbox.list_processes()
         for process in processes:
-            print(f"  ID: {process.get('id', 'N/A')}")
-            print(f"  Command: {process.get('command', 'N/A')}")
-            print(f"  Status: {process.get('status', 'N/A')}")
+            print(f"  ID: {process.id}")
+            print(f"  Command: {process.command}")
+            print(f"  Status: {process.status}")
             print()
 
         # Launch a few more processes
@@ -84,9 +84,9 @@ async def main():
         print("\nFinal process list:")
         processes = await sandbox.list_processes()
         for process in processes:
-            print(f"  ID: {process.get('id', 'N/A')}")
-            print(f"  Command: {process.get('command', 'N/A')}")
-            print(f"  Status: {process.get('status', 'N/A')}")
+            print(f"  ID: {process.id}")
+            print(f"  Command: {process.command}")
+            print(f"  Status: {process.status}")
             print()
 
     except Exception as e:

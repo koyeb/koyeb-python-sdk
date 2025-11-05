@@ -71,10 +71,8 @@ async def main():
         print("\nRunning processes:")
         processes = await sandbox.list_processes()
         for process in processes:
-            if process.get("status") == "running":
-                print(
-                    f"  {process.get('id')}: {process.get('command')} - {process.get('status')}"
-                )
+            if process.status == "running":
+                print(f"  {process.id}: {process.command} - {process.status}")
 
         # Switch to a different port (e.g., 8081)
         print("\nSwitching to port 8081...")
