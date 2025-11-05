@@ -381,6 +381,7 @@ source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
     { name = "python-dateutil" },
+    { name = "requests" },
     { name = "typing-extensions" },
     { name = "urllib3" },
     { name = "websockets" },
@@ -399,6 +400,7 @@ dev = [
 requires-dist = [
     { name = "pydantic", specifier = ">=2" },
     { name = "python-dateutil", specifier = ">=2.8.2" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "typing-extensions", specifier = ">=4.7.1" },
     { name = "urllib3", specifier = ">=2.1.0,<3.0.0" },
     { name = "websockets", specifier = ">=15.0.1" },
