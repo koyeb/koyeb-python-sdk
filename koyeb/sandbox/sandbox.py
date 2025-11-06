@@ -110,7 +110,7 @@ class Sandbox:
         instance_type: str = "nano",
         exposed_port_protocol: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        regions: Optional[List[str]] = None,
+        region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
         idle_timeout: Optional[IdleTimeout] = None,
@@ -128,7 +128,7 @@ class Sandbox:
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
                 env: Environment variables
-                regions: List of regions to deploy to (default: ["na"])
+                region: Region to deploy to (default: "na")
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
                 idle_timeout: Idle timeout configuration for scale-to-zero
@@ -154,7 +154,7 @@ class Sandbox:
             instance_type=instance_type,
             exposed_port_protocol=exposed_port_protocol,
             env=env,
-            regions=regions,
+            region=region,
             api_token=api_token,
             timeout=timeout,
             idle_timeout=idle_timeout,
@@ -174,7 +174,7 @@ class Sandbox:
         instance_type: str = "nano",
         exposed_port_protocol: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        regions: Optional[List[str]] = None,
+        region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
         idle_timeout: Optional[IdleTimeout] = None,
@@ -207,14 +207,14 @@ class Sandbox:
         app_id = app_response.app.id
 
         env_vars = build_env_vars(env)
-        docker_source = create_docker_source(image, [])
+        docker_source = create_docker_source(image, [], privileged=True)
         deployment_definition = create_deployment_definition(
             name=name,
             docker_source=docker_source,
             env_vars=env_vars,
             instance_type=instance_type,
             exposed_port_protocol=exposed_port_protocol,
-            regions=regions,
+            region=region,
             routes=routes,
             idle_timeout=idle_timeout,
             light_sleep_enabled=light_sleep_enabled,
@@ -892,7 +892,7 @@ class AsyncSandbox(Sandbox):
         instance_type: str = "nano",
         exposed_port_protocol: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        regions: Optional[List[str]] = None,
+        region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
         idle_timeout: Optional[IdleTimeout] = None,
@@ -910,7 +910,7 @@ class AsyncSandbox(Sandbox):
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
                 env: Environment variables
-                regions: List of regions to deploy to (default: ["na"])
+                region: Region to deploy to (default: "na")
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
                 idle_timeout: Idle timeout configuration for scale-to-zero
@@ -939,7 +939,7 @@ class AsyncSandbox(Sandbox):
                 instance_type=instance_type,
                 exposed_port_protocol=exposed_port_protocol,
                 env=env,
-                regions=regions,
+                region=region,
                 api_token=api_token,
                 timeout=timeout,
                 idle_timeout=idle_timeout,

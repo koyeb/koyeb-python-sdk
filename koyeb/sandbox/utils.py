@@ -153,13 +153,16 @@ def build_env_vars(env: Optional[Dict[str, str]]) -> List[DeploymentEnv]:
     return env_vars
 
 
-def create_docker_source(image: str, command_args: List[str]) -> DockerSource:
+def create_docker_source(
+    image: str, command_args: List[str], privileged: Optional[bool] = None
+) -> DockerSource:
     """
     Create Docker source configuration.
 
     Args:
         image: Docker image name
         command_args: Command and arguments to run (optional, empty list means use image default)
+        privileged: If True, run the container in privileged mode (default: None/False)
 
     Returns:
         DockerSource object
@@ -168,6 +171,7 @@ def create_docker_source(image: str, command_args: List[str]) -> DockerSource:
         image=image,
         command=command_args[0] if command_args else None,
         args=list(command_args[1:]) if len(command_args) > 1 else None,
+        privileged=privileged,
     )
 
 
@@ -382,7 +386,7 @@ def create_deployment_definition(
     env_vars: List[DeploymentEnv],
     instance_type: str,
     exposed_port_protocol: Optional[str] = None,
-    regions: List[str] = None,
+    region: Optional[str] = None,
     routes: Optional[List[DeploymentRoute]] = None,
     idle_timeout: Optional[IdleTimeout] = None,
     light_sleep_enabled: bool = True,
@@ -399,7 +403,7 @@ def create_deployment_definition(
         exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
             If None, defaults to "http".
             If provided, must be one of "http" or "http2".
-        regions: List of regions (defaults to ["na"])
+        region: Region to deploy to (defaults to "na")
         routes: List of routes for public access
         idle_timeout: Idle timeout configuration (see IdleTimeout type)
         light_sleep_enabled: Whether light sleep is enabled for the instance type (default: True)
@@ -408,8 +412,11 @@ def create_deployment_definition(
     Returns:
         DeploymentDefinition object
     """
-    if regions is None:
-        regions = ["na"]
+    if region is None:
+        region = "na"
+
+    # Convert single region string to list for API
+    regions_list = [region]
 
     # Always create ports with protocol (default to "http" if not specified)
     protocol = exposed_port_protocol if exposed_port_protocol is not None else "http"
@@ -422,8 +429,8 @@ def create_deployment_definition(
     if enable_tcp_proxy:
         proxy_ports = create_koyeb_sandbox_proxy_ports()
 
-    # Always use WEB type
-    deployment_type = DeploymentDefinitionType.WEB
+    # Always use SANDBOX type
+    deployment_type = DeploymentDefinitionType.SANDBOX
 
     # Process idle_timeout
     sleep_idle_delay = _process_idle_timeout(idle_timeout, light_sleep_enabled)
@@ -449,7 +456,7 @@ def create_deployment_definition(
         routes=routes,
         instance_types=[DeploymentInstanceType(type=instance_type)],
         scalings=scalings,
-        regions=regions,
+        regions=regions_list,
     )
 
 
