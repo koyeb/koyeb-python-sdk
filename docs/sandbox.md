@@ -981,10 +981,10 @@ def create(cls,
            image: str = "koyeb/sandbox",
            name: str = "quick-sandbox",
            wait_ready: bool = True,
-           instance_type: str = "nano",
+           instance_type: str = "micro",
            exposed_port_protocol: Optional[str] = None,
            env: Optional[Dict[str, str]] = None,
-           regions: Optional[List[str]] = None,
+           region: Optional[str] = None,
            api_token: Optional[str] = None,
            timeout: int = 300,
            idle_timeout: Optional[IdleTimeout] = None,
@@ -1004,7 +1004,7 @@ Create a new sandbox instance.
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
 - `env` - Environment variables
-- `regions` - List of regions to deploy to (default: ["na"])
+- `region` - Region to deploy to (default: "na")
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
 - `idle_timeout` - Idle timeout configuration for scale-to-zero
@@ -1019,6 +1019,12 @@ Create a new sandbox instance.
 **Returns**:
 
 - `Sandbox` - A new Sandbox instance
+  
+
+**Raises**:
+
+- `ValueError` - If API token is not provided
+- `SandboxTimeoutError` - If wait_ready is True and sandbox does not become ready within timeout
 
 <a id="koyeb/sandbox.sandbox.Sandbox.get_from_id"></a>
 
@@ -1136,16 +1142,6 @@ This is only available if enable_tcp_proxy=True was set when creating the sandbo
 **Returns**:
 
   Optional[tuple[str, int]]: A tuple of (host, port) or None if unavailable
-
-<a id="koyeb/sandbox.sandbox.Sandbox.status"></a>
-
-#### status
-
-```python
-def status() -> str
-```
-
-Get current sandbox status
 
 <a id="koyeb/sandbox.sandbox.Sandbox.is_healthy"></a>
 
@@ -1453,7 +1449,7 @@ async def create(cls,
                  instance_type: str = "nano",
                  exposed_port_protocol: Optional[str] = None,
                  env: Optional[Dict[str, str]] = None,
-                 regions: Optional[List[str]] = None,
+                 region: Optional[str] = None,
                  api_token: Optional[str] = None,
                  timeout: int = 300,
                  idle_timeout: Optional[IdleTimeout] = None,
@@ -1473,7 +1469,7 @@ Create a new sandbox instance with async support.
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
 - `env` - Environment variables
-- `regions` - List of regions to deploy to (default: ["na"])
+- `region` - Region to deploy to (default: "na")
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
 - `idle_timeout` - Idle timeout configuration for scale-to-zero
@@ -1488,6 +1484,12 @@ Create a new sandbox instance with async support.
 **Returns**:
 
 - `AsyncSandbox` - A new AsyncSandbox instance
+  
+
+**Raises**:
+
+- `ValueError` - If API token is not provided
+- `SandboxTimeoutError` - If wait_ready is True and sandbox does not become ready within timeout
 
 <a id="koyeb/sandbox.sandbox.AsyncSandbox.wait_ready"></a>
 
@@ -1546,17 +1548,6 @@ async def delete() -> None
 ```
 
 Delete the sandbox instance asynchronously.
-
-<a id="koyeb/sandbox.sandbox.AsyncSandbox.status"></a>
-
-#### status
-
-```python
-@async_wrapper("status")
-async def status() -> str
-```
-
-Get current sandbox status asynchronously
 
 <a id="koyeb/sandbox.sandbox.AsyncSandbox.is_healthy"></a>
 
@@ -1782,7 +1773,9 @@ Build environment variables list from dictionary.
 #### create\_docker\_source
 
 ```python
-def create_docker_source(image: str, command_args: List[str]) -> DockerSource
+def create_docker_source(image: str,
+                         command_args: List[str],
+                         privileged: Optional[bool] = None) -> DockerSource
 ```
 
 Create Docker source configuration.
@@ -1791,6 +1784,7 @@ Create Docker source configuration.
 
 - `image` - Docker image name
 - `command_args` - Command and arguments to run (optional, empty list means use image default)
+- `privileged` - If True, run the container in privileged mode (default: None/False)
   
 
 **Returns**:
@@ -1866,7 +1860,7 @@ def create_deployment_definition(
         env_vars: List[DeploymentEnv],
         instance_type: str,
         exposed_port_protocol: Optional[str] = None,
-        regions: List[str] = None,
+        region: Optional[str] = None,
         routes: Optional[List[DeploymentRoute]] = None,
         idle_timeout: Optional[IdleTimeout] = None,
         light_sleep_enabled: bool = True,
@@ -1884,7 +1878,7 @@ Create deployment definition for a sandbox service.
 - `exposed_port_protocol` - Protocol to expose ports with ("http" or "http2").
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
-- `regions` - List of regions (defaults to ["na"])
+- `region` - Region to deploy to (defaults to "na")
 - `routes` - List of routes for public access
 - `idle_timeout` - Idle timeout configuration (see IdleTimeout type)
 - `light_sleep_enabled` - Whether light sleep is enabled for the instance type (default: True)
@@ -2087,6 +2081,16 @@ class SandboxError(Exception)
 ```
 
 Base exception for sandbox operations
+
+<a id="koyeb/sandbox.utils.SandboxTimeoutError"></a>
+
+## SandboxTimeoutError Objects
+
+```python
+class SandboxTimeoutError(SandboxError)
+```
+
+Raised when a sandbox operation times out
 
 <a id="koyeb/sandbox.executor_client"></a>
 
