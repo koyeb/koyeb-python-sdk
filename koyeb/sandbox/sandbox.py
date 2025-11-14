@@ -105,7 +105,7 @@ class Sandbox:
         image: str = "koyeb/sandbox",
         name: str = "quick-sandbox",
         wait_ready: bool = True,
-        instance_type: str = "nano",
+        instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         region: Optional[str] = None,
