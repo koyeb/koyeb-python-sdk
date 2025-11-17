@@ -1,6 +1,6 @@
 # coding: utf-8
 
-__version__ = "1.0.3"
+__version__ = "1.1.0"
 
 # Make Sandbox available at package level
 from .sandbox import Sandbox, AsyncSandbox
