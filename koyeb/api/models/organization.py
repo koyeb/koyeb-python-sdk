@@ -33,6 +33,7 @@ class Organization(BaseModel):
     """ # noqa: E501
     id: Optional[StrictStr] = None
     external_id: Optional[StrictStr] = None
+    provisioning: Optional[StrictBool] = None
     address1: Optional[StrictStr] = None
     address2: Optional[StrictStr] = None
     city: Optional[StrictStr] = None
@@ -61,7 +62,7 @@ class Organization(BaseModel):
     trial_starts_at: Optional[datetime] = None
     trial_ends_at: Optional[datetime] = None
     email_domain_allowlist: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["id", "external_id", "address1", "address2", "city", "postal_code", "state", "country", "company", "vat_number", "billing_name", "billing_email", "name", "plan", "plan_updated_at", "has_payment_method", "subscription_id", "current_subscription_id", "latest_subscription_id", "signup_qualification", "status", "status_message", "deactivation_reason", "verified", "qualifies_for_hobby23", "reprocess_after", "trialing", "trial_starts_at", "trial_ends_at", "email_domain_allowlist"]
+    __properties: ClassVar[List[str]] = ["id", "external_id", "provisioning", "address1", "address2", "city", "postal_code", "state", "country", "company", "vat_number", "billing_name", "billing_email", "name", "plan", "plan_updated_at", "has_payment_method", "subscription_id", "current_subscription_id", "latest_subscription_id", "signup_qualification", "status", "status_message", "deactivation_reason", "verified", "qualifies_for_hobby23", "reprocess_after", "trialing", "trial_starts_at", "trial_ends_at", "email_domain_allowlist"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -116,6 +117,7 @@ class Organization(BaseModel):
         _obj = cls.model_validate({
             "id": obj.get("id"),
             "external_id": obj.get("external_id"),
+            "provisioning": obj.get("provisioning"),
             "address1": obj.get("address1"),
             "address2": obj.get("address2"),
             "city": obj.get("city"),

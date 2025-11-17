@@ -13,3 +13,4 @@ push = false
 "koyeb/api/__init__.py" = ['__version__ = "{version}"']
 "koyeb/api/api_client.py" = ['OpenAPI-Generator/{version}']
 "koyeb/api/configuration.py" = ['SDK Package Version: {version}']
+"koyeb/sandbox/__init__.py" = ['__version__ = "{version}"']
