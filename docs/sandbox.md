@@ -987,9 +987,10 @@ def create(cls,
            region: Optional[str] = None,
            api_token: Optional[str] = None,
            timeout: int = 300,
-           idle_timeout: Optional[IdleTimeout] = None,
+           idle_timeout: Optional[IdleTimeout] = 300,
            enable_tcp_proxy: bool = False,
-           privileged: bool = False) -> Sandbox
+           privileged: bool = False,
+           _experimental_enable_light_sleep: bool = False) -> Sandbox
 ```
 
 Create a new sandbox instance.
@@ -1007,13 +1008,15 @@ Create a new sandbox instance.
 - `region` - Region to deploy to (default: "na")
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
-- `idle_timeout` - Idle timeout configuration for scale-to-zero
-  - None: Auto-enable (light_sleep=300s, deep_sleep=600s)
-  - 0: Disable scale-to-zero (keep always-on)
-  - int > 0: Deep sleep only (e.g., 600 for 600s deep sleep)
-  - dict: Explicit configuration with {"light_sleep": 300, "deep_sleep": 600}
+- `idle_timeout` - Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
+  - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep=3900)
+  - If _experimental_enable_light_sleep is False: sets deep_sleep value
+  - If 0: disables scale-to-zero (keep always-on)
+  - If None: uses default values
 - `enable_tcp_proxy` - If True, enables TCP proxy for direct TCP access to port 3031
 - `privileged` - If True, run the container in privileged mode (default: False)
+- `_experimental_enable_light_sleep` - If True, uses idle_timeout for light_sleep and sets
+  deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
   
 
 **Returns**:
@@ -1442,19 +1445,21 @@ Get a sandbox by service ID asynchronously.
 
 ```python
 @classmethod
-async def create(cls,
-                 image: str = "koyeb/sandbox",
-                 name: str = "quick-sandbox",
-                 wait_ready: bool = True,
-                 instance_type: str = "nano",
-                 exposed_port_protocol: Optional[str] = None,
-                 env: Optional[Dict[str, str]] = None,
-                 region: Optional[str] = None,
-                 api_token: Optional[str] = None,
-                 timeout: int = 300,
-                 idle_timeout: Optional[IdleTimeout] = None,
-                 enable_tcp_proxy: bool = False,
-                 privileged: bool = False) -> AsyncSandbox
+async def create(
+        cls,
+        image: str = "koyeb/sandbox",
+        name: str = "quick-sandbox",
+        wait_ready: bool = True,
+        instance_type: str = "nano",
+        exposed_port_protocol: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        region: Optional[str] = None,
+        api_token: Optional[str] = None,
+        timeout: int = 300,
+        idle_timeout: Optional[IdleTimeout] = 300,
+        enable_tcp_proxy: bool = False,
+        privileged: bool = False,
+        _experimental_enable_light_sleep: bool = False) -> AsyncSandbox
 ```
 
 Create a new sandbox instance with async support.
@@ -1472,13 +1477,15 @@ Create a new sandbox instance with async support.
 - `region` - Region to deploy to (default: "na")
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
-- `idle_timeout` - Idle timeout configuration for scale-to-zero
-  - None: Auto-enable (light_sleep=300s, deep_sleep=600s)
-  - 0: Disable scale-to-zero (keep always-on)
-  - int > 0: Deep sleep only (e.g., 600 for 600s deep sleep)
-  - dict: Explicit configuration with {"light_sleep": 300, "deep_sleep": 600}
+- `idle_timeout` - Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
+  - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep=3900)
+  - If _experimental_enable_light_sleep is False: sets deep_sleep value
+  - If 0: disables scale-to-zero (keep always-on)
+  - If None: uses default values
 - `enable_tcp_proxy` - If True, enables TCP proxy for direct TCP access to port 3031
 - `privileged` - If True, run the container in privileged mode (default: False)
+- `_experimental_enable_light_sleep` - If True, uses idle_timeout for light_sleep and sets
+  deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
   
 
 **Returns**:
@@ -1862,9 +1869,10 @@ def create_deployment_definition(
         exposed_port_protocol: Optional[str] = None,
         region: Optional[str] = None,
         routes: Optional[List[DeploymentRoute]] = None,
-        idle_timeout: Optional[IdleTimeout] = None,
-        light_sleep_enabled: bool = True,
-        enable_tcp_proxy: bool = False) -> DeploymentDefinition
+        idle_timeout: Optional[IdleTimeout] = 300,
+        enable_tcp_proxy: bool = False,
+        _experimental_enable_light_sleep: bool = False
+) -> DeploymentDefinition
 ```
 
 Create deployment definition for a sandbox service.
@@ -1880,9 +1888,10 @@ Create deployment definition for a sandbox service.
   If provided, must be one of "http" or "http2".
 - `region` - Region to deploy to (defaults to "na")
 - `routes` - List of routes for public access
-- `idle_timeout` - Idle timeout configuration (see IdleTimeout type)
-- `light_sleep_enabled` - Whether light sleep is enabled for the instance type (default: True)
+- `idle_timeout` - Number of seconds to wait before sleeping the instance if it receives no traffic
 - `enable_tcp_proxy` - If True, enables TCP proxy for direct TCP access to port 3031
+- `_experimental_enable_light_sleep` - If True, uses light sleep when reaching idle_timeout.
+  Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for 3600s before going into Deep Sleep.
   
 
 **Returns**:
