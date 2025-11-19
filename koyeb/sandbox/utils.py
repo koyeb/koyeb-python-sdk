@@ -8,7 +8,7 @@ import asyncio
 import logging
 import os
 import shlex
-from typing import Any, Callable, Dict, List, Literal, Optional, TypedDict, Union
+from typing import Any, Callable, Dict, List, Optional
 
 from koyeb.api import ApiClient, Configuration
 from koyeb.api.api import AppsApi, CatalogInstancesApi, InstancesApi, ServicesApi
@@ -46,23 +46,6 @@ ERROR_MESSAGES = {
     "FILE_EXISTS": ["exists", "already exists"],
     "DIR_NOT_EMPTY": ["not empty", "Directory not empty"],
 }
-
-# Type definitions for idle timeout
-IdleTimeoutSeconds = int
-
-
-class IdleTimeoutConfig(TypedDict, total=False):
-    """Configuration for idle timeout with light and deep sleep."""
-
-    light_sleep: IdleTimeoutSeconds  # Optional, but if provided, deep_sleep is required
-    deep_sleep: IdleTimeoutSeconds  # Required
-
-
-IdleTimeout = Union[
-    Literal[0],  # Disable scale-to-zero
-    IdleTimeoutSeconds,  # Deep sleep only (standard and GPU instances)
-    IdleTimeoutConfig,  # Explicit light_sleep/deep_sleep configuration
-]
 
 # Valid protocols for DeploymentPort (from OpenAPI spec: http, http2, tcp)
 # For sandboxes, we only support http and http2
@@ -244,7 +227,7 @@ def create_deployment_definition(
     exposed_port_protocol: Optional[str] = None,
     region: Optional[str] = None,
     routes: Optional[List[DeploymentRoute]] = None,
-    idle_timeout: Optional[IdleTimeout] = 300,
+    idle_timeout: int = 300,
     enable_tcp_proxy: bool = False,
     _experimental_enable_light_sleep: bool = False,
 ) -> DeploymentDefinition:
@@ -290,7 +273,7 @@ def create_deployment_definition(
     deployment_type = DeploymentDefinitionType.SANDBOX
 
     # Process idle_timeout
-    if idle_timeout is None or idle_timeout == 0:
+    if idle_timeout == 0:
         sleep_idle_delay = None
     elif _experimental_enable_light_sleep:
         # Experimental mode: idle_timeout sets light_sleep value, deep_sleep is always 3900
@@ -306,7 +289,7 @@ def create_deployment_definition(
 
     # Create scaling configuration
     # If idle_timeout is 0, explicitly disable scale-to-zero (min=1, always-on)
-    # Otherwise (None or int > 0), enable scale-to-zero (min=0)
+    # Otherwise (int > 0), enable scale-to-zero (min=0)
     min_scale = 1 if idle_timeout == 0 else 0
     targets = None
     if sleep_idle_delay is not None:
