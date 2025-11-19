@@ -1000,7 +1000,7 @@ Create a new sandbox instance.
 - `image` - Docker image to use (default: koyeb/sandbox)
 - `name` - Name of the sandbox
 - `wait_ready` - Wait for sandbox to be ready (default: True)
-- `instance_type` - Instance type (default: nano)
+- `instance_type` - Instance type (default: micro)
 - `exposed_port_protocol` - Protocol to expose ports with ("http" or "http2").
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
@@ -1450,7 +1450,7 @@ async def create(
         image: str = "koyeb/sandbox",
         name: str = "quick-sandbox",
         wait_ready: bool = True,
-        instance_type: str = "nano",
+        instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         region: Optional[str] = None,
@@ -1469,7 +1469,7 @@ Create a new sandbox instance with async support.
 - `image` - Docker image to use (default: koyeb/sandbox)
 - `name` - Name of the sandbox
 - `wait_ready` - Wait for sandbox to be ready (default: True)
-- `instance_type` - Instance type (default: nano)
+- `instance_type` - Instance type (default: micro)
 - `exposed_port_protocol` - Protocol to expose ports with ("http" or "http2").
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
