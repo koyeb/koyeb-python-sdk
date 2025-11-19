@@ -236,150 +236,6 @@ def create_koyeb_sandbox_routes() -> List[DeploymentRoute]:
     ]
 
 
-def _validate_idle_timeout(idle_timeout: Optional[IdleTimeout]) -> None:
-    """
-    Validate idle_timeout parameter according to spec.
-
-    Raises:
-        ValueError: If validation fails
-    """
-    if idle_timeout is None:
-        return
-
-    if isinstance(idle_timeout, int):
-        if idle_timeout < 0:
-            raise ValueError("idle_timeout must be >= 0")
-        if idle_timeout > 0:
-            # Deep sleep only - valid
-            return
-        # idle_timeout == 0 means disable scale-to-zero - valid
-        return
-
-    if isinstance(idle_timeout, dict):
-        if "deep_sleep" not in idle_timeout:
-            raise ValueError(
-                "idle_timeout dict must contain 'deep_sleep' key (at minimum)"
-            )
-
-        deep_sleep = idle_timeout.get("deep_sleep")
-        if deep_sleep is None or not isinstance(deep_sleep, int) or deep_sleep <= 0:
-            raise ValueError("deep_sleep must be a positive integer")
-
-        if "light_sleep" in idle_timeout:
-            light_sleep = idle_timeout.get("light_sleep")
-            if (
-                light_sleep is None
-                or not isinstance(light_sleep, int)
-                or light_sleep <= 0
-            ):
-                raise ValueError("light_sleep must be a positive integer")
-
-            if deep_sleep < light_sleep:
-                raise ValueError(
-                    "deep_sleep must be >= light_sleep when both are provided"
-                )
-
-
-def _is_light_sleep_enabled(
-    instance_type: str,
-    catalog_instances_api: Optional[CatalogInstancesApi] = None,
-) -> bool:
-    """
-    Check if light sleep is enabled for the instance type using API or fallback.
-
-    Args:
-        instance_type: Instance type string
-        catalog_instances_api: Optional CatalogInstancesApi client (if None, will try to create one)
-
-    Returns:
-        True if light sleep is enabled, False otherwise (defaults to True if API call fails)
-    """
-    try:
-        if catalog_instances_api is None:
-            _, _, _, catalog_instances_api = get_api_client(None)
-        response = catalog_instances_api.get_catalog_instance(id=instance_type)
-        if response and response.instance:
-            return response.instance.light_sleep_enabled or False
-    except (ApiException, NotFoundException):
-        # If API call fails, default to True (assume light sleep is enabled)
-        pass
-    except Exception:
-        # Any other error, default to True (assume light sleep is enabled)
-        pass
-    # Default to True if we can't determine from API
-    return True
-
-
-def _process_idle_timeout(
-    idle_timeout: Optional[IdleTimeout],
-    light_sleep_enabled: bool = True,
-) -> Optional[DeploymentScalingTargetSleepIdleDelay]:
-    """
-    Process idle_timeout parameter and convert to DeploymentScalingTargetSleepIdleDelay.
-
-    According to spec:
-    - If unsupported instance type: idle_timeout is silently ignored (returns None)
-    - None (default): Auto-enable light_sleep=300s, deep_sleep=600s
-    - 0: Explicitly disable scale-to-zero (returns None)
-    - int > 0: Deep sleep only
-    - dict: Explicit configuration
-    - If light_sleep_enabled is False for the instance type, light_sleep is ignored
-
-    Args:
-        idle_timeout: Idle timeout configuration
-        light_sleep_enabled: Whether light sleep is enabled for the instance type (default: True)
-
-    Returns:
-        DeploymentScalingTargetSleepIdleDelay or None if disabled/ignored
-    """
-    # Validate the parameter
-    _validate_idle_timeout(idle_timeout)
-
-    # Process according to spec
-    if idle_timeout is None:
-        # Default: Auto-enable light_sleep=300s, deep_sleep=600s
-        # If light sleep is not enabled, only use deep_sleep
-        if not light_sleep_enabled:
-            return DeploymentScalingTargetSleepIdleDelay(
-                deep_sleep_value=600,
-            )
-        return DeploymentScalingTargetSleepIdleDelay(
-            light_sleep_value=300,
-            deep_sleep_value=600,
-        )
-
-    if isinstance(idle_timeout, int):
-        if idle_timeout == 0:
-            # Explicitly disable scale-to-zero
-            return None
-        # Deep sleep only
-        return DeploymentScalingTargetSleepIdleDelay(
-            deep_sleep_value=idle_timeout,
-        )
-
-    if isinstance(idle_timeout, dict):
-        deep_sleep = idle_timeout.get("deep_sleep")
-        light_sleep = idle_timeout.get("light_sleep")
-
-        # If light sleep is not enabled, ignore light_sleep if provided
-        if not light_sleep_enabled:
-            return DeploymentScalingTargetSleepIdleDelay(
-                deep_sleep_value=deep_sleep,
-            )
-
-        if light_sleep is not None:
-            # Both light_sleep and deep_sleep provided
-            return DeploymentScalingTargetSleepIdleDelay(
-                light_sleep_value=light_sleep,
-                deep_sleep_value=deep_sleep,
-            )
-        else:
-            # Deep sleep only
-            return DeploymentScalingTargetSleepIdleDelay(
-                deep_sleep_value=deep_sleep,
-            )
-
-
 def create_deployment_definition(
     name: str,
     docker_source: DockerSource,
@@ -388,9 +244,9 @@ def create_deployment_definition(
     exposed_port_protocol: Optional[str] = None,
     region: Optional[str] = None,
     routes: Optional[List[DeploymentRoute]] = None,
-    idle_timeout: Optional[IdleTimeout] = None,
-    light_sleep_enabled: bool = True,
+    idle_timeout: Optional[IdleTimeout] = 300,
     enable_tcp_proxy: bool = False,
+    _experimental_enable_light_sleep: bool = False,
 ) -> DeploymentDefinition:
     """
     Create deployment definition for a sandbox service.
@@ -405,9 +261,10 @@ def create_deployment_definition(
             If provided, must be one of "http" or "http2".
         region: Region to deploy to (defaults to "na")
         routes: List of routes for public access
-        idle_timeout: Idle timeout configuration (see IdleTimeout type)
-        light_sleep_enabled: Whether light sleep is enabled for the instance type (default: True)
+        idle_timeout: Number of seconds to wait before sleeping the instance if it receives no traffic
         enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
+        _experimental_enable_light_sleep: If True, uses light sleep when reaching idle_timeout.
+            Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for 3600s before going into Deep Sleep.
 
     Returns:
         DeploymentDefinition object
@@ -433,11 +290,23 @@ def create_deployment_definition(
     deployment_type = DeploymentDefinitionType.SANDBOX
 
     # Process idle_timeout
-    sleep_idle_delay = _process_idle_timeout(idle_timeout, light_sleep_enabled)
+    if idle_timeout is None or idle_timeout == 0:
+        sleep_idle_delay = None
+    elif _experimental_enable_light_sleep:
+        # Experimental mode: idle_timeout sets light_sleep value, deep_sleep is always 3900
+        sleep_idle_delay = DeploymentScalingTargetSleepIdleDelay(
+            light_sleep_value=idle_timeout,
+            deep_sleep_value=3900,
+        )
+    else:
+        # Normal mode: only use deep_sleep
+        sleep_idle_delay = DeploymentScalingTargetSleepIdleDelay(
+            deep_sleep_value=idle_timeout,
+        )
 
     # Create scaling configuration
     # If idle_timeout is 0, explicitly disable scale-to-zero (min=1, always-on)
-    # Otherwise (None, int > 0, or dict), enable scale-to-zero (min=0)
+    # Otherwise (None or int > 0), enable scale-to-zero (min=0)
     min_scale = 1 if idle_timeout == 0 else 0
     targets = None
     if sleep_idle_delay is not None:

@@ -24,7 +24,6 @@ from .utils import (
     IdleTimeout,
     SandboxError,
     SandboxTimeoutError,
-    _is_light_sleep_enabled,
     async_wrapper,
     build_env_vars,
     create_deployment_definition,
@@ -111,9 +110,10 @@ class Sandbox:
         region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
-        idle_timeout: Optional[IdleTimeout] = None,
+        idle_timeout: Optional[IdleTimeout] = 300,
         enable_tcp_proxy: bool = False,
         privileged: bool = False,
+        _experimental_enable_light_sleep: bool = False,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -130,13 +130,15 @@ class Sandbox:
                 region: Region to deploy to (default: "na")
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
-                idle_timeout: Idle timeout configuration for scale-to-zero
-                    - None: Auto-enable (light_sleep=300s, deep_sleep=600s)
-                    - 0: Disable scale-to-zero (keep always-on)
-                    - int > 0: Deep sleep only (e.g., 600 for 600s deep sleep)
-                    - dict: Explicit configuration with {"light_sleep": 300, "deep_sleep": 600}
+                idle_timeout: Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
+                    - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep=3900)
+                    - If _experimental_enable_light_sleep is False: sets deep_sleep value
+                    - If 0: disables scale-to-zero (keep always-on)
+                    - If None: uses default values
                 enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
                 privileged: If True, run the container in privileged mode (default: False)
+                _experimental_enable_light_sleep: If True, uses idle_timeout for light_sleep and sets
+                    deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -164,6 +166,7 @@ class Sandbox:
             idle_timeout=idle_timeout,
             enable_tcp_proxy=enable_tcp_proxy,
             privileged=privileged,
+            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
         )
 
         if wait_ready:
@@ -188,9 +191,10 @@ class Sandbox:
         region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
-        idle_timeout: Optional[IdleTimeout] = None,
+        idle_timeout: Optional[IdleTimeout] = 300,
         enable_tcp_proxy: bool = False,
         privileged: bool = False,
+        _experimental_enable_light_sleep: bool = False,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
@@ -209,11 +213,6 @@ class Sandbox:
             env = {}
         env["SANDBOX_SECRET"] = sandbox_secret
 
-        # Check if light sleep is enabled for this instance type
-        light_sleep_enabled = _is_light_sleep_enabled(
-            instance_type, catalog_instances_api
-        )
-
         app_name = f"sandbox-app-{name}-{int(time.time())}"
         app_response = apps_api.create_app(app=CreateApp(name=app_name))
         app_id = app_response.app.id
@@ -229,8 +228,8 @@ class Sandbox:
             region=region,
             routes=routes,
             idle_timeout=idle_timeout,
-            light_sleep_enabled=light_sleep_enabled,
             enable_tcp_proxy=enable_tcp_proxy,
+            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
         )
 
         create_service = CreateService(app_id=app_id, definition=deployment_definition)
@@ -850,9 +849,10 @@ class AsyncSandbox(Sandbox):
         region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
-        idle_timeout: Optional[IdleTimeout] = None,
+        idle_timeout: Optional[IdleTimeout] = 300,
         enable_tcp_proxy: bool = False,
         privileged: bool = False,
+        _experimental_enable_light_sleep: bool = False,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -869,13 +869,15 @@ class AsyncSandbox(Sandbox):
                 region: Region to deploy to (default: "na")
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
-                idle_timeout: Idle timeout configuration for scale-to-zero
-                    - None: Auto-enable (light_sleep=300s, deep_sleep=600s)
-                    - 0: Disable scale-to-zero (keep always-on)
-                    - int > 0: Deep sleep only (e.g., 600 for 600s deep sleep)
-                    - dict: Explicit configuration with {"light_sleep": 300, "deep_sleep": 600}
+                idle_timeout: Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
+                    - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep=3900)
+                    - If _experimental_enable_light_sleep is False: sets deep_sleep value
+                    - If 0: disables scale-to-zero (keep always-on)
+                    - If None: uses default values
                 enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
                 privileged: If True, run the container in privileged mode (default: False)
+                _experimental_enable_light_sleep: If True, uses idle_timeout for light_sleep and sets
+                    deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -906,6 +908,7 @@ class AsyncSandbox(Sandbox):
                 idle_timeout=idle_timeout,
                 enable_tcp_proxy=enable_tcp_proxy,
                 privileged=privileged,
+                _experimental_enable_light_sleep=_experimental_enable_light_sleep,
             ),
         )
 
