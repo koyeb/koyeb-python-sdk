@@ -1876,51 +1876,6 @@ Create deployment definition for a sandbox service.
 
   DeploymentDefinition object
 
-<a id="koyeb/sandbox.utils.get_sandbox_status"></a>
-
-#### get\_sandbox\_status
-
-```python
-def get_sandbox_status(instance_id: str,
-                       api_token: Optional[str] = None) -> InstanceStatus
-```
-
-Get the current status of a sandbox instance.
-
-<a id="koyeb/sandbox.utils.is_sandbox_healthy"></a>
-
-#### is\_sandbox\_healthy
-
-```python
-def is_sandbox_healthy(instance_id: str,
-                       sandbox_url: str,
-                       sandbox_secret: str,
-                       api_token: Optional[str] = None) -> bool
-```
-
-Check if sandbox is healthy and ready for operations.
-
-This function requires both sandbox_url and sandbox_secret to properly check:
-1. The Koyeb instance status (via API) - using instance_id and api_token
-2. The sandbox executor health endpoint (via SandboxClient) - using sandbox_url and sandbox_secret
-
-**Arguments**:
-
-- `instance_id` - The Koyeb instance ID
-- `api_token` - Koyeb API token
-- `sandbox_url` - URL of the sandbox executor API (required)
-- `sandbox_secret` - Secret for sandbox executor authentication (required)
-  
-
-**Returns**:
-
-- `bool` - True if sandbox is healthy, False otherwise
-  
-
-**Raises**:
-
-- `ValueError` - If sandbox_url or sandbox_secret are not provided
-
 <a id="koyeb/sandbox.utils.escape_shell_arg"></a>
 
 #### escape\_shell\_arg
