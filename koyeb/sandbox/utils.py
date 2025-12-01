@@ -12,7 +12,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 from koyeb.api import ApiClient, Configuration
 from koyeb.api.api import AppsApi, CatalogInstancesApi, InstancesApi, ServicesApi
-from koyeb.api.exceptions import ApiException, NotFoundException
 from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
 from koyeb.api.models.deployment_env import DeploymentEnv
@@ -26,7 +25,6 @@ from koyeb.api.models.deployment_scaling_target_sleep_idle_delay import (
     DeploymentScalingTargetSleepIdleDelay,
 )
 from koyeb.api.models.docker_source import DockerSource
-from koyeb.api.models.instance_status import InstanceStatus
 from koyeb.api.models.proxy_port_protocol import ProxyPortProtocol
 
 # Setup logging
@@ -137,7 +135,10 @@ def build_env_vars(env: Optional[Dict[str, str]]) -> List[DeploymentEnv]:
 
 
 def create_docker_source(
-    image: str, command_args: List[str], privileged: Optional[bool] = None
+    image: str,
+    command_args: List[str],
+    privileged: Optional[bool] = None,
+    image_registry_secret: Optional[str] = None,
 ) -> DockerSource:
     """
     Create Docker source configuration.
@@ -146,6 +147,8 @@ def create_docker_source(
         image: Docker image name
         command_args: Command and arguments to run (optional, empty list means use image default)
         privileged: If True, run the container in privileged mode (default: None/False)
+        image_registry_secret: Name of the secret containing registry credentials
+            for pulling private images
 
     Returns:
         DockerSource object
@@ -155,6 +158,7 @@ def create_docker_source(
         command=command_args[0] if command_args else None,
         args=list(command_args[1:]) if len(command_args) > 1 else None,
         privileged=privileged,
+        image_registry_secret=image_registry_secret,
     )
 
 

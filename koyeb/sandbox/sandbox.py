@@ -112,6 +112,7 @@ class Sandbox:
         idle_timeout: int = 300,
         enable_tcp_proxy: bool = False,
         privileged: bool = False,
+        registry_secret: Optional[str] = None,
         _experimental_enable_light_sleep: bool = False,
     ) -> Sandbox:
         """
@@ -136,6 +137,8 @@ class Sandbox:
                     - If None: uses default values
                 enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
                 privileged: If True, run the container in privileged mode (default: False)
+                registry_secret: Name of a Koyeb secret containing registry credentials for
+                    pulling private images. Create the secret via Koyeb dashboard or CLI first.
                 _experimental_enable_light_sleep: If True, uses idle_timeout for light_sleep and sets
                     deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
 
@@ -145,6 +148,16 @@ class Sandbox:
         Raises:
                 ValueError: If API token is not provided
                 SandboxTimeoutError: If wait_ready is True and sandbox does not become ready within timeout
+
+        Example:
+            >>> # Public image (default)
+            >>> sandbox = Sandbox.create()
+
+            >>> # Private image with registry secret
+            >>> sandbox = Sandbox.create(
+            ...     image="ghcr.io/myorg/myimage:latest",
+            ...     registry_secret="my-ghcr-secret"
+            ... )
         """
         if api_token is None:
             api_token = os.getenv("KOYEB_API_TOKEN")
@@ -165,6 +178,7 @@ class Sandbox:
             idle_timeout=idle_timeout,
             enable_tcp_proxy=enable_tcp_proxy,
             privileged=privileged,
+            registry_secret=registry_secret,
             _experimental_enable_light_sleep=_experimental_enable_light_sleep,
         )
 
@@ -193,6 +207,7 @@ class Sandbox:
         idle_timeout: int = 300,
         enable_tcp_proxy: bool = False,
         privileged: bool = False,
+        registry_secret: Optional[str] = None,
         _experimental_enable_light_sleep: bool = False,
     ) -> Sandbox:
         """
@@ -217,7 +232,9 @@ class Sandbox:
         app_id = app_response.app.id
 
         env_vars = build_env_vars(env)
-        docker_source = create_docker_source(image, [], privileged=privileged)
+        docker_source = create_docker_source(
+            image, [], privileged=privileged, image_registry_secret=registry_secret
+        )
         deployment_definition = create_deployment_definition(
             name=name,
             docker_source=docker_source,
@@ -850,6 +867,7 @@ class AsyncSandbox(Sandbox):
         idle_timeout: int = 300,
         enable_tcp_proxy: bool = False,
         privileged: bool = False,
+        registry_secret: Optional[str] = None,
         _experimental_enable_light_sleep: bool = False,
     ) -> AsyncSandbox:
         """
@@ -874,6 +892,8 @@ class AsyncSandbox(Sandbox):
                     - If None: uses default values
                 enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
                 privileged: If True, run the container in privileged mode (default: False)
+                registry_secret: Name of a Koyeb secret containing registry credentials for
+                    pulling private images. Create the secret via Koyeb dashboard or CLI first.
                 _experimental_enable_light_sleep: If True, uses idle_timeout for light_sleep and sets
                     deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
 
@@ -906,6 +926,7 @@ class AsyncSandbox(Sandbox):
                 idle_timeout=idle_timeout,
                 enable_tcp_proxy=enable_tcp_proxy,
                 privileged=privileged,
+                registry_secret=registry_secret,
                 _experimental_enable_light_sleep=_experimental_enable_light_sleep,
             ),
         )
