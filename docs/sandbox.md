@@ -272,27 +272,29 @@ Read a file from the sandbox synchronously.
 **Arguments**:
 
 - `path` - Absolute path to the file
-- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
+- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data,
+  which will decode the base64 content and return bytes.
   
 
 **Returns**:
 
-- `FileInfo` - Object with content and encoding
+- `FileInfo` - Object with content (str or bytes if base64) and encoding
 
 <a id="koyeb/sandbox.filesystem.SandboxFilesystem.mkdir"></a>
 
 #### mkdir
 
 ```python
-def mkdir(path: str, recursive: bool = False) -> None
+def mkdir(path: str) -> None
 ```
 
 Create a directory synchronously.
 
+Note: Parent directories are always created automatically by the API.
+
 **Arguments**:
 
 - `path` - Absolute path to the directory
-- `recursive` - Create parent directories if needed (default: False, not used - API always creates parents)
 
 <a id="koyeb/sandbox.filesystem.SandboxFilesystem.list_dir"></a>
 
@@ -501,7 +503,7 @@ Remove file or directory synchronously.
 #### open
 
 ```python
-def open(path: str, mode: str = "r") -> SandboxFileIO
+def open(path: str, mode: str = "r", encoding: str = "utf-8") -> SandboxFileIO
 ```
 
 Open a file in the sandbox synchronously.
@@ -510,6 +512,7 @@ Open a file in the sandbox synchronously.
 
 - `path` - Path to the file
 - `mode` - Open mode ('r', 'w', 'a', etc.)
+- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
   
 
 **Returns**:
@@ -560,12 +563,13 @@ Read a file from the sandbox asynchronously.
 **Arguments**:
 
 - `path` - Absolute path to the file
-- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
+- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data,
+  which will decode the base64 content and return bytes.
   
 
 **Returns**:
 
-- `FileInfo` - Object with content and encoding
+- `FileInfo` - Object with content (str or bytes if base64) and encoding
 
 <a id="koyeb/sandbox.filesystem.AsyncSandboxFilesystem.mkdir"></a>
 
@@ -573,15 +577,16 @@ Read a file from the sandbox asynchronously.
 
 ```python
 @async_wrapper("mkdir")
-async def mkdir(path: str, recursive: bool = False) -> None
+async def mkdir(path: str) -> None
 ```
 
 Create a directory asynchronously.
 
+Note: Parent directories are always created automatically by the API.
+
 **Arguments**:
 
 - `path` - Absolute path to the directory
-- `recursive` - Create parent directories if needed (default: False, not used - API always creates parents)
 
 <a id="koyeb/sandbox.filesystem.AsyncSandboxFilesystem.list_dir"></a>
 
@@ -790,7 +795,9 @@ Remove file or directory asynchronously.
 #### open
 
 ```python
-def open(path: str, mode: str = "r") -> AsyncSandboxFileIO
+def open(path: str,
+         mode: str = "r",
+         encoding: str = "utf-8") -> AsyncSandboxFileIO
 ```
 
 Open a file in the sandbox asynchronously.
@@ -799,6 +806,7 @@ Open a file in the sandbox asynchronously.
 
 - `path` - Path to the file
 - `mode` - Open mode ('r', 'w', 'a', etc.)
+- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
   
 
 **Returns**:
@@ -820,7 +828,7 @@ Synchronous file I/O handle for sandbox files
 #### read
 
 ```python
-def read() -> str
+def read() -> Union[str, bytes]
 ```
 
 Read file content synchronously
@@ -830,7 +838,7 @@ Read file content synchronously
 #### write
 
 ```python
-def write(content: str) -> None
+def write(content: Union[str, bytes]) -> None
 ```
 
 Write content to file synchronously
@@ -860,7 +868,7 @@ Async file I/O handle for sandbox files
 #### read
 
 ```python
-async def read() -> str
+async def read() -> Union[str, bytes]
 ```
 
 Read file content asynchronously
@@ -870,7 +878,7 @@ Read file content asynchronously
 #### write
 
 ```python
-async def write(content: str) -> None
+async def write(content: Union[str, bytes]) -> None
 ```
 
 Write content to file asynchronously
@@ -990,6 +998,7 @@ def create(cls,
            idle_timeout: int = 300,
            enable_tcp_proxy: bool = False,
            privileged: bool = False,
+           registry_secret: Optional[str] = None,
            _experimental_enable_light_sleep: bool = False) -> Sandbox
 ```
 
@@ -1015,6 +1024,8 @@ Create a new sandbox instance.
   - If None: uses default values
 - `enable_tcp_proxy` - If True, enables TCP proxy for direct TCP access to port 3031
 - `privileged` - If True, run the container in privileged mode (default: False)
+- `registry_secret` - Name of a Koyeb secret containing registry credentials for
+  pulling private images. Create the secret via Koyeb dashboard or CLI first.
 - `_experimental_enable_light_sleep` - If True, uses idle_timeout for light_sleep and sets
   deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
   
@@ -1028,6 +1039,18 @@ Create a new sandbox instance.
 
 - `ValueError` - If API token is not provided
 - `SandboxTimeoutError` - If wait_ready is True and sandbox does not become ready within timeout
+  
+
+**Example**:
+
+  >>> # Public image (default)
+  >>> sandbox = Sandbox.create()
+  
+  >>> # Private image with registry secret
+  >>> sandbox = Sandbox.create(
+  ...     image="ghcr.io/myorg/myimage:latest",
+  ...     registry_secret="my-ghcr-secret"
+  ... )
 
 <a id="koyeb/sandbox.sandbox.Sandbox.get_from_id"></a>
 
@@ -1459,6 +1482,7 @@ async def create(
         idle_timeout: int = 300,
         enable_tcp_proxy: bool = False,
         privileged: bool = False,
+        registry_secret: Optional[str] = None,
         _experimental_enable_light_sleep: bool = False) -> AsyncSandbox
 ```
 
@@ -1484,6 +1508,8 @@ Create a new sandbox instance with async support.
   - If None: uses default values
 - `enable_tcp_proxy` - If True, enables TCP proxy for direct TCP access to port 3031
 - `privileged` - If True, run the container in privileged mode (default: False)
+- `registry_secret` - Name of a Koyeb secret containing registry credentials for
+  pulling private images. Create the secret via Koyeb dashboard or CLI first.
 - `_experimental_enable_light_sleep` - If True, uses idle_timeout for light_sleep and sets
   deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
   
@@ -1758,9 +1784,11 @@ Build environment variables list from dictionary.
 #### create\_docker\_source
 
 ```python
-def create_docker_source(image: str,
-                         command_args: List[str],
-                         privileged: Optional[bool] = None) -> DockerSource
+def create_docker_source(
+        image: str,
+        command_args: List[str],
+        privileged: Optional[bool] = None,
+        image_registry_secret: Optional[str] = None) -> DockerSource
 ```
 
 Create Docker source configuration.
@@ -1770,6 +1798,8 @@ Create Docker source configuration.
 - `image` - Docker image name
 - `command_args` - Command and arguments to run (optional, empty list means use image default)
 - `privileged` - If True, run the container in privileged mode (default: None/False)
+- `image_registry_secret` - Name of the secret containing registry credentials
+  for pulling private images
   
 
 **Returns**:
