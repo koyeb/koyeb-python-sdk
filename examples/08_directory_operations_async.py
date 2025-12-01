@@ -27,16 +27,16 @@ async def main():
         # Create directory
         await fs.mkdir("/tmp/my_project")
 
-        # Create nested directories
-        await fs.mkdir("/tmp/my_project/src/utils", recursive=True)
+        # Create nested directories (API creates parents automatically)
+        await fs.mkdir("/tmp/my_project/src/utils")
 
         # List directory
         contents = await fs.list_dir("/tmp/my_project")
         print(f"Contents: {contents}")
 
         # Create project structure
-        await fs.mkdir("/tmp/my_project/src", recursive=True)
-        await fs.mkdir("/tmp/my_project/tests", recursive=True)
+        await fs.mkdir("/tmp/my_project/src")
+        await fs.mkdir("/tmp/my_project/tests")
         await fs.write_file("/tmp/my_project/src/main.py", "print('Hello')")
         await fs.write_file("/tmp/my_project/README.md", "# My Project")
 

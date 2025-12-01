@@ -27,7 +27,7 @@ async def main():
         # Setup
         await fs.write_file("/tmp/file1.txt", "Content of file 1")
         await fs.write_file("/tmp/file2.txt", "Content of file 2")
-        await fs.mkdir("/tmp/test_dir", recursive=True)
+        await fs.mkdir("/tmp/test_dir")
 
         # Rename file
         await fs.rename_file("/tmp/file1.txt", "/tmp/renamed_file.txt")

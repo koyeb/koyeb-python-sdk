@@ -26,16 +26,16 @@ def main():
         # Create directory
         fs.mkdir("/tmp/my_project")
 
-        # Create nested directories
-        fs.mkdir("/tmp/my_project/src/utils", recursive=True)
+        # Create nested directories (API creates parents automatically)
+        fs.mkdir("/tmp/my_project/src/utils")
 
         # List directory
         contents = fs.list_dir("/tmp/my_project")
         print(f"Contents: {contents}")
 
         # Create project structure
-        fs.mkdir("/tmp/my_project/src", recursive=True)
-        fs.mkdir("/tmp/my_project/tests", recursive=True)
+        fs.mkdir("/tmp/my_project/src")
+        fs.mkdir("/tmp/my_project/tests")
         fs.write_file("/tmp/my_project/src/main.py", "print('Hello')")
         fs.write_file("/tmp/my_project/README.md", "# My Project")
 
