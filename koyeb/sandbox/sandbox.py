@@ -388,8 +388,7 @@ class Sandbox:
 
     def delete(self) -> None:
         """Delete the sandbox instance."""
-        apps_api, services_api, _, _ = get_api_client(self.api_token)
-        services_api.delete_service(self.service_id)
+        apps_api, _, _, _ = get_api_client(self.api_token)
         apps_api.delete_app(self.app_id)
 
     def get_domain(self) -> Optional[str]:
