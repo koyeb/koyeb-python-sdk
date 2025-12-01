@@ -42,7 +42,7 @@ class SandboxFileExistsError(SandboxFilesystemError):
 class FileInfo:
     """File information"""
 
-    content: str
+    content: Union[str, bytes]
     encoding: str
 
 
@@ -87,10 +87,15 @@ class SandboxFilesystem:
             content: Content to write (string or bytes)
             encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
         """
+        import base64
+
         client = self._get_client()
 
         if isinstance(content, bytes):
-            content_str = content.decode("utf-8")
+            if encoding == "base64":
+                content_str = base64.b64encode(content).decode("ascii")
+            else:
+                content_str = content.decode(encoding)
         else:
             content_str = content
 
@@ -110,11 +115,14 @@ class SandboxFilesystem:
 
         Args:
             path: Absolute path to the file
-            encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
+            encoding: File encoding (default: "utf-8"). Use "base64" for binary data,
+                      which will decode the base64 content and return bytes.
 
         Returns:
-            FileInfo: Object with content and encoding
+            FileInfo: Object with content (str or bytes if base64) and encoding
         """
+        import base64 as base64_module
+
         client = self._get_client()
 
         try:
@@ -124,7 +132,11 @@ class SandboxFilesystem:
                 if check_error_message(error_msg, "NO_SUCH_FILE"):
                     raise SandboxFileNotFoundError(f"File not found: {path}")
                 raise SandboxFilesystemError(f"Failed to read file: {error_msg}")
-            content = response.get("content", "")
+            content_str = response.get("content", "")
+            if encoding == "base64":
+                content: Union[str, bytes] = base64_module.b64decode(content_str)
+            else:
+                content = content_str
             return FileInfo(content=content, encoding=encoding)
         except (SandboxFileNotFoundError, SandboxFilesystemError):
             raise
@@ -134,13 +146,14 @@ class SandboxFilesystem:
                 raise SandboxFileNotFoundError(f"File not found: {path}") from e
             raise SandboxFilesystemError(f"Failed to read file: {error_msg}") from e
 
-    def mkdir(self, path: str, recursive: bool = False) -> None:
+    def mkdir(self, path: str) -> None:
         """
         Create a directory synchronously.
 
+        Note: Parent directories are always created automatically by the API.
+
         Args:
             path: Absolute path to the directory
-            recursive: Create parent directories if needed (default: False, not used - API always creates parents)
         """
         client = self._get_client()
 
@@ -341,23 +354,7 @@ class SandboxFilesystem:
         with open(local_path, "rb") as f:
             content_bytes = f.read()
 
-        if encoding == "base64":
-            import base64
-
-            content = base64.b64encode(content_bytes).decode("ascii")
-            self.write_file(remote_path, content, encoding="base64")
-        else:
-            try:
-                content = content_bytes.decode(encoding)
-                self.write_file(remote_path, content, encoding=encoding)
-            except UnicodeDecodeError as e:
-                raise UnicodeDecodeError(
-                    e.encoding,
-                    e.object,
-                    e.start,
-                    e.end,
-                    f"Cannot decode file as {encoding}. Use encoding='base64' for binary files.",
-                ) from e
+        self.write_file(remote_path, content_bytes, encoding=encoding)
 
     def download_file(
         self, remote_path: str, local_path: str, encoding: str = "utf-8"
@@ -375,10 +372,8 @@ class SandboxFilesystem:
         """
         file_info = self.read_file(remote_path, encoding=encoding)
 
-        if encoding == "base64":
-            import base64
-
-            content_bytes = base64.b64decode(file_info.content)
+        if isinstance(file_info.content, bytes):
+            content_bytes = file_info.content
         else:
             content_bytes = file_info.content.encode(encoding)
 
@@ -418,18 +413,21 @@ class SandboxFilesystem:
                 raise SandboxFileNotFoundError(f"File not found: {path}")
             raise SandboxFilesystemError(f"Failed to remove: {result.stderr}")
 
-    def open(self, path: str, mode: str = "r") -> SandboxFileIO:
+    def open(
+        self, path: str, mode: str = "r", encoding: str = "utf-8"
+    ) -> SandboxFileIO:
         """
         Open a file in the sandbox synchronously.
 
         Args:
             path: Path to the file
             mode: Open mode ('r', 'w', 'a', etc.)
+            encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
 
         Returns:
             SandboxFileIO: File handle
         """
-        return SandboxFileIO(self, path, mode)
+        return SandboxFileIO(self, path, mode, encoding)
 
 
 class AsyncSandboxFilesystem(SandboxFilesystem):
@@ -473,21 +471,23 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
 
         Args:
             path: Absolute path to the file
-            encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
+            encoding: File encoding (default: "utf-8"). Use "base64" for binary data,
+                      which will decode the base64 content and return bytes.
 
         Returns:
-            FileInfo: Object with content and encoding
+            FileInfo: Object with content (str or bytes if base64) and encoding
         """
         pass
 
     @async_wrapper("mkdir")
-    async def mkdir(self, path: str, recursive: bool = False) -> None:
+    async def mkdir(self, path: str) -> None:
         """
         Create a directory asynchronously.
 
+        Note: Parent directories are always created automatically by the API.
+
         Args:
             path: Absolute path to the directory
-            recursive: Create parent directories if needed (default: False, not used - API always creates parents)
         """
         pass
 
@@ -625,30 +625,40 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """
         pass
 
-    def open(self, path: str, mode: str = "r") -> AsyncSandboxFileIO:
+    def open(
+        self, path: str, mode: str = "r", encoding: str = "utf-8"
+    ) -> AsyncSandboxFileIO:
         """
         Open a file in the sandbox asynchronously.
 
         Args:
             path: Path to the file
             mode: Open mode ('r', 'w', 'a', etc.)
+            encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
 
         Returns:
             AsyncSandboxFileIO: Async file handle
         """
-        return AsyncSandboxFileIO(self, path, mode)
+        return AsyncSandboxFileIO(self, path, mode, encoding)
 
 
 class SandboxFileIO:
     """Synchronous file I/O handle for sandbox files"""
 
-    def __init__(self, filesystem: SandboxFilesystem, path: str, mode: str):
+    def __init__(
+        self,
+        filesystem: SandboxFilesystem,
+        path: str,
+        mode: str,
+        encoding: str = "utf-8",
+    ):
         self.filesystem = filesystem
         self.path = path
         self.mode = mode
+        self.encoding = encoding
         self._closed = False
 
-    def read(self) -> str:
+    def read(self) -> Union[str, bytes]:
         """Read file content synchronously"""
         if "r" not in self.mode:
             raise ValueError("File not opened for reading")
@@ -656,10 +666,10 @@ class SandboxFileIO:
         if self._closed:
             raise ValueError("File is closed")
 
-        file_info = self.filesystem.read_file(self.path)
+        file_info = self.filesystem.read_file(self.path, encoding=self.encoding)
         return file_info.content
 
-    def write(self, content: str) -> None:
+    def write(self, content: Union[str, bytes]) -> None:
         """Write content to file synchronously"""
         if "w" not in self.mode and "a" not in self.mode:
             raise ValueError("File not opened for writing")
@@ -669,12 +679,17 @@ class SandboxFileIO:
 
         if "a" in self.mode:
             try:
-                existing = self.filesystem.read_file(self.path)
-                content = existing.content + content
+                existing = self.filesystem.read_file(self.path, encoding=self.encoding)
+                if isinstance(existing.content, bytes) and isinstance(content, bytes):
+                    content = existing.content + content
+                elif isinstance(existing.content, str) and isinstance(content, str):
+                    content = existing.content + content
+                else:
+                    raise TypeError("Cannot mix bytes and str content in append mode")
             except SandboxFileNotFoundError:
                 pass
 
-        self.filesystem.write_file(self.path, content)
+        self.filesystem.write_file(self.path, content, encoding=self.encoding)
 
     def close(self) -> None:
         """Close the file"""
@@ -690,13 +705,20 @@ class SandboxFileIO:
 class AsyncSandboxFileIO:
     """Async file I/O handle for sandbox files"""
 
-    def __init__(self, filesystem: AsyncSandboxFilesystem, path: str, mode: str):
+    def __init__(
+        self,
+        filesystem: AsyncSandboxFilesystem,
+        path: str,
+        mode: str,
+        encoding: str = "utf-8",
+    ):
         self.filesystem = filesystem
         self.path = path
         self.mode = mode
+        self.encoding = encoding
         self._closed = False
 
-    async def read(self) -> str:
+    async def read(self) -> Union[str, bytes]:
         """Read file content asynchronously"""
         if "r" not in self.mode:
             raise ValueError("File not opened for reading")
@@ -704,10 +726,10 @@ class AsyncSandboxFileIO:
         if self._closed:
             raise ValueError("File is closed")
 
-        file_info = await self.filesystem.read_file(self.path)
+        file_info = await self.filesystem.read_file(self.path, encoding=self.encoding)
         return file_info.content
 
-    async def write(self, content: str) -> None:
+    async def write(self, content: Union[str, bytes]) -> None:
         """Write content to file asynchronously"""
         if "w" not in self.mode and "a" not in self.mode:
             raise ValueError("File not opened for writing")
@@ -717,12 +739,19 @@ class AsyncSandboxFileIO:
 
         if "a" in self.mode:
             try:
-                existing = await self.filesystem.read_file(self.path)
-                content = existing.content + content
+                existing = await self.filesystem.read_file(
+                    self.path, encoding=self.encoding
+                )
+                if isinstance(existing.content, bytes) and isinstance(content, bytes):
+                    content = existing.content + content
+                elif isinstance(existing.content, str) and isinstance(content, str):
+                    content = existing.content + content
+                else:
+                    raise TypeError("Cannot mix bytes and str content in append mode")
             except SandboxFileNotFoundError:
                 pass
 
-        await self.filesystem.write_file(self.path, content)
+        await self.filesystem.write_file(self.path, content, encoding=self.encoding)
 
     def close(self) -> None:
         """Close the file"""

@@ -26,7 +26,7 @@ def main():
         # Setup
         fs.write_file("/tmp/file1.txt", "Content of file 1")
         fs.write_file("/tmp/file2.txt", "Content of file 2")
-        fs.mkdir("/tmp/test_dir", recursive=True)
+        fs.mkdir("/tmp/test_dir")
 
         # Rename file
         fs.rename_file("/tmp/file1.txt", "/tmp/renamed_file.txt")

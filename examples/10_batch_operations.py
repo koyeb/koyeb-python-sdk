@@ -45,7 +45,7 @@ def main():
             {"path": "/tmp/project/README.md", "content": "# My Project"},
         ]
 
-        fs.mkdir("/tmp/project", recursive=True)
+        fs.mkdir("/tmp/project")
         fs.write_files(project_files)
         print("Created project structure")
 

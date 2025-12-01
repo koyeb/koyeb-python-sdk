@@ -46,7 +46,7 @@ async def main():
             {"path": "/tmp/project/README.md", "content": "# My Project"},
         ]
 
-        await fs.mkdir("/tmp/project", recursive=True)
+        await fs.mkdir("/tmp/project")
         await fs.write_files(project_files)
         print("Created project structure")
 

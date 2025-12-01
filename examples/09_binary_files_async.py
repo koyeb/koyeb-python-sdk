@@ -2,7 +2,6 @@
 """Binary file operations (async variant)"""
 
 import asyncio
-import base64
 import os
 
 from koyeb import AsyncSandbox
@@ -25,17 +24,15 @@ async def main():
 
         fs = sandbox.filesystem
 
-        # Write binary data
+        # Write binary data (encoding="base64" handles the encoding automatically)
         binary_data = b"Binary data: \x00\x01\x02\x03\xff\xfe\xfd"
-        base64_data = base64.b64encode(binary_data).decode("utf-8")
-        await fs.write_file("/tmp/binary.bin", base64_data, encoding="base64")
+        await fs.write_file("/tmp/binary.bin", binary_data, encoding="base64")
 
-        # Read binary data
+        # Read binary data (encoding="base64" decodes and returns bytes)
         file_info = await fs.read_file("/tmp/binary.bin", encoding="base64")
-        decoded = base64.b64decode(file_info.content)
         print(f"Original: {binary_data}")
-        print(f"Decoded: {decoded}")
-        assert binary_data == decoded
+        print(f"Read back: {file_info.content}")
+        assert binary_data == file_info.content
 
     except Exception as e:
         print(f"Error: {e}")
