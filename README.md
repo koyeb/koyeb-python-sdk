@@ -9,7 +9,7 @@ This is the official Python SDK for Koyeb, a platform that allows you to deploy 
 
 ## Koyeb Sanboxes
 
-A **Kode sandbox** is an isolated, ephemeral environment designed to safely run, test, and experiment with code without affecting other systems or requiring complex setup. It provides developers with a virtualized or containerized execution space where dependencies, environment variables, and runtime contexts can be fully controlled and discarded after use.
+A **Koyeb sandbox** is an isolated, ephemeral environment designed to safely run, test, and experiment with code without affecting other systems or requiring complex setup. It provides developers with a virtualized or containerized execution space where dependencies, environment variables, and runtime contexts can be fully controlled and discarded after use.
 
 You should use a sandbox to:
 
@@ -19,6 +19,81 @@ You should use a sandbox to:
 - Demonstrate functionality without configuring local infrastructure
 
 Sandboxes are especially valuable in platforms for AI model evaluation, online coding environments, CI/CD pipelines, and educational tools that require safe, reproducible, and on-demand compute environments.
+
+## Install the SDK
+
+```bash
+pip install koyeb-sdk
+```
+
+### Set the Koyeb API token
+
+Using the Koyeb Python SDK requires an API token. Complete the following steps to generate the token and make it accessible to your environment:
+
+1. In the Koyeb control panel, navigate to [Settings](https://app.koyeb.com/settings).
+1. Click the **API** tab.
+1. Click **Create API token** and provide a name and description. You can use the following:
+    Name:
+    ```copy
+    sandbox-quickstart
+    ```
+    Description:
+    ```copy
+    For accessing the Koyeb Python SDK to generate sandboxes
+    ```
+1. Click **Create** to complete token creation. Note that the token value will not be accessible later, so take note of it as needed.
+1. In the terminal, set the API token to be accessible to your Python environment, replacing the placeholder with your API token:
+    ```bash copy
+    export KOYEB_API_TOKEN="YOUR_API_TOKEN"
+    ```
+
+### Example sandbox code
+
+See the [examples](/examples) directory for more basic operations.
+
+Create a file called `main.py` and add the following application code:
+
+```python filename="main.py" copy
+import os
+from koyeb import Sandbox
+
+sandbox = Sandbox.create(
+    image="ubuntu",
+    name="file-ops",
+    wait_ready=True,
+)
+
+fs = sandbox.filesystem
+
+# Write Python script
+python_code = "#!/usr/bin/env python3\nprint('Hello from Python!')\n"
+fs.write_file("/tmp/script.py", python_code)
+sandbox.exec("chmod +x /tmp/script.py")
+result = sandbox.exec("/tmp/script.py")
+print(result.stdout.strip())
+
+sandbox.delete()
+```
+
+This code does the following:
+- Creates a new sandbox environment using an image of Ubuntu.
+- Creates a new Python file in the sandbox at `tmp/script.py` and adds a "Hello from Python" message to the file.
+- Sets the file as executable using `chmod +x`.
+- Executes the Python file.
+- Prints the result using `stdout`.
+- Deletes the sandbox.
+
+## Run the code
+
+Use the following command to run your code:
+
+```bash copy
+python main.py
+```
+
+Your environment spins up in seconds! Then in terminal logs, you'll see the `'Hello from Python!'` response.
+
+You can also follow along in the [Sandboxes tab](https://app.koyeb.com/sandboxes) of the Koyeb control panel to see as your sandbox environment is set up and then removed.
 
 With **Koyeb Sandboxes**, you can manage fully flexible sandbox environments at scale using the Koyeb Python SDK.
 
