@@ -117,6 +117,7 @@ class Sandbox:
         _experimental_enable_light_sleep: bool = False,
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
+        app_id: Optional[str] = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -148,6 +149,7 @@ class Sandbox:
                     after this many seconds since creation.
                 delete_after_sleep: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
+                app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -189,6 +191,7 @@ class Sandbox:
             _experimental_enable_light_sleep=_experimental_enable_light_sleep,
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
+            app_id=app_id,
         )
 
         if wait_ready:
@@ -220,6 +223,7 @@ class Sandbox:
         _experimental_enable_light_sleep: bool = False,
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
+        app_id: Optional[str] = None,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
@@ -239,13 +243,15 @@ class Sandbox:
             env = {}
         env["SANDBOX_SECRET"] = sandbox_secret
 
-        app_name = f"sandbox-app-{name}-{int(time.time())}"
-        app_response = apps_api.create_app(
-            app=CreateApp(
-                name=app_name, life_cycle=AppLifeCycle(delete_when_empty=True)
+        # Use provided app_id or create a new app
+        if app_id is None:
+            app_name = f"sandbox-app-{name}-{int(time.time())}"
+            app_response = apps_api.create_app(
+                app=CreateApp(
+                    name=app_name, life_cycle=AppLifeCycle(delete_when_empty=True)
+                )
             )
-        )
-        app_id = app_response.app.id
+            app_id = app_response.app.id
 
         env_vars = build_env_vars(env)
         docker_source = create_docker_source(
@@ -948,6 +954,7 @@ class AsyncSandbox(Sandbox):
         _experimental_enable_light_sleep: bool = False,
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
+        app_id: Optional[str] = None,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -979,6 +986,7 @@ class AsyncSandbox(Sandbox):
                     after this many seconds since creation.
                 delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
+                app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -1013,6 +1021,7 @@ class AsyncSandbox(Sandbox):
                 _experimental_enable_light_sleep=_experimental_enable_light_sleep,
                 delete_after_delay=delete_after_delay,
                 delete_after_inactivity_delay=delete_after_inactivity_delay,
+                app_id=app_id,
             ),
         )
 
