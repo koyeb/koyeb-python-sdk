@@ -804,7 +804,7 @@ class Sandbox:
                     pass
         return killed_count
 
-    def update_life_cycle(
+    def update_lifecycle(
         self,
         delete_after_delay: Optional[int] = None,
         delete_after_inactivity: Optional[int] = None,
@@ -1166,6 +1166,15 @@ class AsyncSandbox(Sandbox):
                     # Continue killing other processes even if one fails
                     pass
         return killed_count
+
+    @async_wrapper("update_lifecycle")
+    async def update_lifecycle(
+        self,
+        delete_after_delay: Optional[int] = None,
+        delete_after_inactivity: Optional[int] = None,
+    ) -> None:
+        """Update the sandbox's life cycle settings asynchronously."""
+        pass
 
     async def __aenter__(self) -> "AsyncSandbox":
         """Async context manager entry - returns self."""
