@@ -12,6 +12,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from datetime import datetime
 
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
@@ -239,7 +240,9 @@ class Sandbox:
         Subclasses can override to return their own type.
         """
 
+        start = time.time()
         apps_api, services_api, _, _, _ = get_api_client(api_token)
+        print(datetime.now().strftime("%H:%M:%S.%f"), " -> get client time", time.time() - start)
 
         # Always create routes (ports are always exposed, default to "http")
         routes = create_koyeb_sandbox_routes()
@@ -254,6 +257,7 @@ class Sandbox:
 
         # Use provided app_id or create a new app
         if app_id is None:
+            start = time.time()
             app_name = f"sandbox-app-{name}-{int(time.time())}"
             app_response = apps_api.create_app(
                 app=CreateApp(
@@ -261,6 +265,7 @@ class Sandbox:
                 )
             )
             app_id = app_response.app.id
+            print(datetime.now().strftime("%H:%M:%S.%f"),  "-> create app", time.time() - start)
 
         env_vars = build_env_vars(env)
         docker_source = create_docker_source(
@@ -291,8 +296,41 @@ class Sandbox:
             definition=deployment_definition,
             life_cycle=service_life_cycle,
         )
+        start = time.time()
         service_response = services_api.create_service(service=create_service)
+        print(datetime.now().strftime("%H:%M:%S.%f"), " -> create service", time.time() - start)
         service_id = service_response.service.id
+        deployment_id = service_response.service.latest_deployment_id
+
+        deployments_api = DeploymentsApi(services_api.api_client)
+
+        max_wait = min(timeout // 2, 60) if timeout > 60 else timeout
+        wait_interval = 0.5
+        start_time = time.time()
+
+        start = time.time()
+        while time.time() - start_time < max_wait:
+            try:
+                scaling_response = deployments_api.get_deployment_scaling(
+                    id=deployment_id
+                )
+
+                if scaling_response.replicas and scaling_response.replicas[0].instances:
+                    instance_id = scaling_response.replicas[0].instances[0].id
+                    break
+                else:
+                    logger.debug(
+                        f"Waiting for instances to be created... (elapsed: {time.time() - start_time:.1f}s)"
+                    )
+                    time.sleep(wait_interval)
+            except Exception as e:
+                logger.warning(f"Error getting deployment scaling: {e}")
+                time.sleep(wait_interval)
+        else:
+            raise SandboxError(
+                f"No instances found in deployment after {max_wait} seconds"
+            )
+        print(datetime.now().strftime("%H:%M:%S.%f"), " -> get instance id", time.time() - start)
 
         return cls(
             sandbox_id=name,
@@ -405,6 +443,8 @@ class Sandbox:
                 if sandbox_url is None:
                     time.sleep(poll_interval)
                     continue
+                else:
+                    print(datetime.now().strftime("%H:%M:%S.%f"), " -> got app url")
 
             is_healthy = self.is_healthy()
 
@@ -637,6 +677,7 @@ class Sandbox:
         """Check if sandbox is healthy and ready for operations"""
         sandbox_url, header = self._get_sandbox_url()
         if not sandbox_url or not self.sandbox_secret:
+            print(datetime.now().strftime("%H:%M:%S.%f"), " -> no url or secret")
             return False
 
         # Check executor health directly - this is what matters for operations
@@ -1119,6 +1160,7 @@ class AsyncSandbox(Sandbox):
         sandbox._created_at = sync_result._created_at
 
         if wait_ready:
+            print(datetime.now().strftime("%H:%M:%S.%f"), " -> waiting for ready")
             is_ready = await sandbox.wait_ready(timeout=timeout)
             if not is_ready:
                 raise SandboxTimeoutError(
@@ -1126,7 +1168,8 @@ class AsyncSandbox(Sandbox):
                     f"The sandbox was created but may not be ready yet. "
                     f"You can check its status with sandbox.is_healthy() or call sandbox.wait_ready() again."
                 )
-
+        else:
+            print(datetime.now().strftime("%H:%M:%S.%f"), " -> skipping wait_ready")
         return sandbox
 
     async def wait_ready(
@@ -1152,6 +1195,7 @@ class AsyncSandbox(Sandbox):
 
             if is_healthy:
                 return True
+            print(datetime.now().strftime("%H:%M:%S.%f"), " -> not ready")
 
             await asyncio.sleep(poll_interval)
 

@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 MIN_PORT = 1
 MAX_PORT = 65535
 DEFAULT_INSTANCE_WAIT_TIMEOUT = 60  # seconds
-DEFAULT_POLL_INTERVAL = 2.0  # seconds
+DEFAULT_POLL_INTERVAL = 1.0  # seconds
 DEFAULT_COMMAND_TIMEOUT = 30  # seconds
 DEFAULT_HTTP_TIMEOUT = 30  # seconds for HTTP requests
 

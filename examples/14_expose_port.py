@@ -22,6 +22,7 @@ def main():
             name="expose-port",
             wait_ready=True,
             api_token=api_token,
+            region="fra",
         )
 
         # Create a test file to serve
@@ -112,9 +113,9 @@ def main():
 
     except Exception as e:
         print(f"Error: {e}")
-    finally:
-        if sandbox:
-            sandbox.delete()
+   # finally:
+    #    if sandbox:
+          #  sandbox.delete()
 
 
 if __name__ == "__main__":

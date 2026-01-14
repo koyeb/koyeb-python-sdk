@@ -88,6 +88,9 @@ async def main(run_long_tests=False):
             name="example-sandbox-timed",
             wait_ready=True,
             api_token=api_token,
+            instance_type="nano",
+            region="fra",
+            env={"sandbox":"why not"},
         )
         create_duration = time.time() - create_start
         tracker.record("Sandbox creation", create_duration, "setup")
@@ -146,7 +149,7 @@ async def main(run_long_tests=False):
 
         traceback.print_exc()
     finally:
-        if sandbox:
+        if False: #sandbox:
             print("  → Deleting sandbox...")
             delete_start = time.time()
             await sandbox.delete()
