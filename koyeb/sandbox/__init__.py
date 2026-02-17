@@ -4,7 +4,7 @@
 Koyeb Sandbox - Interactive execution environment for running arbitrary code on Koyeb
 """
 
-__version__ = "1.3.2"
+__version__ = "1.3.3"
 
 from koyeb.api.models.instance_status import InstanceStatus as SandboxStatus
 
