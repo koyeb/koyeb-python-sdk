@@ -433,6 +433,7 @@ def async_wrapper(method_name: str):
 
 def create_sandbox_client(
     sandbox_url: Optional[str],
+    header: Optional[str],
     sandbox_secret: Optional[str],
     existing_client: Optional[Any] = None,
 ) -> Any:
@@ -463,7 +464,7 @@ def create_sandbox_client(
 
     from .executor_client import SandboxClient
 
-    return SandboxClient(sandbox_url, sandbox_secret)
+    return SandboxClient(sandbox_url, header, sandbox_secret)
 
 
 class SandboxError(Exception):

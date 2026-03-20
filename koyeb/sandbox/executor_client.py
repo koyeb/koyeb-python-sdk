@@ -20,7 +20,7 @@ class SandboxClient:
     """Client for the Sandbox Executor API."""
 
     def __init__(
-        self, base_url: str, secret: str, timeout: float = DEFAULT_HTTP_TIMEOUT
+        self, base_url: str, header: Optional[str], secret: str, timeout: float = DEFAULT_HTTP_TIMEOUT
     ):
         """
         Initialize the Sandbox Client.
@@ -37,6 +37,8 @@ class SandboxClient:
             "Authorization": f"Bearer {secret}",
             "Content-Type": "application/json",
         }
+        if header:
+            self.headers["X-Sandbox-Id"] = header
         # Use session for connection pooling
         self._session = requests.Session()
         self._session.headers.update(self.headers)

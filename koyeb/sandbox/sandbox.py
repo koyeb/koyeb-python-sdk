@@ -11,7 +11,7 @@ import os
 import secrets
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
@@ -90,7 +90,7 @@ class Sandbox:
         self.api_token = api_token
         self.sandbox_secret = sandbox_secret
         self._created_at = time.time()
-        self._sandbox_url = None
+        self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
         self._client = None
 
     @property
@@ -439,6 +439,26 @@ class Sandbox:
         apps_api, _, _, _, _ = get_api_client(self.api_token)
         apps_api.delete_app(self.app_id)
 
+    def get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
+        """
+        Get the public url of the sandbox and the routing key to use to reach it.
+        """
+        try:
+            from koyeb.api.exceptions import ApiException, NotFoundException
+
+            from .utils import get_api_client
+
+             _, services_api, _, _, deployments_api = get_api_client(self.api_token)
+            service_response = services_api.get_service(self.service_id)
+            service = service_response.service
+            deployment = deployments_api.get_deployment()
+            if deployment.metadata and deployment.metadata.sandbox:
+                return deployment.metadata.sandbox.public_url, deployment.metadata.sandbox.routing_key
+            return None
+
+        except (NotFoundException, ApiException, Exception):
+            return None
+
     def get_domain(self) -> Optional[str]:
         """
         Get the public domain of the sandbox.
@@ -514,18 +534,24 @@ class Sandbox:
         except (NotFoundException, ApiException, Exception):
             return None
 
-    def _get_sandbox_url(self) -> Optional[str]:
+    def _get_sandbox_url(self) -> Optional[Tuple[str, Optional[str]]]:
         """
         Internal method to get the sandbox URL for health checks and client initialization.
         Caches the URL after first retrieval.
 
         Returns:
-            Optional[str]: The sandbox URL or None if unavailable
+            str: the public url where to reach the sandbox
+            Optional[str]: the routing key to use to reach the sandbox, if needed
         """
         if self._sandbox_url is None:
+            url_data = self.get_url_and_header_from_metadata()
+            if url_data:
+                self._sandbox_url = url_data
+                return self._sandbox_url
+
             domain = self.get_domain()
             if domain:
-                self._sandbox_url = f"https://{domain}/koyeb-sandbox"
+                self._sandbox_url = (f"https://{domain}/koyeb-sandbox", None)
         return self._sandbox_url
 
     def _get_client(self) -> "SandboxClient":  # type: ignore[name-defined]
@@ -539,8 +565,8 @@ class Sandbox:
             SandboxError: If sandbox URL or secret is not available
         """
         if self._client is None:
-            sandbox_url = self._get_sandbox_url()
-            self._client = create_sandbox_client(sandbox_url, self.sandbox_secret)
+            sandbox_url, header = self._get_sandbox_url()
+            self._client = create_sandbox_client(sandbox_url, header, self.sandbox_secret)
         return self._client
 
     def _check_response_error(self, response: Dict, operation: str) -> None:
