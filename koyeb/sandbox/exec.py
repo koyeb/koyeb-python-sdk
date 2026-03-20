@@ -76,7 +76,7 @@ class SandboxExecutor:
         if self._client is None:
             sandbox_url = self.sandbox._get_sandbox_url()
             self._client = create_sandbox_client(
-                sandbox_url, self.sandbox.sandbox_secret
+                sandbox_url, self.sandbox.sandbox_secret, self.sandbox.service_id
             )
         return self._client
 

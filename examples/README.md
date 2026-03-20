@@ -37,7 +37,7 @@ from koyeb import Sandbox
 
 # Create a sandbox
 sandbox = await Sandbox.create(
-    image="koyeb/sandbox",
+    image="python:3.12-alpine3.20",region="k8s",
     name="my-sandbox",
     wait_ready=True,
     api_token=api_token,

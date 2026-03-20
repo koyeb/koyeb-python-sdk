@@ -18,7 +18,7 @@ def main():
     sandbox = None
     try:
         sandbox = Sandbox.create(
-            image="koyeb/sandbox",
+            image="python:3.12-alpine3.20",region="k8s",
             name="expose-port",
             wait_ready=True,
             api_token=api_token,

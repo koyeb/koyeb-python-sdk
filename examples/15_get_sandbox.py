@@ -19,7 +19,7 @@ def main():
         # Step 1: Create a new sandbox
         print("Creating a new sandbox...")
         original_sandbox = Sandbox.create(
-            image="koyeb/sandbox",
+            image="python:3.12-alpine3.20",region="k8s",
             name="example-sandbox",
             wait_ready=True,
             api_token=api_token,

@@ -20,7 +20,11 @@ class SandboxClient:
     """Client for the Sandbox Executor API."""
 
     def __init__(
-        self, base_url: str, secret: str, timeout: float = DEFAULT_HTTP_TIMEOUT
+        self,
+        base_url: str,
+        secret: str,
+        service_id: str,
+        timeout: float = DEFAULT_HTTP_TIMEOUT,
     ):
         """
         Initialize the Sandbox Client.
@@ -28,14 +32,17 @@ class SandboxClient:
         Args:
             base_url: The base URL of the sandbox server (e.g., 'http://localhost:8080')
             secret: The authentication secret/token
+            service_id: The Koyeb service ID to route requests to
             timeout: Request timeout in seconds (default: 30)
         """
         self.base_url = base_url.rstrip("/")
         self.secret = secret
+        self.service_id = service_id
         self.timeout = timeout
         self.headers = {
             "Authorization": f"Bearer {secret}",
             "Content-Type": "application/json",
+            "x-sandbox-id": service_id,
         }
         # Use session for connection pooling
         self._session = requests.Session()

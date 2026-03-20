@@ -16,7 +16,7 @@ async def main():
     sandbox = None
     try:
         sandbox = await AsyncSandbox.create(
-            image="koyeb/sandbox",
+            image="python:3.12-alpine3.20",region="k8s",
             name="directory-ops",
             wait_ready=True,
             api_token=api_token,

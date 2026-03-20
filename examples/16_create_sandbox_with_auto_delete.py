@@ -133,11 +133,10 @@ def main():
 
         create_start = time.time()
         sandbox1 = Sandbox.create(
-            image="koyeb/sandbox",
+            image="python:3.12-alpine3.20",region="k8s",
             name="auto-delete-test-1",
             wait_ready=True,
             api_token=api_token,
-            region="fra",
             delete_after_delay=delete_after_delay_1,
         )
         create_duration = time.time() - create_start
@@ -176,11 +175,10 @@ def main():
 
         create_start = time.time()
         sandbox2 = Sandbox.create(
-            image="koyeb/sandbox",
+            image="python:3.12-alpine3.20",region="k8s",
             name="auto-delete-test-2",
             wait_ready=True,
             api_token=api_token,
-            region="fra",
             idle_timeout=idle_timeout_2,
             delete_after_inactivity_delay=delete_after_inactivity_2,
         )

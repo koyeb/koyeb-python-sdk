@@ -101,7 +101,7 @@ class Sandbox:
     @classmethod
     def create(
         cls,
-        image: str = "koyeb/sandbox",
+        image: Optional[str] = None,
         name: str = "quick-sandbox",
         wait_ready: bool = True,
         instance_type: str = "micro",
@@ -174,6 +174,9 @@ class Sandbox:
                 raise ValueError(
                     "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
+
+        image = image or os.getenv("KOYEB_SANDBOX_IMAGE", "koyeb/sandbox")
+        region = region or os.getenv("KOYEB_SANDBOX_REGION")
 
         sandbox = cls._create_sync(
             name=name,
@@ -516,17 +519,14 @@ class Sandbox:
 
     def _get_sandbox_url(self) -> Optional[str]:
         """
-        Internal method to get the sandbox URL for health checks and client initialization.
+        Internal method to get the sandbox gateway URL for health checks and client initialization.
+        The service is identified via the x-service-id header rather than the URL path.
         Caches the URL after first retrieval.
 
         Returns:
-            Optional[str]: The sandbox URL or None if unavailable
+            Optional[str]: The sandbox gateway URL or None if unavailable
         """
-        if self._sandbox_url is None:
-            domain = self.get_domain()
-            if domain:
-                self._sandbox_url = f"https://{domain}/koyeb-sandbox"
-        return self._sandbox_url
+        return "https://sandbox-gateway.app.staging.koyeb.com"
 
     def _get_client(self) -> "SandboxClient":  # type: ignore[name-defined]
         """
@@ -540,7 +540,9 @@ class Sandbox:
         """
         if self._client is None:
             sandbox_url = self._get_sandbox_url()
-            self._client = create_sandbox_client(sandbox_url, self.sandbox_secret)
+            self._client = create_sandbox_client(
+                sandbox_url, self.sandbox_secret, self.service_id
+            )
         return self._client
 
     def _check_response_error(self, response: Dict, operation: str) -> None:
@@ -569,7 +571,7 @@ class Sandbox:
         try:
             from .executor_client import SandboxClient
 
-            client = SandboxClient(sandbox_url, self.sandbox_secret)
+            client = SandboxClient(sandbox_url, self.sandbox_secret, self.service_id)
             health_response = client.health()
             if isinstance(health_response, dict):
                 status = health_response.get("status", "").lower()

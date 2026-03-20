@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Basic command execution"""
 
-import os
+import os, time
 
 from koyeb import Sandbox
 
@@ -15,20 +15,29 @@ def main():
     sandbox = None
     try:
         sandbox = Sandbox.create(
-            image="koyeb/sandbox",
-            name="basic-commands",
-            wait_ready=True,
+            image="python:3.12-alpine3.20",
+            name="example-sandbox",
+            region="k8s",
+            wait_ready=False,
             api_token=api_token,
         )
 
+        print(f"Sandbox URL: {sandbox._get_sandbox_url()}")        
+
+        sandbox.wait_ready()
+        
         # Simple command
         result = sandbox.exec("echo 'Hello World'")
-        print(result.stdout.strip())
+        print(f"stdout: {result.stdout.strip()!r}")
+        print(f"stderr: {result.stderr.strip()!r}")
+        print(f"exit_code: {result.exit_code}")
 
         # Python command
-        result = sandbox.exec("python3 -c 'print(2 + 2)'")
-        print(result.stdout.strip())
+        for i in range(10):
+            result = sandbox.exec(f"python3 -c 'print(\"{i}: 2 + {i} =\", 2 + {i})'")
+            print(result.stdout.strip())
 
+            time.sleep(1)
         # Multi-line Python script
         result = sandbox.exec(
             '''python3 -c "

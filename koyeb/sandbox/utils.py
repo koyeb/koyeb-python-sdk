@@ -434,6 +434,7 @@ def async_wrapper(method_name: str):
 def create_sandbox_client(
     sandbox_url: Optional[str],
     sandbox_secret: Optional[str],
+    service_id: Optional[str] = None,
     existing_client: Optional[Any] = None,
 ) -> Any:
     """
@@ -445,13 +446,14 @@ def create_sandbox_client(
     Args:
         sandbox_url: The sandbox URL (from _get_sandbox_url() or sandbox._get_sandbox_url())
         sandbox_secret: The sandbox secret
+        service_id: The Koyeb service ID to route requests to via x-service-id header
         existing_client: Existing client instance to return if not None
 
     Returns:
         SandboxClient: Configured client instance
 
     Raises:
-        SandboxError: If sandbox URL or secret is not available
+        SandboxError: If sandbox URL, secret, or service_id is not available
     """
     if existing_client is not None:
         return existing_client
@@ -460,10 +462,12 @@ def create_sandbox_client(
         raise SandboxError("Unable to get sandbox URL")
     if not sandbox_secret:
         raise SandboxError("Sandbox secret not available")
+    if not service_id:
+        raise SandboxError("Service ID not available")
 
     from .executor_client import SandboxClient
 
-    return SandboxClient(sandbox_url, sandbox_secret)
+    return SandboxClient(sandbox_url, sandbox_secret, service_id)
 
 
 class SandboxError(Exception):
