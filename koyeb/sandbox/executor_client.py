@@ -20,7 +20,7 @@ class SandboxClient:
     """Client for the Sandbox Executor API."""
 
     def __init__(
-        self, base_url: str, header: Optional[str], secret: str, timeout: float = DEFAULT_HTTP_TIMEOUT
+        self, base_url: str, secret: str, header: Optional[str], timeout: float = DEFAULT_HTTP_TIMEOUT
     ):
         """
         Initialize the Sandbox Client.

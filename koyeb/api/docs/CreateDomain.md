@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **app_id** | **str** |  | [optional] 
 **cloudflare** | **object** |  | [optional] 
 **koyeb** | [**DomainLoadBalancerKoyeb**](DomainLoadBalancerKoyeb.md) |  | [optional] 
+**project_id** | **str** |  | [optional] 
 
 ## Example
 

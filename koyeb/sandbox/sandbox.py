@@ -448,12 +448,13 @@ class Sandbox:
 
             from .utils import get_api_client
 
-             _, services_api, _, _, deployments_api = get_api_client(self.api_token)
+            _, services_api, _, _, deployments_api = get_api_client(self.api_token)
             service_response = services_api.get_service(self.service_id)
             service = service_response.service
-            deployment = deployments_api.get_deployment()
-            if deployment.metadata and deployment.metadata.sandbox:
-                return deployment.metadata.sandbox.public_url, deployment.metadata.sandbox.routing_key
+            deployment = deployments_api.get_deployment(service.active_deployment_id or service.latest_deployment_id)
+            metadata = deployment.deployment.metadata
+            if metadata and metadata.sandbox:
+                return metadata.sandbox.public_url, metadata.sandbox.routing_key
             return None
 
         except (NotFoundException, ApiException, Exception):
@@ -565,8 +566,9 @@ class Sandbox:
             SandboxError: If sandbox URL or secret is not available
         """
         if self._client is None:
-            sandbox_url, header = self._get_sandbox_url()
-            self._client = create_sandbox_client(sandbox_url, header, self.sandbox_secret)
+            #sandbox_url, header = self._get_sandbox_url()
+            #self._client = create_sandbox_client(sandbox_url, header, self.sandbox_secret)
+            self._client = create_sandbox_client("https://sandbox-gateway.app.staging.koyeb.com", self.service_id, self.sandbox_secret)
         return self._client
 
     def _check_response_error(self, response: Dict, operation: str) -> None:

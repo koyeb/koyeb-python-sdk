@@ -7,7 +7,9 @@ Method | HTTP request | Description
 [**autocomplete**](ServicesApi.md#autocomplete) | **POST** /v1/services-autocomplete | Autocomplete definition
 [**create_service**](ServicesApi.md#create_service) | **POST** /v1/services | Create Service
 [**delete_service**](ServicesApi.md#delete_service) | **DELETE** /v1/services/{id} | Delete Service
+[**delete_service_scaling**](ServicesApi.md#delete_service_scaling) | **DELETE** /v1/services/{id}/scale | Delete Service Scaling
 [**get_service**](ServicesApi.md#get_service) | **GET** /v1/services/{id} | Get Service
+[**get_service_scaling**](ServicesApi.md#get_service_scaling) | **GET** /v1/services/{id}/scale | Get Service Scaling
 [**list_service_events**](ServicesApi.md#list_service_events) | **GET** /v1/service_events | List Service events
 [**list_services**](ServicesApi.md#list_services) | **GET** /v1/services | List Services
 [**pause_service**](ServicesApi.md#pause_service) | **POST** /v1/services/{id}/pause | Pause Service
@@ -15,6 +17,7 @@ Method | HTTP request | Description
 [**resume_service**](ServicesApi.md#resume_service) | **POST** /v1/services/{id}/resume | Resume Service
 [**update_service**](ServicesApi.md#update_service) | **PUT** /v1/services/{id} | Update Service
 [**update_service2**](ServicesApi.md#update_service2) | **PATCH** /v1/services/{id} | Update Service
+[**update_service_scaling**](ServicesApi.md#update_service_scaling) | **PUT** /v1/services/{id}/scale | Update Service Scaling
 
 
 # **autocomplete**
@@ -276,6 +279,92 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **delete_service_scaling**
+> object delete_service_scaling(id)
+
+Delete Service Scaling
+
+Deletes the manual scaling configuration for a service, reverting to 
+the scaling defined in the deployment definition.
+
+### Example
+
+* Api Key Authentication (Bearer):
+
+```python
+import koyeb.api
+from koyeb.api.rest import ApiException
+from pprint import pprint
+
+# Defining the host is optional and defaults to https://app.koyeb.com
+# See configuration.py for a list of all supported configuration parameters.
+configuration = koyeb.api.Configuration(
+    host = "https://app.koyeb.com"
+)
+
+# The client must configure the authentication and authorization parameters
+# in accordance with the API server security policy.
+# Examples for each auth method are provided below, use the example that
+# satisfies your auth use case.
+
+# Configure API key authorization: Bearer
+configuration.api_key['Bearer'] = os.environ["API_KEY"]
+
+# Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
+# configuration.api_key_prefix['Bearer'] = 'Bearer'
+
+# Enter a context with an instance of the API client
+with koyeb.api.ApiClient(configuration) as api_client:
+    # Create an instance of the API class
+    api_instance = koyeb.api.ServicesApi(api_client)
+    id = 'id_example' # str | The id of the service
+
+    try:
+        # Delete Service Scaling
+        api_response = api_instance.delete_service_scaling(id)
+        print("The response of ServicesApi->delete_service_scaling:\n")
+        pprint(api_response)
+    except Exception as e:
+        print("Exception when calling ServicesApi->delete_service_scaling: %s\n" % e)
+```
+
+
+
+### Parameters
+
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **id** | **str**| The id of the service | 
+
+### Return type
+
+**object**
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: */*
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+**200** | A successful response. |  -  |
+**400** | Validation error |  -  |
+**401** | Returned when the token is not valid. |  -  |
+**403** | Returned when the user does not have permission to access the resource. |  -  |
+**404** | Returned when the resource does not exist. |  -  |
+**500** | Returned in case of server error. |  -  |
+**503** | Service is unavailable. |  -  |
+**0** | An unexpected error response. |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **get_service**
 > GetServiceReply get_service(id)
 
@@ -335,6 +424,92 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**GetServiceReply**](GetServiceReply.md)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: */*
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+**200** | A successful response. |  -  |
+**400** | Validation error |  -  |
+**401** | Returned when the token is not valid. |  -  |
+**403** | Returned when the user does not have permission to access the resource. |  -  |
+**404** | Returned when the resource does not exist. |  -  |
+**500** | Returned in case of server error. |  -  |
+**503** | Service is unavailable. |  -  |
+**0** | An unexpected error response. |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **get_service_scaling**
+> GetServiceScalingReply get_service_scaling(id)
+
+Get Service Scaling
+
+Returns the current scaling configuration for a service
+
+### Example
+
+* Api Key Authentication (Bearer):
+
+```python
+import koyeb.api
+from koyeb.api.models.get_service_scaling_reply import GetServiceScalingReply
+from koyeb.api.rest import ApiException
+from pprint import pprint
+
+# Defining the host is optional and defaults to https://app.koyeb.com
+# See configuration.py for a list of all supported configuration parameters.
+configuration = koyeb.api.Configuration(
+    host = "https://app.koyeb.com"
+)
+
+# The client must configure the authentication and authorization parameters
+# in accordance with the API server security policy.
+# Examples for each auth method are provided below, use the example that
+# satisfies your auth use case.
+
+# Configure API key authorization: Bearer
+configuration.api_key['Bearer'] = os.environ["API_KEY"]
+
+# Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
+# configuration.api_key_prefix['Bearer'] = 'Bearer'
+
+# Enter a context with an instance of the API client
+with koyeb.api.ApiClient(configuration) as api_client:
+    # Create an instance of the API class
+    api_instance = koyeb.api.ServicesApi(api_client)
+    id = 'id_example' # str | The id of the service
+
+    try:
+        # Get Service Scaling
+        api_response = api_instance.get_service_scaling(id)
+        print("The response of ServicesApi->get_service_scaling:\n")
+        pprint(api_response)
+    except Exception as e:
+        print("Exception when calling ServicesApi->get_service_scaling: %s\n" % e)
+```
+
+
+
+### Parameters
+
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **id** | **str**| The id of the service | 
+
+### Return type
+
+[**GetServiceScalingReply**](GetServiceScalingReply.md)
 
 ### Authorization
 
@@ -453,7 +628,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_services**
-> ListServicesReply list_services(app_id=app_id, limit=limit, offset=offset, name=name, types=types, statuses=statuses)
+> ListServicesReply list_services(app_id=app_id, limit=limit, offset=offset, name=name, types=types, statuses=statuses, regions=regions, project_id=project_id)
 
 List Services
 
@@ -494,10 +669,12 @@ with koyeb.api.ApiClient(configuration) as api_client:
     name = 'name_example' # str | (Optional) A filter for name (optional)
     types = ['types_example'] # List[str] | (Optional) Filter on service types (optional)
     statuses = ['statuses_example'] # List[str] | (Optional) Filter on service statuses (optional)
+    regions = ['regions_example'] # List[str] | (Optional) Filter on regions (optional)
+    project_id = 'project_id_example' # str | (Optional) A filter for the project ID (optional)
 
     try:
         # List Services
-        api_response = api_instance.list_services(app_id=app_id, limit=limit, offset=offset, name=name, types=types, statuses=statuses)
+        api_response = api_instance.list_services(app_id=app_id, limit=limit, offset=offset, name=name, types=types, statuses=statuses, regions=regions, project_id=project_id)
         print("The response of ServicesApi->list_services:\n")
         pprint(api_response)
     except Exception as e:
@@ -517,6 +694,8 @@ Name | Type | Description  | Notes
  **name** | **str**| (Optional) A filter for name | [optional] 
  **types** | [**List[str]**](str.md)| (Optional) Filter on service types | [optional] 
  **statuses** | [**List[str]**](str.md)| (Optional) Filter on service statuses | [optional] 
+ **regions** | [**List[str]**](str.md)| (Optional) Filter on regions | [optional] 
+ **project_id** | **str**| (Optional) A filter for the project ID | [optional] 
 
 ### Return type
 
@@ -814,7 +993,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **update_service**
-> UpdateServiceReply update_service(id, service, dry_run=dry_run)
+> UpdateServiceReply update_service(id, service, update_mask=update_mask, dry_run=dry_run)
 
 Update Service
 
@@ -852,11 +1031,12 @@ with koyeb.api.ApiClient(configuration) as api_client:
     api_instance = koyeb.api.ServicesApi(api_client)
     id = 'id_example' # str | The id of the entity to update
     service = koyeb.api.UpdateService() # UpdateService | 
+    update_mask = 'update_mask_example' # str |  (optional)
     dry_run = True # bool | If set, run validation and check that the service exists (optional)
 
     try:
         # Update Service
-        api_response = api_instance.update_service(id, service, dry_run=dry_run)
+        api_response = api_instance.update_service(id, service, update_mask=update_mask, dry_run=dry_run)
         print("The response of ServicesApi->update_service:\n")
         pprint(api_response)
     except Exception as e:
@@ -872,6 +1052,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **id** | **str**| The id of the entity to update | 
  **service** | [**UpdateService**](UpdateService.md)|  | 
+ **update_mask** | **str**|  | [optional] 
  **dry_run** | **bool**| If set, run validation and check that the service exists | [optional] 
 
 ### Return type
@@ -903,7 +1084,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **update_service2**
-> UpdateServiceReply update_service2(id, service, dry_run=dry_run)
+> UpdateServiceReply update_service2(id, service, update_mask=update_mask, dry_run=dry_run)
 
 Update Service
 
@@ -941,11 +1122,12 @@ with koyeb.api.ApiClient(configuration) as api_client:
     api_instance = koyeb.api.ServicesApi(api_client)
     id = 'id_example' # str | The id of the entity to update
     service = koyeb.api.UpdateService() # UpdateService | 
+    update_mask = 'update_mask_example' # str |  (optional)
     dry_run = True # bool | If set, run validation and check that the service exists (optional)
 
     try:
         # Update Service
-        api_response = api_instance.update_service2(id, service, dry_run=dry_run)
+        api_response = api_instance.update_service2(id, service, update_mask=update_mask, dry_run=dry_run)
         print("The response of ServicesApi->update_service2:\n")
         pprint(api_response)
     except Exception as e:
@@ -961,11 +1143,100 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **id** | **str**| The id of the entity to update | 
  **service** | [**UpdateService**](UpdateService.md)|  | 
+ **update_mask** | **str**|  | [optional] 
  **dry_run** | **bool**| If set, run validation and check that the service exists | [optional] 
 
 ### Return type
 
 [**UpdateServiceReply**](UpdateServiceReply.md)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: */*
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+**200** | A successful response. |  -  |
+**400** | Validation error |  -  |
+**401** | Returned when the token is not valid. |  -  |
+**403** | Returned when the user does not have permission to access the resource. |  -  |
+**404** | Returned when the resource does not exist. |  -  |
+**500** | Returned in case of server error. |  -  |
+**503** | Service is unavailable. |  -  |
+**0** | An unexpected error response. |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **update_service_scaling**
+> object update_service_scaling(id, body)
+
+Update Service Scaling
+
+Stores or updates the scaling configuration for a service to use manual scaling
+
+### Example
+
+* Api Key Authentication (Bearer):
+
+```python
+import koyeb.api
+from koyeb.api.models.update_service_scaling_request import UpdateServiceScalingRequest
+from koyeb.api.rest import ApiException
+from pprint import pprint
+
+# Defining the host is optional and defaults to https://app.koyeb.com
+# See configuration.py for a list of all supported configuration parameters.
+configuration = koyeb.api.Configuration(
+    host = "https://app.koyeb.com"
+)
+
+# The client must configure the authentication and authorization parameters
+# in accordance with the API server security policy.
+# Examples for each auth method are provided below, use the example that
+# satisfies your auth use case.
+
+# Configure API key authorization: Bearer
+configuration.api_key['Bearer'] = os.environ["API_KEY"]
+
+# Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
+# configuration.api_key_prefix['Bearer'] = 'Bearer'
+
+# Enter a context with an instance of the API client
+with koyeb.api.ApiClient(configuration) as api_client:
+    # Create an instance of the API class
+    api_instance = koyeb.api.ServicesApi(api_client)
+    id = 'id_example' # str | The id of the service to scale
+    body = koyeb.api.UpdateServiceScalingRequest() # UpdateServiceScalingRequest | 
+
+    try:
+        # Update Service Scaling
+        api_response = api_instance.update_service_scaling(id, body)
+        print("The response of ServicesApi->update_service_scaling:\n")
+        pprint(api_response)
+    except Exception as e:
+        print("Exception when calling ServicesApi->update_service_scaling: %s\n" % e)
+```
+
+
+
+### Parameters
+
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **id** | **str**| The id of the service to scale | 
+ **body** | [**UpdateServiceScalingRequest**](UpdateServiceScalingRequest.md)|  | 
+
+### Return type
+
+**object**
 
 ### Authorization
 

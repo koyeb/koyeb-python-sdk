@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **name** | **str** |  | [optional] 
 **life_cycle** | [**AppLifeCycle**](AppLifeCycle.md) |  | [optional] 
+**project_id** | **str** |  | [optional] 
 
 ## Example
 

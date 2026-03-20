@@ -28,6 +28,7 @@ koyeb/api/api/organization_quotas_api.py
 koyeb/api/api/payment_methods_api.py
 koyeb/api/api/persistent_volumes_api.py
 koyeb/api/api/profile_api.py
+koyeb/api/api/projects_api.py
 koyeb/api/api/provisioning_api.py
 koyeb/api/api/quotas_api.py
 koyeb/api/api/regional_deployments_api.py
@@ -68,6 +69,7 @@ koyeb/api/docs/AutocompleteReply.md
 koyeb/api/docs/AutocompleteRequest.md
 koyeb/api/docs/AvailabilityLevel.md
 koyeb/api/docs/AzureContainerRegistryConfiguration.md
+koyeb/api/docs/BasicAuthPolicy.md
 koyeb/api/docs/BillingApi.md
 koyeb/api/docs/Budget.md
 koyeb/api/docs/BuildpackBuilder.md
@@ -80,6 +82,7 @@ koyeb/api/docs/CatalogInstanceUsageApi.md
 koyeb/api/docs/CatalogInstancesApi.md
 koyeb/api/docs/CatalogRegionsApi.md
 koyeb/api/docs/CatalogUsage.md
+koyeb/api/docs/CheckCouponReply.md
 koyeb/api/docs/ClearIdenfyVerificationResultRequest.md
 koyeb/api/docs/ComposeApi.md
 koyeb/api/docs/ComposeReply.md
@@ -106,6 +109,8 @@ koyeb/api/docs/CreateOrganizationRequest.md
 koyeb/api/docs/CreatePaymentAuthorizationReply.md
 koyeb/api/docs/CreatePersistentVolumeReply.md
 koyeb/api/docs/CreatePersistentVolumeRequest.md
+koyeb/api/docs/CreateProject.md
+koyeb/api/docs/CreateProjectReply.md
 koyeb/api/docs/CreateSecret.md
 koyeb/api/docs/CreateSecretReply.md
 koyeb/api/docs/CreateService.md
@@ -214,11 +219,13 @@ koyeb/api/docs/GetOrganizationUsageDetailsReply.md
 koyeb/api/docs/GetOrganizationUsageReply.md
 koyeb/api/docs/GetPaymentMethodReply.md
 koyeb/api/docs/GetPersistentVolumeReply.md
+koyeb/api/docs/GetProjectReply.md
 koyeb/api/docs/GetQuotasReply.md
 koyeb/api/docs/GetRegionReply.md
 koyeb/api/docs/GetRegionalDeploymentReply.md
 koyeb/api/docs/GetSecretReply.md
 koyeb/api/docs/GetServiceReply.md
+koyeb/api/docs/GetServiceScalingReply.md
 koyeb/api/docs/GetSnapshotReply.md
 koyeb/api/docs/GetSubscriptionReply.md
 koyeb/api/docs/GetUserOrganizationInvitationReply.md
@@ -263,6 +270,7 @@ koyeb/api/docs/KsearchRegionalDeployment.md
 koyeb/api/docs/KsearchSearchReply.md
 koyeb/api/docs/KsearchService.md
 koyeb/api/docs/KsearchUser.md
+koyeb/api/docs/LifecycleQuotas.md
 koyeb/api/docs/ListAppEventsReply.md
 koyeb/api/docs/ListAppsReply.md
 koyeb/api/docs/ListCatalogInstancesReply.md
@@ -278,6 +286,7 @@ koyeb/api/docs/ListOrganizationMembersReply.md
 koyeb/api/docs/ListPaymentMethodsReply.md
 koyeb/api/docs/ListPersistentVolumeEventsReply.md
 koyeb/api/docs/ListPersistentVolumesReply.md
+koyeb/api/docs/ListProjectsReply.md
 koyeb/api/docs/ListRegionalDeploymentEventsReply.md
 koyeb/api/docs/ListRegionalDeploymentsReply.md
 koyeb/api/docs/ListRegionsReply.md
@@ -295,6 +304,7 @@ koyeb/api/docs/LoginReply.md
 koyeb/api/docs/LoginRequest.md
 koyeb/api/docs/LogsApi.md
 koyeb/api/docs/ManageReply.md
+koyeb/api/docs/ManualServiceScaling.md
 koyeb/api/docs/MembersSummary.md
 koyeb/api/docs/MetricName.md
 koyeb/api/docs/MetricsApi.md
@@ -343,6 +353,8 @@ koyeb/api/docs/Plan.md
 koyeb/api/docs/Port.md
 koyeb/api/docs/PrivateRegistryConfiguration.md
 koyeb/api/docs/ProfileApi.md
+koyeb/api/docs/Project.md
+koyeb/api/docs/ProjectsApi.md
 koyeb/api/docs/ProvisioningApi.md
 koyeb/api/docs/ProxyPortProtocol.md
 koyeb/api/docs/PublicOrganization.md
@@ -377,6 +389,7 @@ koyeb/api/docs/ReviewOrganizationCapacityReply.md
 koyeb/api/docs/ReviewOrganizationCapacityRequest.md
 koyeb/api/docs/Route.md
 koyeb/api/docs/Sample.md
+koyeb/api/docs/SandboxMetadata.md
 koyeb/api/docs/ScaleToZeroQuotas.md
 koyeb/api/docs/Scaling.md
 koyeb/api/docs/SearchApi.md
@@ -384,6 +397,7 @@ koyeb/api/docs/Secret.md
 koyeb/api/docs/SecretType.md
 koyeb/api/docs/SecretsApi.md
 koyeb/api/docs/SecretsSummary.md
+koyeb/api/docs/SecurityPolicies.md
 koyeb/api/docs/Service.md
 koyeb/api/docs/ServiceEvent.md
 koyeb/api/docs/ServiceLifeCycle.md
@@ -422,6 +436,8 @@ koyeb/api/docs/UpdateBudgetRequest.md
 koyeb/api/docs/UpdateCredentialReply.md
 koyeb/api/docs/UpdateDomain.md
 koyeb/api/docs/UpdateDomainReply.md
+koyeb/api/docs/UpdateOrganizationDefaultProjectReply.md
+koyeb/api/docs/UpdateOrganizationDefaultProjectRequest.md
 koyeb/api/docs/UpdateOrganizationNameReply.md
 koyeb/api/docs/UpdateOrganizationNameRequest.md
 koyeb/api/docs/UpdateOrganizationPlanReply.md
@@ -430,9 +446,11 @@ koyeb/api/docs/UpdateOrganizationReply.md
 koyeb/api/docs/UpdatePasswordRequest.md
 koyeb/api/docs/UpdatePersistentVolumeReply.md
 koyeb/api/docs/UpdatePersistentVolumeRequest.md
+koyeb/api/docs/UpdateProjectReply.md
 koyeb/api/docs/UpdateSecretReply.md
 koyeb/api/docs/UpdateService.md
 koyeb/api/docs/UpdateServiceReply.md
+koyeb/api/docs/UpdateServiceScalingRequest.md
 koyeb/api/docs/UpdateSnapshotReply.md
 koyeb/api/docs/UpdateSnapshotRequest.md
 koyeb/api/docs/UpdateUserRequestUserUpdateBody.md
@@ -473,6 +491,7 @@ koyeb/api/models/autocomplete_reply.py
 koyeb/api/models/autocomplete_request.py
 koyeb/api/models/availability_level.py
 koyeb/api/models/azure_container_registry_configuration.py
+koyeb/api/models/basic_auth_policy.py
 koyeb/api/models/budget.py
 koyeb/api/models/buildpack_builder.py
 koyeb/api/models/canny_auth_reply.py
@@ -480,6 +499,7 @@ koyeb/api/models/catalog_gpu_details.py
 koyeb/api/models/catalog_instance.py
 koyeb/api/models/catalog_instance_list_item.py
 koyeb/api/models/catalog_usage.py
+koyeb/api/models/check_coupon_reply.py
 koyeb/api/models/clear_idenfy_verification_result_request.py
 koyeb/api/models/compose_reply.py
 koyeb/api/models/config_file.py
@@ -504,6 +524,8 @@ koyeb/api/models/create_organization_request.py
 koyeb/api/models/create_payment_authorization_reply.py
 koyeb/api/models/create_persistent_volume_reply.py
 koyeb/api/models/create_persistent_volume_request.py
+koyeb/api/models/create_project.py
+koyeb/api/models/create_project_reply.py
 koyeb/api/models/create_secret.py
 koyeb/api/models/create_secret_reply.py
 koyeb/api/models/create_service.py
@@ -608,11 +630,13 @@ koyeb/api/models/get_organization_usage_details_reply.py
 koyeb/api/models/get_organization_usage_reply.py
 koyeb/api/models/get_payment_method_reply.py
 koyeb/api/models/get_persistent_volume_reply.py
+koyeb/api/models/get_project_reply.py
 koyeb/api/models/get_quotas_reply.py
 koyeb/api/models/get_region_reply.py
 koyeb/api/models/get_regional_deployment_reply.py
 koyeb/api/models/get_secret_reply.py
 koyeb/api/models/get_service_reply.py
+koyeb/api/models/get_service_scaling_reply.py
 koyeb/api/models/get_snapshot_reply.py
 koyeb/api/models/get_subscription_reply.py
 koyeb/api/models/get_user_organization_invitation_reply.py
@@ -654,6 +678,7 @@ koyeb/api/models/ksearch_regional_deployment.py
 koyeb/api/models/ksearch_search_reply.py
 koyeb/api/models/ksearch_service.py
 koyeb/api/models/ksearch_user.py
+koyeb/api/models/lifecycle_quotas.py
 koyeb/api/models/list_app_events_reply.py
 koyeb/api/models/list_apps_reply.py
 koyeb/api/models/list_catalog_instances_reply.py
@@ -669,6 +694,7 @@ koyeb/api/models/list_organization_members_reply.py
 koyeb/api/models/list_payment_methods_reply.py
 koyeb/api/models/list_persistent_volume_events_reply.py
 koyeb/api/models/list_persistent_volumes_reply.py
+koyeb/api/models/list_projects_reply.py
 koyeb/api/models/list_regional_deployment_events_reply.py
 koyeb/api/models/list_regional_deployments_reply.py
 koyeb/api/models/list_regions_reply.py
@@ -685,6 +711,7 @@ koyeb/api/models/login_method_reply_method.py
 koyeb/api/models/login_reply.py
 koyeb/api/models/login_request.py
 koyeb/api/models/manage_reply.py
+koyeb/api/models/manual_service_scaling.py
 koyeb/api/models/members_summary.py
 koyeb/api/models/metric_name.py
 koyeb/api/models/neon_postgres_database.py
@@ -724,6 +751,7 @@ koyeb/api/models/persistent_volume_status.py
 koyeb/api/models/plan.py
 koyeb/api/models/port.py
 koyeb/api/models/private_registry_configuration.py
+koyeb/api/models/project.py
 koyeb/api/models/proxy_port_protocol.py
 koyeb/api/models/public_organization.py
 koyeb/api/models/public_user.py
@@ -754,11 +782,13 @@ koyeb/api/models/review_organization_capacity_reply.py
 koyeb/api/models/review_organization_capacity_request.py
 koyeb/api/models/route.py
 koyeb/api/models/sample.py
+koyeb/api/models/sandbox_metadata.py
 koyeb/api/models/scale_to_zero_quotas.py
 koyeb/api/models/scaling.py
 koyeb/api/models/secret.py
 koyeb/api/models/secret_type.py
 koyeb/api/models/secrets_summary.py
+koyeb/api/models/security_policies.py
 koyeb/api/models/service.py
 koyeb/api/models/service_event.py
 koyeb/api/models/service_life_cycle.py
@@ -791,6 +821,8 @@ koyeb/api/models/update_budget_request.py
 koyeb/api/models/update_credential_reply.py
 koyeb/api/models/update_domain.py
 koyeb/api/models/update_domain_reply.py
+koyeb/api/models/update_organization_default_project_reply.py
+koyeb/api/models/update_organization_default_project_request.py
 koyeb/api/models/update_organization_name_reply.py
 koyeb/api/models/update_organization_name_request.py
 koyeb/api/models/update_organization_plan_reply.py
@@ -799,9 +831,11 @@ koyeb/api/models/update_organization_reply.py
 koyeb/api/models/update_password_request.py
 koyeb/api/models/update_persistent_volume_reply.py
 koyeb/api/models/update_persistent_volume_request.py
+koyeb/api/models/update_project_reply.py
 koyeb/api/models/update_secret_reply.py
 koyeb/api/models/update_service.py
 koyeb/api/models/update_service_reply.py
+koyeb/api/models/update_service_scaling_request.py
 koyeb/api/models/update_snapshot_reply.py
 koyeb/api/models/update_snapshot_request.py
 koyeb/api/models/update_user_request_user_update_body.py
@@ -820,4 +854,21 @@ koyeb/api/models/verify_docker_image_reply.py
 koyeb/api/models/verify_docker_image_reply_err_code.py
 koyeb/api/rest.py
 koyeb/api/test/__init__.py
+koyeb/api/test/test_basic_auth_policy.py
+koyeb/api/test/test_check_coupon_reply.py
+koyeb/api/test/test_create_project.py
+koyeb/api/test/test_create_project_reply.py
+koyeb/api/test/test_get_project_reply.py
+koyeb/api/test/test_get_service_scaling_reply.py
+koyeb/api/test/test_lifecycle_quotas.py
+koyeb/api/test/test_list_projects_reply.py
+koyeb/api/test/test_manual_service_scaling.py
+koyeb/api/test/test_project.py
+koyeb/api/test/test_projects_api.py
+koyeb/api/test/test_sandbox_metadata.py
+koyeb/api/test/test_security_policies.py
+koyeb/api/test/test_update_organization_default_project_reply.py
+koyeb/api/test/test_update_organization_default_project_request.py
+koyeb/api/test/test_update_project_reply.py
+koyeb/api/test/test_update_service_scaling_request.py
 koyeb/api_README.md

@@ -464,7 +464,7 @@ def create_sandbox_client(
 
     from .executor_client import SandboxClient
 
-    return SandboxClient(sandbox_url, header, sandbox_secret)
+    return SandboxClient(sandbox_url, sandbox_secret, header)
 
 
 class SandboxError(Exception):

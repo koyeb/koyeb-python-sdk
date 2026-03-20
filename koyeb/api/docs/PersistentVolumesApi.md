@@ -358,7 +358,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_persistent_volumes**
-> ListPersistentVolumesReply list_persistent_volumes(limit=limit, offset=offset, service_id=service_id, region=region, name=name)
+> ListPersistentVolumesReply list_persistent_volumes(limit=limit, offset=offset, service_id=service_id, region=region, name=name, project_id=project_id)
 
 List all PersistentVolumes
 
@@ -398,10 +398,11 @@ with koyeb.api.ApiClient(configuration) as api_client:
     service_id = 'service_id_example' # str | (Optional) A filter for the service id (optional)
     region = 'region_example' # str | (Optional) A filter for the region (optional)
     name = 'name_example' # str | (Optional) A filter for the name (optional)
+    project_id = 'project_id_example' # str | (Optional) A filter for the project ID (optional)
 
     try:
         # List all PersistentVolumes
-        api_response = api_instance.list_persistent_volumes(limit=limit, offset=offset, service_id=service_id, region=region, name=name)
+        api_response = api_instance.list_persistent_volumes(limit=limit, offset=offset, service_id=service_id, region=region, name=name, project_id=project_id)
         print("The response of PersistentVolumesApi->list_persistent_volumes:\n")
         pprint(api_response)
     except Exception as e:
@@ -420,6 +421,7 @@ Name | Type | Description  | Notes
  **service_id** | **str**| (Optional) A filter for the service id | [optional] 
  **region** | **str**| (Optional) A filter for the region | [optional] 
  **name** | **str**| (Optional) A filter for the name | [optional] 
+ **project_id** | **str**| (Optional) A filter for the project ID | [optional] 
 
 ### Return type
 

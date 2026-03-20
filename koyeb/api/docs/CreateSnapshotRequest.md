@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **parent_volume_id** | **str** |  | [optional] 
 **name** | **str** |  | [optional] 
+**project_id** | **str** |  | [optional] 
 
 ## Example
 
