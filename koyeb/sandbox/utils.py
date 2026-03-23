@@ -432,9 +432,7 @@ def async_wrapper(method_name: str):
 
 
 def create_sandbox_client(
-    sandbox_url: Optional[str],
-    header: Optional[str],
-    sandbox_secret: Optional[str],
+    conn_info: Optional['ConnectionInfo'],
     existing_client: Optional[Any] = None,
 ) -> Any:
     """
@@ -444,8 +442,7 @@ def create_sandbox_client(
     Used by Sandbox, SandboxExecutor, and SandboxFilesystem to avoid duplication.
 
     Args:
-        sandbox_url: The sandbox URL (from _get_sandbox_url() or sandbox._get_sandbox_url())
-        sandbox_secret: The sandbox secret
+        conn_info: The information needed to connect to the sandbox executor API
         existing_client: Existing client instance to return if not None
 
     Returns:
@@ -457,14 +454,14 @@ def create_sandbox_client(
     if existing_client is not None:
         return existing_client
 
-    if not sandbox_url:
-        raise SandboxError("Unable to get sandbox URL")
-    if not sandbox_secret:
-        raise SandboxError("Sandbox secret not available")
+    try:
+        conn_info.validate()
+    except ValueError as e:
+        raise SandboxError(str(e))
 
     from .executor_client import SandboxClient
 
-    return SandboxClient(sandbox_url, sandbox_secret, header)
+    return SandboxClient(conn_info)
 
 
 class SandboxError(Exception):

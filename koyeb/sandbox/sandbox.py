@@ -19,6 +19,7 @@ from koyeb.api.models.create_app import CreateApp, AppLifeCycle
 from koyeb.api.models.create_service import CreateService, ServiceLifeCycle
 from koyeb.api.models.update_service import UpdateService
 
+from .executor_client import ConnectionInfo
 from .utils import (
     DEFAULT_INSTANCE_WAIT_TIMEOUT,
     DEFAULT_POLL_INTERVAL,
@@ -555,6 +556,20 @@ class Sandbox:
                 self._sandbox_url = (f"https://{domain}/koyeb-sandbox", None)
         return self._sandbox_url
 
+    def _get_conn_info(self) -> Optional[ConnectionInfo]:
+        """
+        Internal method to get the parameters needed to connect to the sandbox.
+        Caches the info after first retrieval.
+
+        Returns:
+            Optional[ConnectionInfo]: the information needed to connect to the sandbox
+        """
+        sandbox_url, routing_key = self._get_sandbox_url()
+        if sandbox_url:
+            return ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
+
+        return None
+
     def _get_client(self) -> "SandboxClient":  # type: ignore[name-defined]
         """
         Get or create SandboxClient instance with validation.
@@ -566,9 +581,9 @@ class Sandbox:
             SandboxError: If sandbox URL or secret is not available
         """
         if self._client is None:
-            #sandbox_url, header = self._get_sandbox_url()
-            #self._client = create_sandbox_client(sandbox_url, header, self.sandbox_secret)
-            self._client = create_sandbox_client("https://sandbox-gateway.app.staging.koyeb.com", self.service_id, self.sandbox_secret)
+            sandbox_url, routing_key = self._get_sandbox_url()
+            conn_info = ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
+            self._client = create_sandbox_client(conn_info)
         return self._client
 
     def _check_response_error(self, response: Dict, operation: str) -> None:
@@ -588,7 +603,7 @@ class Sandbox:
 
     def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations"""
-        sandbox_url = self._get_sandbox_url()
+        sandbox_url, header = self._get_sandbox_url()
         if not sandbox_url or not self.sandbox_secret:
             return False
 
@@ -597,7 +612,7 @@ class Sandbox:
         try:
             from .executor_client import SandboxClient
 
-            client = SandboxClient(sandbox_url, self.sandbox_secret)
+            client = SandboxClient(ConnectionInfo(sandbox_url, header, self.sandbox_secret))
             health_response = client.health()
             if isinstance(health_response, dict):
                 status = health_response.get("status", "").lower()

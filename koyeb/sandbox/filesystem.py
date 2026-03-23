@@ -62,10 +62,8 @@ class SandboxFilesystem:
     def _get_client(self) -> SandboxClient:
         """Get or create SandboxClient instance"""
         if self._client is None:
-            sandbox_url = self.sandbox._get_sandbox_url()
-            self._client = create_sandbox_client(
-                sandbox_url, self.sandbox.sandbox_secret
-            )
+            conn_info = self.sandbox._get_conn_info()
+            self._client = create_sandbox_client(conn_info)
         return self._client
 
     def _get_executor(self) -> "SandboxExecutor":
