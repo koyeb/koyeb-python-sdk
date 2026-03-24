@@ -56,7 +56,7 @@ class SandboxClient:
             "Content-Type": "application/json",
         }
         if conn_info.routing_key:
-            self.headers["X-Sandbox-Id"] = conn_info.routing_key
+            self.headers["X-Routing-Key"] = conn_info.routing_key
         # Use session for connection pooling
         self._session = requests.Session()
         self._session.headers.update(self.headers)
