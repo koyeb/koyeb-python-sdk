@@ -1,6 +1,6 @@
 [project]
 name = "koyeb-sdk"
-version = "1.3.3"
+version = "1.2.3"
 description = "Koyeb python sdk"
 authors = [{ name = "Koyeb team", email = "support@koyeb.com" }]
 license = "Apache-2.0"
@@ -41,11 +41,11 @@ build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
-    "autopep8>=2.3.2",
-    "flake8>=7.3.0",
-    "pydoc-markdown>=4.8.2",
-    "pytest>=8.4.2",
-    "tqdm>=4.67.1",
+  "autopep8>=2.3.2",
+  "flake8>=7.3.0",
+  "pydoc-markdown>=4.8.2",
+  "pytest>=8.4.2",
+  "tqdm>=4.67.1",
 ]
 
 [tool.pylint.'MESSAGES CONTROL']

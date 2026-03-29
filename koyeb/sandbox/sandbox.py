@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
-from koyeb.api.models.create_app import CreateApp, AppLifeCycle
+from koyeb.api.models.create_app import AppLifeCycle, CreateApp
 from koyeb.api.models.create_service import CreateService, ServiceLifeCycle
 from koyeb.api.models.update_service import UpdateService
 
@@ -115,6 +115,7 @@ class Sandbox:
         privileged: bool = False,
         registry_secret: Optional[str] = None,
         _experimental_enable_light_sleep: bool = False,
+        _experimental_deep_sleep_value: int = 3900,
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
@@ -189,6 +190,7 @@ class Sandbox:
             privileged=privileged,
             registry_secret=registry_secret,
             _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+            _experimental_deep_sleep_value=_experimental_deep_sleep_value,
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
             app_id=app_id,
@@ -221,6 +223,7 @@ class Sandbox:
         privileged: bool = False,
         registry_secret: Optional[str] = None,
         _experimental_enable_light_sleep: bool = False,
+        _experimental_deep_sleep_value: int = 3900,
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
@@ -269,6 +272,7 @@ class Sandbox:
             idle_timeout=idle_timeout,
             enable_tcp_proxy=enable_tcp_proxy,
             _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+            _experimental_deep_sleep_value=_experimental_deep_sleep_value,
         )
 
         service_life_cycle = ServiceLifeCycle(
@@ -952,6 +956,7 @@ class AsyncSandbox(Sandbox):
         privileged: bool = False,
         registry_secret: Optional[str] = None,
         _experimental_enable_light_sleep: bool = False,
+        _experimental_deep_sleep_value: int = 3900,
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
@@ -972,7 +977,7 @@ class AsyncSandbox(Sandbox):
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
                 idle_timeout: Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
-                    - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep=3900)
+                    - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep uses _experimental_deep_sleep_value)
                     - If _experimental_enable_light_sleep is False: sets deep_sleep value
                     - If 0: disables scale-to-zero (keep always-on)
                     - If None: uses default values
@@ -980,8 +985,10 @@ class AsyncSandbox(Sandbox):
                 privileged: If True, run the container in privileged mode (default: False)
                 registry_secret: Name of a Koyeb secret containing registry credentials for
                     pulling private images. Create the secret via Koyeb dashboard or CLI first.
-                _experimental_enable_light_sleep: If True, uses idle_timeout for light_sleep and sets
-                    deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
+                _experimental_enable_light_sleep: If True, uses idle_timeout for light_sleep and configurable
+                    deep_sleep (default: False)
+                _experimental_deep_sleep_value: Number of seconds for deep sleep when light sleep is enabled (default: 3900).
+                    Only used if _experimental_enable_light_sleep is True
                 delete_after_delay: If >0, automatically delete the sandbox if there was no activity
                     after this many seconds since creation.
                 delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
@@ -1019,6 +1026,7 @@ class AsyncSandbox(Sandbox):
                 privileged=privileged,
                 registry_secret=registry_secret,
                 _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+                _experimental_deep_sleep_value=_experimental_deep_sleep_value,
                 delete_after_delay=delete_after_delay,
                 delete_after_inactivity_delay=delete_after_inactivity_delay,
                 app_id=app_id,
