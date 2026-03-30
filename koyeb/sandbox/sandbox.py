@@ -548,7 +548,7 @@ class Sandbox:
         if self._sandbox_url is None:
             url_data = self.get_url_and_header_from_metadata()
             if url_data:
-                self._sandbox_url = url_data
+                self._sandbox_url = (f"{url_data[0]}/koyeb-sandbox", url_data[1])
                 return self._sandbox_url
 
             domain = self.get_domain()
