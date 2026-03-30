@@ -14,9 +14,9 @@ from koyeb.api import ApiClient, Configuration
 from koyeb.api.api import (
     AppsApi,
     CatalogInstancesApi,
+    DeploymentsApi,
     InstancesApi,
     ServicesApi,
-    DeploymentsApi,
 )
 from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
@@ -241,6 +241,7 @@ def create_deployment_definition(
     idle_timeout: int = 300,
     enable_tcp_proxy: bool = False,
     _experimental_enable_light_sleep: bool = False,
+    _experimental_deep_sleep_value: int = 3900,
 ) -> DeploymentDefinition:
     """
     Create deployment definition for a sandbox service.
@@ -258,7 +259,9 @@ def create_deployment_definition(
         idle_timeout: Number of seconds to wait before sleeping the instance if it receives no traffic
         enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
         _experimental_enable_light_sleep: If True, uses light sleep when reaching idle_timeout.
-            Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for 3600s before going into Deep Sleep.
+            Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for idle_timeout seconds before going into Deep Sleep.
+        _experimental_deep_sleep_value: Number of seconds for deep sleep when light sleep is enabled (default: 3900).
+            Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
 
     Returns:
         DeploymentDefinition object
@@ -287,10 +290,10 @@ def create_deployment_definition(
     if idle_timeout == 0:
         sleep_idle_delay = None
     elif _experimental_enable_light_sleep:
-        # Experimental mode: idle_timeout sets light_sleep value, deep_sleep is always 3900
+        # Experimental mode: idle_timeout sets light_sleep value, deep_sleep uses _experimental_deep_sleep_value
         sleep_idle_delay = DeploymentScalingTargetSleepIdleDelay(
             light_sleep_value=idle_timeout,
-            deep_sleep_value=3900,
+            deep_sleep_value=_experimental_deep_sleep_value,
         )
     else:
         # Normal mode: only use deep_sleep
