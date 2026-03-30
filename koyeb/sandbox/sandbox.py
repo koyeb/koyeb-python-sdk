@@ -92,6 +92,7 @@ class Sandbox:
         self.sandbox_secret = sandbox_secret
         self._created_at = time.time()
         self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
+        self._domain: Optional[str] = None
         self._client = None
 
     @property
@@ -461,9 +462,9 @@ class Sandbox:
         except (NotFoundException, ApiException, Exception):
             return None
 
-    def get_domain(self) -> Optional[str]:
+    def _get_domain(self) -> Optional[str]:
         """
-        Get the public domain of the sandbox.
+        Internal method to get the public domain of the sandbox.
 
         Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
         To construct the URL, use: f"https://{sandbox.get_domain()}"
@@ -489,6 +490,28 @@ class Sandbox:
             return None
         except (NotFoundException, ApiException, Exception):
             return None
+
+    def get_domain(self) -> Optional[str]:
+        """
+        Get the public domain of the sandbox.
+
+        Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
+        To construct the URL, use: f"https://{sandbox.get_domain()}"
+
+        Returns:
+            Optional[str]: The domain name or None if unavailable
+        """
+        if self._domain is None:
+            url_data = self.get_url_and_header_from_metadata()
+            if url_data:
+                domain = url_data[0].split("://")[1]
+                self._domain = f"{domain}/r/{url_data[1]}/"
+                return self._domain
+
+            domain = self._get_domain()
+            if domain:
+                self._domain = domain
+        return self._domain
 
     def get_tcp_proxy_info(self) -> Optional[tuple[str, int]]:
         """
@@ -551,7 +574,7 @@ class Sandbox:
                 self._sandbox_url = (f"{url_data[0]}/koyeb-sandbox", url_data[1])
                 return self._sandbox_url
 
-            domain = self.get_domain()
+            domain = self._get_domain()
             if domain:
                 self._sandbox_url = (f"https://{domain}/koyeb-sandbox", None)
         return self._sandbox_url
