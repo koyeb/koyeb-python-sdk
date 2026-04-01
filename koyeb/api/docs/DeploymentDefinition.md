@@ -19,6 +19,7 @@ Name | Type | Description | Notes
 **volumes** | [**List[DeploymentVolume]**](DeploymentVolume.md) |  | [optional] 
 **config_files** | [**List[ConfigFile]**](ConfigFile.md) |  | [optional] 
 **skip_cache** | **bool** |  | [optional] 
+**mesh** | [**DeploymentMesh**](DeploymentMesh.md) |  | [optional] [default to DeploymentMesh.DEPLOYMENT_MESH_AUTO]
 **docker** | [**DockerSource**](DockerSource.md) |  | [optional] 
 **git** | [**GitSource**](GitSource.md) |  | [optional] 
 **database** | [**DatabaseSource**](DatabaseSource.md) |  | [optional] 

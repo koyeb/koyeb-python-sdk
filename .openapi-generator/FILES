@@ -145,6 +145,7 @@ koyeb/api/docs/DeploymentEvent.md
 koyeb/api/docs/DeploymentHealthCheck.md
 koyeb/api/docs/DeploymentInstanceType.md
 koyeb/api/docs/DeploymentListItem.md
+koyeb/api/docs/DeploymentMesh.md
 koyeb/api/docs/DeploymentMetadata.md
 koyeb/api/docs/DeploymentNeonPostgresDatabaseInfo.md
 koyeb/api/docs/DeploymentNeonPostgresDatabaseInfoRole.md
@@ -376,6 +377,7 @@ koyeb/api/docs/RegionalDeploymentDefinition.md
 koyeb/api/docs/RegionalDeploymentDefinitionType.md
 koyeb/api/docs/RegionalDeploymentEvent.md
 koyeb/api/docs/RegionalDeploymentListItem.md
+koyeb/api/docs/RegionalDeploymentMesh.md
 koyeb/api/docs/RegionalDeploymentRole.md
 koyeb/api/docs/RegionalDeploymentStatus.md
 koyeb/api/docs/RegionalDeploymentVolume.md
@@ -559,6 +561,7 @@ koyeb/api/models/deployment_event.py
 koyeb/api/models/deployment_health_check.py
 koyeb/api/models/deployment_instance_type.py
 koyeb/api/models/deployment_list_item.py
+koyeb/api/models/deployment_mesh.py
 koyeb/api/models/deployment_metadata.py
 koyeb/api/models/deployment_neon_postgres_database_info.py
 koyeb/api/models/deployment_neon_postgres_database_info_role.py
@@ -771,6 +774,7 @@ koyeb/api/models/regional_deployment_definition.py
 koyeb/api/models/regional_deployment_definition_type.py
 koyeb/api/models/regional_deployment_event.py
 koyeb/api/models/regional_deployment_list_item.py
+koyeb/api/models/regional_deployment_mesh.py
 koyeb/api/models/regional_deployment_role.py
 koyeb/api/models/regional_deployment_status.py
 koyeb/api/models/regional_deployment_volume.py
@@ -854,21 +858,4 @@ koyeb/api/models/verify_docker_image_reply.py
 koyeb/api/models/verify_docker_image_reply_err_code.py
 koyeb/api/rest.py
 koyeb/api/test/__init__.py
-koyeb/api/test/test_basic_auth_policy.py
-koyeb/api/test/test_check_coupon_reply.py
-koyeb/api/test/test_create_project.py
-koyeb/api/test/test_create_project_reply.py
-koyeb/api/test/test_get_project_reply.py
-koyeb/api/test/test_get_service_scaling_reply.py
-koyeb/api/test/test_lifecycle_quotas.py
-koyeb/api/test/test_list_projects_reply.py
-koyeb/api/test/test_manual_service_scaling.py
-koyeb/api/test/test_project.py
-koyeb/api/test/test_projects_api.py
-koyeb/api/test/test_sandbox_metadata.py
-koyeb/api/test/test_security_policies.py
-koyeb/api/test/test_update_organization_default_project_reply.py
-koyeb/api/test/test_update_organization_default_project_request.py
-koyeb/api/test/test_update_project_reply.py
-koyeb/api/test/test_update_service_scaling_request.py
 koyeb/api_README.md

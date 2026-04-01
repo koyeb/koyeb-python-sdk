@@ -28,6 +28,7 @@ from koyeb.api.models.env import Env
 from koyeb.api.models.git_source import GitSource
 from koyeb.api.models.port import Port
 from koyeb.api.models.regional_deployment_definition_type import RegionalDeploymentDefinitionType
+from koyeb.api.models.regional_deployment_mesh import RegionalDeploymentMesh
 from koyeb.api.models.regional_deployment_volume import RegionalDeploymentVolume
 from koyeb.api.models.route import Route
 from koyeb.api.models.scaling import Scaling
@@ -53,10 +54,11 @@ class RegionalDeploymentDefinition(BaseModel):
     volumes: Optional[List[RegionalDeploymentVolume]] = None
     config_files: Optional[List[ConfigFile]] = None
     skip_cache: Optional[StrictBool] = None
+    mesh: Optional[RegionalDeploymentMesh] = RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO
     docker: Optional[DockerSource] = None
     git: Optional[GitSource] = None
     archive: Optional[ArchiveSource] = None
-    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "env", "region", "scaling", "instance_type", "deployment_group", "health_checks", "volumes", "config_files", "skip_cache", "docker", "git", "archive"]
+    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "env", "region", "scaling", "instance_type", "deployment_group", "health_checks", "volumes", "config_files", "skip_cache", "mesh", "docker", "git", "archive"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -180,6 +182,7 @@ class RegionalDeploymentDefinition(BaseModel):
             "volumes": [RegionalDeploymentVolume.from_dict(_item) for _item in obj["volumes"]] if obj.get("volumes") is not None else None,
             "config_files": [ConfigFile.from_dict(_item) for _item in obj["config_files"]] if obj.get("config_files") is not None else None,
             "skip_cache": obj.get("skip_cache"),
+            "mesh": obj.get("mesh") if obj.get("mesh") is not None else RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO,
             "docker": DockerSource.from_dict(obj["docker"]) if obj.get("docker") is not None else None,
             "git": GitSource.from_dict(obj["git"]) if obj.get("git") is not None else None,
             "archive": ArchiveSource.from_dict(obj["archive"]) if obj.get("archive") is not None else None

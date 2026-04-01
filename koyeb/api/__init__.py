@@ -157,6 +157,7 @@ __all__ = [
     "DeploymentHealthCheck",
     "DeploymentInstanceType",
     "DeploymentListItem",
+    "DeploymentMesh",
     "DeploymentMetadata",
     "DeploymentNeonPostgresDatabaseInfo",
     "DeploymentNeonPostgresDatabaseInfoRole",
@@ -369,6 +370,7 @@ __all__ = [
     "RegionalDeploymentDefinitionType",
     "RegionalDeploymentEvent",
     "RegionalDeploymentListItem",
+    "RegionalDeploymentMesh",
     "RegionalDeploymentRole",
     "RegionalDeploymentStatus",
     "RegionalDeploymentVolume",
@@ -596,6 +598,7 @@ from koyeb.api.models.deployment_event import DeploymentEvent as DeploymentEvent
 from koyeb.api.models.deployment_health_check import DeploymentHealthCheck as DeploymentHealthCheck
 from koyeb.api.models.deployment_instance_type import DeploymentInstanceType as DeploymentInstanceType
 from koyeb.api.models.deployment_list_item import DeploymentListItem as DeploymentListItem
+from koyeb.api.models.deployment_mesh import DeploymentMesh as DeploymentMesh
 from koyeb.api.models.deployment_metadata import DeploymentMetadata as DeploymentMetadata
 from koyeb.api.models.deployment_neon_postgres_database_info import DeploymentNeonPostgresDatabaseInfo as DeploymentNeonPostgresDatabaseInfo
 from koyeb.api.models.deployment_neon_postgres_database_info_role import DeploymentNeonPostgresDatabaseInfoRole as DeploymentNeonPostgresDatabaseInfoRole
@@ -808,6 +811,7 @@ from koyeb.api.models.regional_deployment_definition import RegionalDeploymentDe
 from koyeb.api.models.regional_deployment_definition_type import RegionalDeploymentDefinitionType as RegionalDeploymentDefinitionType
 from koyeb.api.models.regional_deployment_event import RegionalDeploymentEvent as RegionalDeploymentEvent
 from koyeb.api.models.regional_deployment_list_item import RegionalDeploymentListItem as RegionalDeploymentListItem
+from koyeb.api.models.regional_deployment_mesh import RegionalDeploymentMesh as RegionalDeploymentMesh
 from koyeb.api.models.regional_deployment_role import RegionalDeploymentRole as RegionalDeploymentRole
 from koyeb.api.models.regional_deployment_status import RegionalDeploymentStatus as RegionalDeploymentStatus
 from koyeb.api.models.regional_deployment_volume import RegionalDeploymentVolume as RegionalDeploymentVolume
