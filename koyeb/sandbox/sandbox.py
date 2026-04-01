@@ -121,6 +121,7 @@ class Sandbox:
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
+        enable_mesh: bool = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -153,6 +154,7 @@ class Sandbox:
                 delete_after_sleep: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
+                enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -196,6 +198,7 @@ class Sandbox:
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
             app_id=app_id,
+            enable_mesh=enable_mesh,
         )
 
         if wait_ready:
@@ -229,6 +232,7 @@ class Sandbox:
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
+        enable_mesh: bool = None,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
@@ -275,6 +279,7 @@ class Sandbox:
             enable_tcp_proxy=enable_tcp_proxy,
             _experimental_enable_light_sleep=_experimental_enable_light_sleep,
             _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+            enable_mesh=enable_mesh,
         )
 
         service_life_cycle = ServiceLifeCycle(
@@ -1026,6 +1031,7 @@ class AsyncSandbox(Sandbox):
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
+        enable_mesh: bool = False,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1060,6 +1066,7 @@ class AsyncSandbox(Sandbox):
                 delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
+                enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -1096,6 +1103,7 @@ class AsyncSandbox(Sandbox):
                 delete_after_delay=delete_after_delay,
                 delete_after_inactivity_delay=delete_after_inactivity_delay,
                 app_id=app_id,
+                enable_mesh=enable_mesh,
             ),
         )
 

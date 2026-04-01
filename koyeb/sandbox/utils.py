@@ -30,6 +30,7 @@ from koyeb.api.models.deployment_scaling_target import DeploymentScalingTarget
 from koyeb.api.models.deployment_scaling_target_sleep_idle_delay import (
     DeploymentScalingTargetSleepIdleDelay,
 )
+from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.docker_source import DockerSource
 from koyeb.api.models.proxy_port_protocol import ProxyPortProtocol
 
@@ -242,6 +243,7 @@ def create_deployment_definition(
     enable_tcp_proxy: bool = False,
     _experimental_enable_light_sleep: bool = False,
     _experimental_deep_sleep_value: int = 3900,
+    enable_mesh: bool = None,
 ) -> DeploymentDefinition:
     """
     Create deployment definition for a sandbox service.
@@ -262,6 +264,7 @@ def create_deployment_definition(
             Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for idle_timeout seconds before going into Deep Sleep.
         _experimental_deep_sleep_value: Number of seconds for deep sleep when light sleep is enabled (default: 3900).
             Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
+        enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
 
     Returns:
         DeploymentDefinition object
@@ -312,6 +315,15 @@ def create_deployment_definition(
 
     scalings = [DeploymentScaling(min=min_scale, max=1, targets=targets)]
 
+    # Set mesh configuration
+    mesh = DeploymentMesh.DEPLOYMENT_MESH_AUTO
+    if enable_mesh is None:
+        mesh = DeploymentMesh.DEPLOYMENT_MESH_AUTO
+    elif not enable_mesh:
+        mesh = DeploymentMesh.DEPLOYMENT_MESH_DISABLED
+    elif enable_mesh:
+        mesh = DeploymentMesh.DEPLOYMENT_MESH_ENABLED
+
     return DeploymentDefinition(
         name=name,
         type=deployment_type,
@@ -323,6 +335,7 @@ def create_deployment_definition(
         instance_types=[DeploymentInstanceType(type=instance_type)],
         scalings=scalings,
         regions=regions_list,
+        mesh=mesh,
     )
 
 
