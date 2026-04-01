@@ -362,7 +362,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_apps**
-> ListAppsReply list_apps(limit=limit, offset=offset, name=name)
+> ListAppsReply list_apps(limit=limit, offset=offset, name=name, project_id=project_id)
 
 List App
 
@@ -400,10 +400,11 @@ with koyeb.api.ApiClient(configuration) as api_client:
     limit = 'limit_example' # str | (Optional) The number of items to return (optional)
     offset = 'offset_example' # str | (Optional) The offset in the list of item to return (optional)
     name = 'name_example' # str | (Optional) A filter for name (optional)
+    project_id = 'project_id_example' # str | (Optional) A filter for the project ID (optional)
 
     try:
         # List App
-        api_response = api_instance.list_apps(limit=limit, offset=offset, name=name)
+        api_response = api_instance.list_apps(limit=limit, offset=offset, name=name, project_id=project_id)
         print("The response of AppsApi->list_apps:\n")
         pprint(api_response)
     except Exception as e:
@@ -420,6 +421,7 @@ Name | Type | Description  | Notes
  **limit** | **str**| (Optional) The number of items to return | [optional] 
  **offset** | **str**| (Optional) The offset in the list of item to return | [optional] 
  **name** | **str**| (Optional) A filter for name | [optional] 
+ **project_id** | **str**| (Optional) A filter for the project ID | [optional] 
 
 ### Return type
 

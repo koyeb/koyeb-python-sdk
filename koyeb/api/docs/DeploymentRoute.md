@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **port** | **int** |  | [optional] 
 **path** | **str** |  | [optional] 
+**security_policies** | [**SecurityPolicies**](SecurityPolicies.md) |  | [optional] 
 
 ## Example
 

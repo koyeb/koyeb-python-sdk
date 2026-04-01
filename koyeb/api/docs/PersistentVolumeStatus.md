@@ -13,6 +13,8 @@
 
 * `PERSISTENT_VOLUME_STATUS_DELETED` (value: `'PERSISTENT_VOLUME_STATUS_DELETED'`)
 
+* `PERSISTENT_VOLUME_STATUS_ARCHIVING` (value: `'PERSISTENT_VOLUME_STATUS_ARCHIVING'`)
+
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
 

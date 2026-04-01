@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **type** | [**SecretType**](SecretType.md) |  | [optional] [default to SecretType.SIMPLE]
 **updated_at** | **datetime** |  | [optional] 
 **created_at** | **datetime** |  | [optional] 
+**project_id** | **str** | The project ID this secret belongs to. Empty if the secret is organization-level. | [optional] 
 **value** | **str** |  | [optional] 
 **docker_hub_registry** | [**DockerHubRegistryConfiguration**](DockerHubRegistryConfiguration.md) |  | [optional] 
 **private_registry** | [**PrivateRegistryConfiguration**](PrivateRegistryConfiguration.md) |  | [optional] 

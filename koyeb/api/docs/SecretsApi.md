@@ -266,7 +266,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_secrets**
-> ListSecretsReply list_secrets(name=name, limit=limit, offset=offset, types=types)
+> ListSecretsReply list_secrets(name=name, limit=limit, offset=offset, types=types, project_id=project_id)
 
 List Secrets
 
@@ -305,10 +305,11 @@ with koyeb.api.ApiClient(configuration) as api_client:
     limit = 'limit_example' # str |  (optional)
     offset = 'offset_example' # str |  (optional)
     types = ['types_example'] # List[str] | Filter by secret types (optional)
+    project_id = 'project_id_example' # str | (Optional) A filter for the project ID (optional)
 
     try:
         # List Secrets
-        api_response = api_instance.list_secrets(name=name, limit=limit, offset=offset, types=types)
+        api_response = api_instance.list_secrets(name=name, limit=limit, offset=offset, types=types, project_id=project_id)
         print("The response of SecretsApi->list_secrets:\n")
         pprint(api_response)
     except Exception as e:
@@ -326,6 +327,7 @@ Name | Type | Description  | Notes
  **limit** | **str**|  | [optional] 
  **offset** | **str**|  | [optional] 
  **types** | [**List[str]**](str.md)| Filter by secret types | [optional] 
+ **project_id** | **str**| (Optional) A filter for the project ID | [optional] 
 
 ### Return type
 

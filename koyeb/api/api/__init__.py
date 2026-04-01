@@ -24,6 +24,7 @@ from koyeb.api.api.organization_quotas_api import OrganizationQuotasApi
 from koyeb.api.api.payment_methods_api import PaymentMethodsApi
 from koyeb.api.api.persistent_volumes_api import PersistentVolumesApi
 from koyeb.api.api.profile_api import ProfileApi
+from koyeb.api.api.projects_api import ProjectsApi
 from koyeb.api.api.provisioning_api import ProvisioningApi
 from koyeb.api.api.quotas_api import QuotasApi
 from koyeb.api.api.regional_deployments_api import RegionalDeploymentsApi
@@ -42,3 +43,4 @@ from koyeb.api.api.billing_api import BillingApi
 from koyeb.api.api.invite_api import InviteApi
 from koyeb.api.api.organization_api import OrganizationApi
 from koyeb.api.api.sso_api import SsoApi
+

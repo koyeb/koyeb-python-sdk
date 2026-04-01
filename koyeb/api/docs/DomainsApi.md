@@ -265,7 +265,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_domains**
-> ListDomainsReply list_domains(limit=limit, offset=offset, types=types, statuses=statuses, app_ids=app_ids, name=name)
+> ListDomainsReply list_domains(limit=limit, offset=offset, types=types, statuses=statuses, app_ids=app_ids, name=name, project_id=project_id)
 
 List Domains
 
@@ -306,10 +306,11 @@ with koyeb.api.ApiClient(configuration) as api_client:
     statuses = ['statuses_example'] # List[str] | (Optional) A filter for statuses (optional)
     app_ids = ['app_ids_example'] # List[str] | (Optional) A filter for apps (optional)
     name = 'name_example' # str | (Optional) A filter for name (optional)
+    project_id = 'project_id_example' # str | (Optional) A filter for the project ID (optional)
 
     try:
         # List Domains
-        api_response = api_instance.list_domains(limit=limit, offset=offset, types=types, statuses=statuses, app_ids=app_ids, name=name)
+        api_response = api_instance.list_domains(limit=limit, offset=offset, types=types, statuses=statuses, app_ids=app_ids, name=name, project_id=project_id)
         print("The response of DomainsApi->list_domains:\n")
         pprint(api_response)
     except Exception as e:
@@ -329,6 +330,7 @@ Name | Type | Description  | Notes
  **statuses** | [**List[str]**](str.md)| (Optional) A filter for statuses | [optional] 
  **app_ids** | [**List[str]**](str.md)| (Optional) A filter for apps | [optional] 
  **name** | **str**| (Optional) A filter for name | [optional] 
+ **project_id** | **str**| (Optional) A filter for the project ID | [optional] 
 
 ### Return type
 

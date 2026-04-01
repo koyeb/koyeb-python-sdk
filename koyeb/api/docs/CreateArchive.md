@@ -6,6 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **size** | **str** | How much space to provision for the archive, in bytes. | [optional] 
+**project_id** | **str** |  | [optional] 
 
 ## Example
 

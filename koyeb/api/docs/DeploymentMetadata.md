@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **git** | [**GitDeploymentMetadata**](GitDeploymentMetadata.md) |  | [optional] 
 **archive** | [**ArchiveDeploymentMetadata**](ArchiveDeploymentMetadata.md) |  | [optional] 
 **proxy_ports** | [**List[DeploymentProxyPortMetadata]**](DeploymentProxyPortMetadata.md) |  | [optional] 
+**sandbox** | [**SandboxMetadata**](SandboxMetadata.md) |  | [optional] 
 
 ## Example
 

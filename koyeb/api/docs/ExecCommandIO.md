@@ -5,7 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**data** | **bytearray** | Data is base64 encoded | [optional] 
+**data** | **bytes** | Data is base64 encoded | [optional] 
 **close** | **bool** | Indicate last data frame | [optional] 
 
 ## Example

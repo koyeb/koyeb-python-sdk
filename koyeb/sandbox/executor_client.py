@@ -4,6 +4,7 @@ Sandbox Executor API Client
 A simple Python client for interacting with the Sandbox Executor API.
 """
 
+from dataclasses import dataclass
 import json
 import logging
 import time
@@ -16,27 +17,46 @@ from .utils import DEFAULT_HTTP_TIMEOUT
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ConnectionInfo:
+    """Information needed to connect to a sandbox"""
+
+    public_url: str
+    routing_key: Optional[str]
+    secret: Optional[str]
+
+    def __str__(self) -> str:
+        return f"ConnectionInfo(public_url={self.public_url}, routing_key={self.routing_key}, secret={'********' if self.secret else 'None'})"
+
+    def validate(self) -> None:
+        if not self.public_url:
+            raise ValueError("Unable to get sandbox URL")
+        if not self.secret:
+            raise ValueError("Sandbox secret not available")
+
+
 class SandboxClient:
     """Client for the Sandbox Executor API."""
 
     def __init__(
-        self, base_url: str, secret: str, timeout: float = DEFAULT_HTTP_TIMEOUT
+        self, conn_info: ConnectionInfo, timeout: float = DEFAULT_HTTP_TIMEOUT
     ):
         """
         Initialize the Sandbox Client.
 
         Args:
-            base_url: The base URL of the sandbox server (e.g., 'http://localhost:8080')
-            secret: The authentication secret/token
+            conn_info: The parameters needed to connect to the sandbox
             timeout: Request timeout in seconds (default: 30)
         """
-        self.base_url = base_url.rstrip("/")
-        self.secret = secret
+        self.base_url = conn_info.public_url.rstrip("/")
+        self.secret = conn_info.secret
         self.timeout = timeout
         self.headers = {
-            "Authorization": f"Bearer {secret}",
+            "Authorization": f"Bearer {conn_info.secret}",
             "Content-Type": "application/json",
         }
+        if conn_info.routing_key:
+            self.headers["X-Routing-Key"] = conn_info.routing_key
         # Use session for connection pooling
         self._session = requests.Session()
         self._session.headers.update(self.headers)

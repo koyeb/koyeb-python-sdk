@@ -25,6 +25,8 @@ Name | Type | Description | Notes
 **scale_to_zero** | [**ScaleToZeroQuotas**](ScaleToZeroQuotas.md) |  | [optional] 
 **archives** | **str** |  | [optional] 
 **archive_max_size_mb** | **str** |  | [optional] 
+**lifecycle** | [**LifecycleQuotas**](LifecycleQuotas.md) |  | [optional] 
+**max_projects** | **str** |  | [optional] 
 
 ## Example
 

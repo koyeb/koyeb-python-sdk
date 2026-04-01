@@ -20,6 +20,7 @@ Name | Type | Description | Notes
 **version** | **str** |  | [optional] 
 **cloudflare** | **object** |  | [optional] 
 **koyeb** | [**DomainLoadBalancerKoyeb**](DomainLoadBalancerKoyeb.md) |  | [optional] 
+**project_id** | **str** | The project ID this domain belongs to. Empty if the domain is organization-level. | [optional] 
 
 ## Example
 

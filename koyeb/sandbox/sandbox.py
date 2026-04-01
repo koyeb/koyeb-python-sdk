@@ -11,7 +11,7 @@ import os
 import secrets
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
@@ -19,6 +19,7 @@ from koyeb.api.models.create_app import AppLifeCycle, CreateApp
 from koyeb.api.models.create_service import CreateService, ServiceLifeCycle
 from koyeb.api.models.update_service import UpdateService
 
+from .executor_client import ConnectionInfo
 from .utils import (
     DEFAULT_INSTANCE_WAIT_TIMEOUT,
     DEFAULT_POLL_INTERVAL,
@@ -90,7 +91,8 @@ class Sandbox:
         self.api_token = api_token
         self.sandbox_secret = sandbox_secret
         self._created_at = time.time()
-        self._sandbox_url = None
+        self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
+        self._domain: Optional[str] = None
         self._client = None
 
     @property
@@ -443,9 +445,30 @@ class Sandbox:
         apps_api, _, _, _, _ = get_api_client(self.api_token)
         apps_api.delete_app(self.app_id)
 
-    def get_domain(self) -> Optional[str]:
+    def get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
         """
-        Get the public domain of the sandbox.
+        Get the public url of the sandbox and the routing key to use to reach it.
+        """
+        try:
+            from koyeb.api.exceptions import ApiException, NotFoundException
+
+            from .utils import get_api_client
+
+            _, services_api, _, _, deployments_api = get_api_client(self.api_token)
+            service_response = services_api.get_service(self.service_id)
+            service = service_response.service
+            deployment = deployments_api.get_deployment(service.active_deployment_id or service.latest_deployment_id)
+            metadata = deployment.deployment.metadata
+            if metadata and metadata.sandbox:
+                return metadata.sandbox.public_url, metadata.sandbox.routing_key
+            return None
+
+        except (NotFoundException, ApiException, Exception):
+            return None
+
+    def _get_domain(self) -> Optional[str]:
+        """
+        Internal method to get the public domain of the sandbox.
 
         Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
         To construct the URL, use: f"https://{sandbox.get_domain()}"
@@ -471,6 +494,28 @@ class Sandbox:
             return None
         except (NotFoundException, ApiException, Exception):
             return None
+
+    def get_domain(self) -> Optional[str]:
+        """
+        Get the public domain of the sandbox.
+
+        Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
+        To construct the URL, use: f"https://{sandbox.get_domain()}"
+
+        Returns:
+            Optional[str]: The domain name or None if unavailable
+        """
+        if self._domain is None:
+            url_data = self.get_url_and_header_from_metadata()
+            if url_data:
+                domain = url_data[0].split("://")[1]
+                self._domain = f"{domain}/r/{url_data[1]}/"
+                return self._domain
+
+            domain = self._get_domain()
+            if domain:
+                self._domain = domain
+        return self._domain
 
     def get_tcp_proxy_info(self) -> Optional[tuple[str, int]]:
         """
@@ -518,19 +563,39 @@ class Sandbox:
         except (NotFoundException, ApiException, Exception):
             return None
 
-    def _get_sandbox_url(self) -> Optional[str]:
+    def _get_sandbox_url(self) -> Optional[Tuple[str, Optional[str]]]:
         """
         Internal method to get the sandbox URL for health checks and client initialization.
         Caches the URL after first retrieval.
 
         Returns:
-            Optional[str]: The sandbox URL or None if unavailable
+            str: the public url where to reach the sandbox
+            Optional[str]: the routing key to use to reach the sandbox, if needed
         """
         if self._sandbox_url is None:
-            domain = self.get_domain()
+            url_data = self.get_url_and_header_from_metadata()
+            if url_data:
+                self._sandbox_url = (f"{url_data[0]}/koyeb-sandbox", url_data[1])
+                return self._sandbox_url
+
+            domain = self._get_domain()
             if domain:
-                self._sandbox_url = f"https://{domain}/koyeb-sandbox"
+                self._sandbox_url = (f"https://{domain}/koyeb-sandbox", None)
         return self._sandbox_url
+
+    def _get_conn_info(self) -> Optional[ConnectionInfo]:
+        """
+        Internal method to get the parameters needed to connect to the sandbox.
+        Caches the info after first retrieval.
+
+        Returns:
+            Optional[ConnectionInfo]: the information needed to connect to the sandbox
+        """
+        sandbox_url, routing_key = self._get_sandbox_url()
+        if sandbox_url:
+            return ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
+
+        return None
 
     def _get_client(self) -> "SandboxClient":  # type: ignore[name-defined]
         """
@@ -543,8 +608,9 @@ class Sandbox:
             SandboxError: If sandbox URL or secret is not available
         """
         if self._client is None:
-            sandbox_url = self._get_sandbox_url()
-            self._client = create_sandbox_client(sandbox_url, self.sandbox_secret)
+            sandbox_url, routing_key = self._get_sandbox_url()
+            conn_info = ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
+            self._client = create_sandbox_client(conn_info)
         return self._client
 
     def _check_response_error(self, response: Dict, operation: str) -> None:
@@ -564,7 +630,7 @@ class Sandbox:
 
     def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations"""
-        sandbox_url = self._get_sandbox_url()
+        sandbox_url, header = self._get_sandbox_url()
         if not sandbox_url or not self.sandbox_secret:
             return False
 
@@ -573,7 +639,7 @@ class Sandbox:
         try:
             from .executor_client import SandboxClient
 
-            client = SandboxClient(sandbox_url, self.sandbox_secret)
+            client = SandboxClient(ConnectionInfo(sandbox_url, header, self.sandbox_secret))
             health_response = client.health()
             if isinstance(health_response, dict):
                 status = health_response.get("status", "").lower()

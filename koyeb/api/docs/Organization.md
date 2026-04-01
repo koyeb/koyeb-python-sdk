@@ -36,6 +36,7 @@ Name | Type | Description | Notes
 **trial_starts_at** | **datetime** |  | [optional] 
 **trial_ends_at** | **datetime** |  | [optional] 
 **email_domain_allowlist** | **List[str]** |  | [optional] 
+**default_project_id** | **str** |  | [optional] 
 
 ## Example
 
