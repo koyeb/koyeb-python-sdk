@@ -101,6 +101,7 @@ from koyeb.api.models.deployment_event import DeploymentEvent
 from koyeb.api.models.deployment_health_check import DeploymentHealthCheck
 from koyeb.api.models.deployment_instance_type import DeploymentInstanceType
 from koyeb.api.models.deployment_list_item import DeploymentListItem
+from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.deployment_metadata import DeploymentMetadata
 from koyeb.api.models.deployment_neon_postgres_database_info import DeploymentNeonPostgresDatabaseInfo
 from koyeb.api.models.deployment_neon_postgres_database_info_role import DeploymentNeonPostgresDatabaseInfoRole
@@ -313,6 +314,7 @@ from koyeb.api.models.regional_deployment_definition import RegionalDeploymentDe
 from koyeb.api.models.regional_deployment_definition_type import RegionalDeploymentDefinitionType
 from koyeb.api.models.regional_deployment_event import RegionalDeploymentEvent
 from koyeb.api.models.regional_deployment_list_item import RegionalDeploymentListItem
+from koyeb.api.models.regional_deployment_mesh import RegionalDeploymentMesh
 from koyeb.api.models.regional_deployment_role import RegionalDeploymentRole
 from koyeb.api.models.regional_deployment_status import RegionalDeploymentStatus
 from koyeb.api.models.regional_deployment_volume import RegionalDeploymentVolume

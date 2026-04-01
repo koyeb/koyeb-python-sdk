@@ -19,6 +19,7 @@ Name | Type | Description | Notes
 **volumes** | [**List[RegionalDeploymentVolume]**](RegionalDeploymentVolume.md) |  | [optional] 
 **config_files** | [**List[ConfigFile]**](ConfigFile.md) |  | [optional] 
 **skip_cache** | **bool** |  | [optional] 
+**mesh** | [**RegionalDeploymentMesh**](RegionalDeploymentMesh.md) |  | [optional] [default to RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO]
 **docker** | [**DockerSource**](DockerSource.md) |  | [optional] 
 **git** | [**GitSource**](GitSource.md) |  | [optional] 
 **archive** | [**ArchiveSource**](ArchiveSource.md) |  | [optional] 

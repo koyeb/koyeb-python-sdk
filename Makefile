@@ -8,7 +8,7 @@ DOCKER ?= docker
 
 
 .PHONY: gen-api-client
-gen-api-client:
+gen-api-client: fetch-spec
 	$(DOCKER) run --rm \
 		-v `pwd`/spec:/spec \
 		-v `pwd`:/builder openapitools/openapi-generator-cli:${OPENAPI_GENERATOR_VERSION} \

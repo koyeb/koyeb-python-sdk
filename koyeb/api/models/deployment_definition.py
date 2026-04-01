@@ -26,6 +26,7 @@ from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
 from koyeb.api.models.deployment_env import DeploymentEnv
 from koyeb.api.models.deployment_health_check import DeploymentHealthCheck
 from koyeb.api.models.deployment_instance_type import DeploymentInstanceType
+from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.deployment_port import DeploymentPort
 from koyeb.api.models.deployment_proxy_port import DeploymentProxyPort
 from koyeb.api.models.deployment_route import DeploymentRoute
@@ -56,11 +57,12 @@ class DeploymentDefinition(BaseModel):
     volumes: Optional[List[DeploymentVolume]] = None
     config_files: Optional[List[ConfigFile]] = None
     skip_cache: Optional[StrictBool] = None
+    mesh: Optional[DeploymentMesh] = DeploymentMesh.DEPLOYMENT_MESH_AUTO
     docker: Optional[DockerSource] = None
     git: Optional[GitSource] = None
     database: Optional[DatabaseSource] = None
     archive: Optional[ArchiveSource] = None
-    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "proxy_ports", "env", "regions", "scalings", "instance_types", "health_checks", "volumes", "config_files", "skip_cache", "docker", "git", "database", "archive"]
+    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "proxy_ports", "env", "regions", "scalings", "instance_types", "health_checks", "volumes", "config_files", "skip_cache", "mesh", "docker", "git", "database", "archive"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -205,6 +207,7 @@ class DeploymentDefinition(BaseModel):
             "volumes": [DeploymentVolume.from_dict(_item) for _item in obj["volumes"]] if obj.get("volumes") is not None else None,
             "config_files": [ConfigFile.from_dict(_item) for _item in obj["config_files"]] if obj.get("config_files") is not None else None,
             "skip_cache": obj.get("skip_cache"),
+            "mesh": obj.get("mesh") if obj.get("mesh") is not None else DeploymentMesh.DEPLOYMENT_MESH_AUTO,
             "docker": DockerSource.from_dict(obj["docker"]) if obj.get("docker") is not None else None,
             "git": GitSource.from_dict(obj["git"]) if obj.get("git") is not None else None,
             "database": DatabaseSource.from_dict(obj["database"]) if obj.get("database") is not None else None,
