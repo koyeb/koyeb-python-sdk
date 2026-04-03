@@ -47,6 +47,12 @@ Using the Koyeb Python SDK requires an API token. Complete the following steps t
     export KOYEB_API_TOKEN="YOUR_API_TOKEN"
     ```
 
+Optionally, set a default region for all sandbox deployments (defaults to `"na"` if not set):
+
+```bash copy
+export KOYEB_REGION="fra"
+```
+
 ### Example sandbox code
 
 See the [examples](/examples) directory for more basic operations.

@@ -999,7 +999,11 @@ def create(cls,
            enable_tcp_proxy: bool = False,
            privileged: bool = False,
            registry_secret: Optional[str] = None,
-           _experimental_enable_light_sleep: bool = False) -> Sandbox
+           _experimental_enable_light_sleep: bool = False,
+           _experimental_deep_sleep_value: int = 3900,
+           delete_after_delay: int = 0,
+           delete_after_inactivity_delay: int = 0,
+           app_id: Optional[str] = None) -> Sandbox
 ```
 
 Create a new sandbox instance.
@@ -1014,7 +1018,7 @@ Create a new sandbox instance.
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
 - `env` - Environment variables
-- `region` - Region to deploy to (default: "na")
+- `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
 - `idle_timeout` - Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
@@ -1028,6 +1032,11 @@ Create a new sandbox instance.
   pulling private images. Create the secret via Koyeb dashboard or CLI first.
 - `_experimental_enable_light_sleep` - If True, uses idle_timeout for light_sleep and sets
   deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
+- `delete_after_create` - If >0, automatically delete the sandbox if there was no activity
+  after this many seconds since creation.
+- `delete_after_sleep` - If >0, automatically delete the sandbox if service sleeps due to inactivity
+  after this many seconds.
+- `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
   
 
 **Returns**:
@@ -1134,6 +1143,16 @@ def delete() -> None
 ```
 
 Delete the sandbox instance.
+
+<a id="koyeb/sandbox.sandbox.Sandbox.get_url_and_header_from_metadata"></a>
+
+#### get\_url\_and\_header\_from\_metadata
+
+```python
+def get_url_and_header_from_metadata() -> Optional[Tuple[str, str]]
+```
+
+Get the public url of the sandbox and the routing key to use to reach it.
 
 <a id="koyeb/sandbox.sandbox.Sandbox.get_domain"></a>
 
@@ -1402,6 +1421,34 @@ for cleanup operations.
   >>> count = sandbox.kill_all_processes()
   >>> print(f"Killed {count} processes")
 
+<a id="koyeb/sandbox.sandbox.Sandbox.update_lifecycle"></a>
+
+#### update\_lifecycle
+
+```python
+def update_lifecycle(delete_after_delay: Optional[int] = None,
+                     delete_after_inactivity: Optional[int] = None) -> None
+```
+
+Update the sandbox's life cycle settings.
+
+**Arguments**:
+
+- `delete_after_delay` - If >0, automatically delete the sandbox if there was no activity
+  after this many seconds since creation.
+- `delete_after_inactivity` - If >0, automatically delete the sandbox if service sleeps due to inactivity
+  after this many seconds.
+  
+
+**Raises**:
+
+- `SandboxError` - If updating life cycle fails
+  
+
+**Example**:
+
+  >>> sandbox.update_life_cycle(delete_after_delay=600, delete_after_inactivity=300)
+
 <a id="koyeb/sandbox.sandbox.Sandbox.__enter__"></a>
 
 #### \_\_enter\_\_
@@ -1468,22 +1515,25 @@ Get a sandbox by service ID asynchronously.
 
 ```python
 @classmethod
-async def create(
-        cls,
-        image: str = "koyeb/sandbox",
-        name: str = "quick-sandbox",
-        wait_ready: bool = True,
-        instance_type: str = "micro",
-        exposed_port_protocol: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        region: Optional[str] = None,
-        api_token: Optional[str] = None,
-        timeout: int = 300,
-        idle_timeout: int = 300,
-        enable_tcp_proxy: bool = False,
-        privileged: bool = False,
-        registry_secret: Optional[str] = None,
-        _experimental_enable_light_sleep: bool = False) -> AsyncSandbox
+async def create(cls,
+                 image: str = "koyeb/sandbox",
+                 name: str = "quick-sandbox",
+                 wait_ready: bool = True,
+                 instance_type: str = "micro",
+                 exposed_port_protocol: Optional[str] = None,
+                 env: Optional[Dict[str, str]] = None,
+                 region: Optional[str] = None,
+                 api_token: Optional[str] = None,
+                 timeout: int = 300,
+                 idle_timeout: int = 0,
+                 enable_tcp_proxy: bool = False,
+                 privileged: bool = False,
+                 registry_secret: Optional[str] = None,
+                 _experimental_enable_light_sleep: bool = False,
+                 _experimental_deep_sleep_value: int = 3900,
+                 delete_after_delay: int = 0,
+                 delete_after_inactivity_delay: int = 0,
+                 app_id: Optional[str] = None) -> AsyncSandbox
 ```
 
 Create a new sandbox instance with async support.
@@ -1498,11 +1548,11 @@ Create a new sandbox instance with async support.
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
 - `env` - Environment variables
-- `region` - Region to deploy to (default: "na")
+- `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
 - `idle_timeout` - Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
-  - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep=3900)
+  - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep uses _experimental_deep_sleep_value)
   - If _experimental_enable_light_sleep is False: sets deep_sleep value
   - If 0: disables scale-to-zero (keep always-on)
   - If None: uses default values
@@ -1510,8 +1560,15 @@ Create a new sandbox instance with async support.
 - `privileged` - If True, run the container in privileged mode (default: False)
 - `registry_secret` - Name of a Koyeb secret containing registry credentials for
   pulling private images. Create the secret via Koyeb dashboard or CLI first.
-- `_experimental_enable_light_sleep` - If True, uses idle_timeout for light_sleep and sets
-  deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
+- `_experimental_enable_light_sleep` - If True, uses idle_timeout for light_sleep and configurable
+  deep_sleep (default: False)
+- `_experimental_deep_sleep_value` - Number of seconds for deep sleep when light sleep is enabled (default: 3900).
+  Only used if _experimental_enable_light_sleep is True
+- `delete_after_delay` - If >0, automatically delete the sandbox if there was no activity
+  after this many seconds since creation.
+- `delete_after_inactivity_delay` - If >0, automatically delete the sandbox if service sleeps due to inactivity
+  after this many seconds.
+- `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
   
 
 **Returns**:
@@ -1682,6 +1739,19 @@ async def kill_all_processes() -> int
 
 Kill all running background processes asynchronously.
 
+<a id="koyeb/sandbox.sandbox.AsyncSandbox.update_lifecycle"></a>
+
+#### update\_lifecycle
+
+```python
+@async_wrapper("update_lifecycle")
+async def update_lifecycle(
+        delete_after_delay: Optional[int] = None,
+        delete_after_inactivity: Optional[int] = None) -> None
+```
+
+Update the sandbox's life cycle settings asynchronously.
+
 <a id="koyeb/sandbox.sandbox.AsyncSandbox.__aenter__"></a>
 
 #### \_\_aenter\_\_
@@ -1740,7 +1810,8 @@ seconds for HTTP requests
 def get_api_client(
     api_token: Optional[str] = None,
     host: Optional[str] = None
-) -> tuple[AppsApi, ServicesApi, InstancesApi, CatalogInstancesApi]
+) -> tuple[AppsApi, ServicesApi, InstancesApi, CatalogInstancesApi,
+           DeploymentsApi]
 ```
 
 Get configured API clients for Koyeb operations.
@@ -1879,8 +1950,8 @@ def create_deployment_definition(
         routes: Optional[List[DeploymentRoute]] = None,
         idle_timeout: int = 300,
         enable_tcp_proxy: bool = False,
-        _experimental_enable_light_sleep: bool = False
-) -> DeploymentDefinition
+        _experimental_enable_light_sleep: bool = False,
+        _experimental_deep_sleep_value: int = 3900) -> DeploymentDefinition
 ```
 
 Create deployment definition for a sandbox service.
@@ -1894,12 +1965,14 @@ Create deployment definition for a sandbox service.
 - `exposed_port_protocol` - Protocol to expose ports with ("http" or "http2").
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
-- `region` - Region to deploy to (defaults to "na")
+- `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
 - `routes` - List of routes for public access
 - `idle_timeout` - Number of seconds to wait before sleeping the instance if it receives no traffic
 - `enable_tcp_proxy` - If True, enables TCP proxy for direct TCP access to port 3031
 - `_experimental_enable_light_sleep` - If True, uses light sleep when reaching idle_timeout.
-  Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for 3600s before going into Deep Sleep.
+  Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for idle_timeout seconds before going into Deep Sleep.
+- `_experimental_deep_sleep_value` - Number of seconds for deep sleep when light sleep is enabled (default: 3900).
+  Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
   
 
 **Returns**:
@@ -2018,8 +2091,7 @@ The sync method is called via super() and executed in an executor.
 #### create\_sandbox\_client
 
 ```python
-def create_sandbox_client(sandbox_url: Optional[str],
-                          sandbox_secret: Optional[str],
+def create_sandbox_client(conn_info: Optional['ConnectionInfo'],
                           existing_client: Optional[Any] = None) -> Any
 ```
 
@@ -2030,8 +2102,7 @@ Used by Sandbox, SandboxExecutor, and SandboxFilesystem to avoid duplication.
 
 **Arguments**:
 
-- `sandbox_url` - The sandbox URL (from _get_sandbox_url() or sandbox._get_sandbox_url())
-- `sandbox_secret` - The sandbox secret
+- `conn_info` - The information needed to connect to the sandbox executor API
 - `existing_client` - Existing client instance to return if not None
   
 
@@ -2072,6 +2143,17 @@ Sandbox Executor API Client
 
 A simple Python client for interacting with the Sandbox Executor API.
 
+<a id="koyeb/sandbox.executor_client.ConnectionInfo"></a>
+
+## ConnectionInfo Objects
+
+```python
+@dataclass
+class ConnectionInfo()
+```
+
+Information needed to connect to a sandbox
+
 <a id="koyeb/sandbox.executor_client.SandboxClient"></a>
 
 ## SandboxClient Objects
@@ -2087,17 +2169,14 @@ Client for the Sandbox Executor API.
 #### \_\_init\_\_
 
 ```python
-def __init__(base_url: str,
-             secret: str,
-             timeout: float = DEFAULT_HTTP_TIMEOUT)
+def __init__(conn_info: ConnectionInfo, timeout: float = DEFAULT_HTTP_TIMEOUT)
 ```
 
 Initialize the Sandbox Client.
 
 **Arguments**:
 
-- `base_url` - The base URL of the sandbox server (e.g., 'http://localhost:8080')
-- `secret` - The authentication secret/token
+- `conn_info` - The parameters needed to connect to the sandbox
 - `timeout` - Request timeout in seconds (default: 30)
 
 <a id="koyeb/sandbox.executor_client.SandboxClient.close"></a>
