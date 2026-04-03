@@ -1003,7 +1003,8 @@ def create(cls,
            _experimental_deep_sleep_value: int = 3900,
            delete_after_delay: int = 0,
            delete_after_inactivity_delay: int = 0,
-           app_id: Optional[str] = None) -> Sandbox
+           app_id: Optional[str] = None,
+           enable_mesh: bool = None) -> Sandbox
 ```
 
 Create a new sandbox instance.
@@ -1037,6 +1038,7 @@ Create a new sandbox instance.
 - `delete_after_sleep` - If >0, automatically delete the sandbox if service sleeps due to inactivity
   after this many seconds.
 - `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
+- `enable_mesh` - Enable or disable mesh for this sandbox. Disabled by default
   
 
 **Returns**:
@@ -1533,7 +1535,8 @@ async def create(cls,
                  _experimental_deep_sleep_value: int = 3900,
                  delete_after_delay: int = 0,
                  delete_after_inactivity_delay: int = 0,
-                 app_id: Optional[str] = None) -> AsyncSandbox
+                 app_id: Optional[str] = None,
+                 enable_mesh: bool = False) -> AsyncSandbox
 ```
 
 Create a new sandbox instance with async support.
@@ -1569,6 +1572,7 @@ Create a new sandbox instance with async support.
 - `delete_after_inactivity_delay` - If >0, automatically delete the sandbox if service sleeps due to inactivity
   after this many seconds.
 - `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
+- `enable_mesh` - Enable or disable mesh for this sandbox. Disabled by default
   
 
 **Returns**:
@@ -1951,7 +1955,8 @@ def create_deployment_definition(
         idle_timeout: int = 300,
         enable_tcp_proxy: bool = False,
         _experimental_enable_light_sleep: bool = False,
-        _experimental_deep_sleep_value: int = 3900) -> DeploymentDefinition
+        _experimental_deep_sleep_value: int = 3900,
+        enable_mesh: bool = None) -> DeploymentDefinition
 ```
 
 Create deployment definition for a sandbox service.
@@ -1973,6 +1978,7 @@ Create deployment definition for a sandbox service.
   Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for idle_timeout seconds before going into Deep Sleep.
 - `_experimental_deep_sleep_value` - Number of seconds for deep sleep when light sleep is enabled (default: 3900).
   Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
+- `enable_mesh` - Enable or disable mesh for this sandbox. Disabled by default
   
 
 **Returns**:
