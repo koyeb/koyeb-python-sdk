@@ -42,6 +42,7 @@ build-backend = "setuptools.build_meta"
 [dependency-groups]
 dev = [
   "autopep8>=2.3.2",
+  "bumpver>=2025.1131",
   "flake8>=7.3.0",
   "pydoc-markdown>=4.8.2",
   "pytest>=8.4.2",
