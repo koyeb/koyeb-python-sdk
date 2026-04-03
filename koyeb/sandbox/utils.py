@@ -254,7 +254,7 @@ def create_deployment_definition(
         exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
             If None, defaults to "http".
             If provided, must be one of "http" or "http2".
-        region: Region to deploy to (defaults to "na")
+        region: Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
         routes: List of routes for public access
         idle_timeout: Number of seconds to wait before sleeping the instance if it receives no traffic
         enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
@@ -267,7 +267,7 @@ def create_deployment_definition(
         DeploymentDefinition object
     """
     if region is None:
-        region = "na"
+        region = os.getenv("KOYEB_REGION", "na")
 
     # Convert single region string to list for API
     regions_list = [region]

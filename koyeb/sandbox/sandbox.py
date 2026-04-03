@@ -134,7 +134,7 @@ class Sandbox:
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
                 env: Environment variables
-                region: Region to deploy to (default: "na")
+                region: Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
                 idle_timeout: Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
@@ -1039,7 +1039,7 @@ class AsyncSandbox(Sandbox):
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
                 env: Environment variables
-                region: Region to deploy to (default: "na")
+                region: Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
                 idle_timeout: Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
