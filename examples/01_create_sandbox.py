@@ -2,6 +2,7 @@
 """Create and manage a sandbox"""
 
 import os
+import sys
 import random
 import string
 
@@ -12,7 +13,7 @@ def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
-        return
+        return 1
 
     sandbox = None
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -32,12 +33,14 @@ def main():
         result = sandbox.exec("echo 'Sandbox is ready!'")
         print(result.stdout.strip())
 
+        return 0
     except Exception as e:
         print(f"Error: {e}")
+        return 1
     finally:
         if sandbox:
             sandbox.delete()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

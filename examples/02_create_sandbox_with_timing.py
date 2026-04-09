@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import sys
 import random
 import string
 import time
@@ -74,7 +75,7 @@ def main(run_long_tests=False):
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
-        return
+        return 1
 
     sandbox = None
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -135,10 +136,12 @@ def main(run_long_tests=False):
             tracker.record("Multiple health checks (5x)", multi_check_duration, "long_tests")
             print(f"    ✓ took {multi_check_duration:.1f}s")
 
+            return 0
     except Exception as e:
         print(f"\n✗ Error occurred: {e}")
         import traceback
         traceback.print_exc()
+        return 1
     finally:
         if sandbox:
             print("  → Deleting sandbox...")
@@ -165,4 +168,4 @@ if __name__ == "__main__":
     )
     
     args = parser.parse_args()
-    main(run_long_tests=args.long)
+    sys.exit(main(run_long_tests=args.long))
