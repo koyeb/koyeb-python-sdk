@@ -3,7 +3,9 @@
 
 import argparse
 import asyncio
+import sys
 import os
+import sys
 import random
 import string
 import time
@@ -78,7 +80,7 @@ async def main(run_long_tests=False):
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
-        return
+        return 1
 
     sandbox = None
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -143,8 +145,10 @@ async def main(run_long_tests=False):
             )
             print(f"    ✓ took {multi_check_duration:.1f}s")
 
+    return 0
     except Exception as e:
         print(f"\n✗ Error occurred: {e}")
+        return 1
         import traceback
 
         traceback.print_exc()
@@ -174,4 +178,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    asyncio.run(main(run_long_tests=args.long))
+    sys.exit(asyncio.run(main(run_long_tests=args.long)))

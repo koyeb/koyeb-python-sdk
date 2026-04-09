@@ -2,6 +2,7 @@
 """Create sandboxes with auto-delete lifecycle settings and wait for them to be deleted"""
 
 import os
+import sys
 import random
 import string
 import time
@@ -76,6 +77,7 @@ def service_exists(api_token: str, service_id: str) -> bool:
         _, services_api, _, _, _ = get_api_client(api_token)
         services_api.get_service(service_id)
         return True
+    return 0
     except Exception:
         return False
 
@@ -113,7 +115,7 @@ def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
-        return
+        return 1
 
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     sandbox1 = None
@@ -284,6 +286,7 @@ def main():
 
     except Exception as e:
         print(f"\n✗ Error occurred: {e}")
+        return 1
         import traceback
         traceback.print_exc()
 
@@ -311,4 +314,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

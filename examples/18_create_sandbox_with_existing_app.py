@@ -2,6 +2,7 @@
 """Create a sandbox using an existing app instead of creating a new one"""
 
 import os
+import sys
 import random
 import string
 import time
@@ -15,7 +16,7 @@ def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
-        return
+        return 1
 
     app_id = None
     sandbox = None
@@ -82,8 +83,10 @@ def main():
 
         print("Demo completed successfully!")
 
+    return 0
     except Exception as e:
         print(f"Error: {e}")
+        return 1
         import traceback
         traceback.print_exc()
 
@@ -100,4 +103,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

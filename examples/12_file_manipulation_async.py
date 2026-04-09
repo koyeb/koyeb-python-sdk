@@ -2,7 +2,9 @@
 """File manipulation operations (async variant)"""
 
 import asyncio
+import sys
 import os
+import sys
 
 
 import random
@@ -14,7 +16,7 @@ async def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
-        return
+        return 1
 
     sandbox = None
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -59,12 +61,14 @@ async def main():
         dir_deleted_check = not await fs.exists("/tmp/test_dir")
         print(f"Directory deleted: {dir_deleted_check}")
 
+    return 0
     except Exception as e:
         print(f"Error: {e}")
+        return 1
     finally:
         if sandbox:
             await sandbox.delete()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()))

@@ -2,6 +2,7 @@
 """Binary file operations"""
 
 import os
+import sys
 
 
 import random
@@ -13,7 +14,7 @@ def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
-        return
+        return 1
 
     sandbox = None
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -37,12 +38,14 @@ def main():
         print(f"Read back: {file_info.content}")
         assert binary_data == file_info.content
 
+    return 0
     except Exception as e:
         print(f"Error: {e}")
+        return 1
     finally:
         if sandbox:
             sandbox.delete()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
