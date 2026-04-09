@@ -3,6 +3,8 @@
 
 import asyncio
 import os
+import random
+import string
 
 from koyeb import AsyncSandbox
 
@@ -14,10 +16,11 @@ async def main():
         return
 
     sandbox = None
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     try:
         sandbox = await AsyncSandbox.create(
             image="koyeb/sandbox",
-            name="example-sandbox",
+            name=f"example-sandbox-{suffix}",
             wait_ready=True,
             api_token=api_token,
         )

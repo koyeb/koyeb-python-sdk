@@ -2,6 +2,8 @@
 """Create sandboxes with auto-delete lifecycle settings and wait for them to be deleted"""
 
 import os
+import random
+import string
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -113,6 +115,7 @@ def main():
         print("Error: KOYEB_API_TOKEN not set")
         return
 
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     sandbox1 = None
     sandbox2 = None
 
@@ -177,7 +180,7 @@ def main():
         create_start = time.time()
         sandbox2 = Sandbox.create(
             image="koyeb/sandbox",
-            name="auto-delete-test-2",
+            name=f"auto-delete-test-2-{suffix}",
             wait_ready=True,
             api_token=api_token,
             region="fra",

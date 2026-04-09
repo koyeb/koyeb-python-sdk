@@ -3,6 +3,9 @@
 
 import os
 
+
+import random
+import string
 from koyeb import Sandbox
 
 
@@ -13,10 +16,11 @@ def main():
         return
 
     sandbox = None
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     try:
         sandbox = Sandbox.create(
             image="koyeb/sandbox",
-            name="working-dir",
+            name=f"working-dir-{suffix}",
             wait_ready=True,
             api_token=api_token,
         )

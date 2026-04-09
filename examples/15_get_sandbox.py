@@ -3,6 +3,9 @@
 
 import os
 
+
+import random
+import string
 from koyeb import Sandbox
 
 
@@ -13,6 +16,7 @@ def main():
         return
 
     original_sandbox = None
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     retrieved_sandbox = None
 
     try:
