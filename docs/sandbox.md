@@ -1156,6 +1156,23 @@ def get_url_and_header_from_metadata() -> Optional[Tuple[str, str]]
 
 Get the public url of the sandbox and the routing key to use to reach it.
 
+<a id="koyeb/sandbox.sandbox.Sandbox.get_url"></a>
+
+#### get\_url
+
+```python
+def get_url() -> Optional[str]
+```
+
+Get the public URL of the sandbox with protocol.
+
+Returns the full URL (e.g., "https://app-name-org.koyeb.app/r/routing_key/" or
+"https://app-name-org.koyeb.app").
+
+**Returns**:
+
+- `Optional[str]` - The full URL or None if unavailable
+
 <a id="koyeb/sandbox.sandbox.Sandbox.get_domain"></a>
 
 #### get\_domain
@@ -1166,12 +1183,13 @@ def get_domain() -> Optional[str]
 
 Get the public domain of the sandbox.
 
-Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
-To construct the URL, use: f"https://{sandbox.get_domain()}"
+Returns the domain (e.g., "app-name-org.koyeb.app/r/routing_key/" or
+"app-name-org.koyeb.app") without protocol. To get the full URL with protocol,
+use sandbox.get_url()
 
 **Returns**:
 
-- `Optional[str]` - The domain name or None if unavailable
+- `Optional[str]` - The domain or None if unavailable
 
 <a id="koyeb/sandbox.sandbox.Sandbox.get_tcp_proxy_info"></a>
 

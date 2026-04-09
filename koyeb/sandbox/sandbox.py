@@ -93,6 +93,7 @@ class Sandbox:
         self._created_at = time.time()
         self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
         self._domain: Optional[str] = None
+        self._url: Optional[str] = None
         self._client = None
 
     @property
@@ -476,7 +477,6 @@ class Sandbox:
         Internal method to get the public domain of the sandbox.
 
         Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
-        To construct the URL, use: f"https://{sandbox.get_domain()}"
 
         Returns:
             Optional[str]: The domain name or None if unavailable
@@ -500,27 +500,45 @@ class Sandbox:
         except (NotFoundException, ApiException, Exception):
             return None
 
+    def get_url(self) -> Optional[str]:
+        """
+        Get the public URL of the sandbox with protocol.
+
+        Returns the full URL (e.g., "https://app-name-org.koyeb.app/r/routing_key/" or
+        "https://app-name-org.koyeb.app").
+
+        Returns:
+            Optional[str]: The full URL or None if unavailable
+        """
+        if self._url is None:
+            url_data = self.get_url_and_header_from_metadata()
+            if url_data:
+                self._url = f"{url_data[0]}/r/{url_data[1]}/"
+                return self._url
+
+            domain = self._get_domain()
+            if domain:
+                self._url = f"https://{domain}"
+        return self._url
+
     def get_domain(self) -> Optional[str]:
         """
         Get the public domain of the sandbox.
 
-        Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
-        To construct the URL, use: f"https://{sandbox.get_domain()}"
+        Returns the domain (e.g., "app-name-org.koyeb.app/r/routing_key/" or
+        "app-name-org.koyeb.app") without protocol. To get the full URL with protocol,
+        use sandbox.get_url()
 
         Returns:
-            Optional[str]: The domain name or None if unavailable
+            Optional[str]: The domain or None if unavailable
         """
-        if self._domain is None:
-            url_data = self.get_url_and_header_from_metadata()
-            if url_data:
-                domain = url_data[0].split("://")[1]
-                self._domain = f"{domain}/r/{url_data[1]}/"
-                return self._domain
-
-            domain = self._get_domain()
-            if domain:
-                self._domain = domain
-        return self._domain
+        url = self.get_url()
+        if url:
+            if url.startswith("https://"):
+                return url[8:]
+            elif url.startswith("http://"):
+                return url[7:]
+        return url
 
     def get_tcp_proxy_info(self) -> Optional[tuple[str, int]]:
         """
@@ -715,14 +733,14 @@ class Sandbox:
             response = client.bind_port(port)
             self._check_response_error(response, f"expose port {port}")
 
-            # Get domain for exposed_at
-            domain = self.get_domain()
-            if not domain:
-                raise SandboxError("Domain not available for exposed port")
+            # Get URL for exposed_at
+            url = self.get_url()
+            if not url:
+                raise SandboxError("URL not available for exposed port")
 
             # Return the port from response if available, otherwise use the requested port
             exposed_port = int(response.get("port", port))
-            exposed_at = f"https://{domain}"
+            exposed_at = url
             return ExposedPort(port=exposed_port, exposed_at=exposed_at)
         except Exception as e:
             if isinstance(e, SandboxError):
