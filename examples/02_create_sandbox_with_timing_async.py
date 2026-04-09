@@ -4,6 +4,8 @@
 import argparse
 import asyncio
 import os
+import random
+import string
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -79,13 +81,14 @@ async def main(run_long_tests=False):
         return
 
     sandbox = None
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     try:
         # Create sandbox with timing
         print("  → Creating sandbox...")
         create_start = time.time()
         sandbox = await AsyncSandbox.create(
             image="koyeb/sandbox",
-            name="example-sandbox-timed",
+            name=f"example-sandbox-timed-{suffix}",
             wait_ready=True,
             api_token=api_token,
         )

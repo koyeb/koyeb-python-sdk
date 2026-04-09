@@ -2,6 +2,8 @@
 """Create a sandbox using an existing app instead of creating a new one"""
 
 import os
+import random
+import string
 import time
 
 from koyeb import Sandbox
@@ -17,6 +19,7 @@ def main():
 
     app_id = None
     sandbox = None
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
     try:
         # Step 1: Create an app first
@@ -47,7 +50,7 @@ def main():
         print(f"  Creating sandbox in app: {app_id}")
         sandbox = Sandbox.create(
             image="koyeb/sandbox",
-            name="sandbox-in-existing-app",
+            name=f"sandbox-in-existing-app-{suffix}",
             wait_ready=True,
             api_token=api_token,
             region="fra",
