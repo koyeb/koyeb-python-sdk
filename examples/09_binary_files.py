@@ -38,10 +38,12 @@ def main():
         print(f"Read back: {file_info.content}")
         assert binary_data == file_info.content
 
-    return 0
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
+
     finally:
         if sandbox:
             sandbox.delete()

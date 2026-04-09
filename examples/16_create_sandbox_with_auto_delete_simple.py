@@ -18,7 +18,6 @@ def service_exists(api_token: str, service_id: str) -> bool:
         _, services_api, _, _, _ = get_api_client(api_token)
         services_api.get_service(service_id)
         return True
-    return 0
     except Exception:
         return False
 
@@ -85,11 +84,11 @@ def main():
         else:
             print(f"✗ Timeout waiting for sandbox to be deleted")
 
+        return 0
+
     except Exception as e:
         print(f"\n✗ Error occurred: {e}")
         return 1
-        import traceback
-        traceback.print_exc()
 
     finally:
         if sandbox:

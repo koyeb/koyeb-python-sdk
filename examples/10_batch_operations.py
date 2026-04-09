@@ -54,10 +54,12 @@ def main():
         fs.write_files(project_files)
         print("Created project structure")
 
-    return 0
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
+
     finally:
         if sandbox:
             sandbox.delete()

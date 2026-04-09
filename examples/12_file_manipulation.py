@@ -54,10 +54,12 @@ def main():
         fs.rm("/tmp/test_dir", recursive=True)
         print(f"Directory deleted: {not fs.exists('/tmp/test_dir')}")
 
-    return 0
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
+
     finally:
         if sandbox:
             sandbox.delete()

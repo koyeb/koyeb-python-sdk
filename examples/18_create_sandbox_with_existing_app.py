@@ -83,12 +83,11 @@ def main():
 
         print("Demo completed successfully!")
 
-    return 0
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
-        import traceback
-        traceback.print_exc()
 
     finally:
         # Clean up: delete the app (which will also delete the sandbox service)

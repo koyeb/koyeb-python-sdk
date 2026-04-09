@@ -43,10 +43,12 @@ def main():
         result = sandbox.exec("/tmp/script.py")
         print(result.stdout.strip())
 
-    return 0
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
+
     finally:
         if sandbox:
             sandbox.delete()

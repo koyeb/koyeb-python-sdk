@@ -44,10 +44,12 @@ async def main():
         result = await sandbox.exec("cat src/main.py", cwd="/tmp/my_project")
         print(result.stdout.strip())
 
-    return 0
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
+
     finally:
         if sandbox:
             await sandbox.delete()

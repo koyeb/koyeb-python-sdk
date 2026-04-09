@@ -50,10 +50,12 @@ def main():
         is_file = fs.is_file("/tmp/my_project/src/main.py")
         print(f"Exists: {exists}, Is dir: {is_dir}, Is file: {is_file}")
 
-    return 0
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
+
     finally:
         if sandbox:
             sandbox.delete()

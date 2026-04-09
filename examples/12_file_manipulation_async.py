@@ -61,10 +61,12 @@ async def main():
         dir_deleted_check = not await fs.exists("/tmp/test_dir")
         print(f"Directory deleted: {dir_deleted_check}")
 
-    return 0
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
+
     finally:
         if sandbox:
             await sandbox.delete()

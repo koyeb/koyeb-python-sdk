@@ -77,7 +77,6 @@ def service_exists(api_token: str, service_id: str) -> bool:
         _, services_api, _, _, _ = get_api_client(api_token)
         services_api.get_service(service_id)
         return True
-    return 0
     except Exception:
         return False
 
@@ -283,12 +282,11 @@ def main():
         if sandbox2_delete_time:
             print(f"  Sandbox 2 (idle_timeout + delete_after_inactivity): deleted after {sandbox2_delete_time:.1f}s")
             print(f"    Expected: ~{idle_timeout_2 + delete_after_inactivity_2}s (idle + delete delay)")
+        return 0
 
     except Exception as e:
         print(f"\n✗ Error occurred: {e}")
         return 1
-        import traceback
-        traceback.print_exc()
 
     finally:
         # Clean up any sandboxes that weren't auto-deleted

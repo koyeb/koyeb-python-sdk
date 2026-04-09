@@ -66,10 +66,12 @@ async def main():
             )
             print(f"  Retrieved sandbox output: {result.stdout.strip()}")
 
-    return 0
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
         return 1
+
     finally:
         # Cleanup: delete the sandbox (works from either instance)
         if original_sandbox:
