@@ -2,6 +2,7 @@
 """Port exposure via TCP proxy"""
 
 import os
+import sys
 import time
 
 import requests
@@ -16,9 +17,11 @@ def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
+        sys.exit(1)
         return
 
     sandbox = None
+    exit_code = 0
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     try:
         sandbox = Sandbox.create(
@@ -67,6 +70,7 @@ def main():
         except requests.RequestException as e:
             print(f"⚠ Request failed: {e}")
             print("Note: Port may still be propagating. Try again in a few seconds.")
+            exit_code = 1
 
         # List processes to show the server is running
         print("\nRunning processes:")
@@ -108,6 +112,7 @@ def main():
         except requests.RequestException as e:
             print(f"⚠ Request failed: {e}")
             print("Note: Port may still be propagating. Try again in a few seconds.")
+            exit_code = 1
 
         # Unexpose the port
         print("\nUnexposing port...")
@@ -119,6 +124,8 @@ def main():
     finally:
         if sandbox:
             sandbox.delete()
+
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":
