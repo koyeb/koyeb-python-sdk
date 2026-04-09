@@ -2,6 +2,7 @@
 """Create sandboxes with auto-delete lifecycle settings and wait for them to be deleted"""
 
 import os
+import sys
 import random
 import string
 import time
@@ -113,7 +114,7 @@ def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
-        return
+        return 1
 
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     sandbox1 = None
@@ -281,11 +282,11 @@ def main():
         if sandbox2_delete_time:
             print(f"  Sandbox 2 (idle_timeout + delete_after_inactivity): deleted after {sandbox2_delete_time:.1f}s")
             print(f"    Expected: ~{idle_timeout_2 + delete_after_inactivity_2}s (idle + delete delay)")
+        return 0
 
     except Exception as e:
         print(f"\n✗ Error occurred: {e}")
-        import traceback
-        traceback.print_exc()
+        return 1
 
     finally:
         # Clean up any sandboxes that weren't auto-deleted
@@ -311,4 +312,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

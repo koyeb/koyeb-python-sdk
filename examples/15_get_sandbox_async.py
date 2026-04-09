@@ -2,7 +2,9 @@
 """Create a sandbox and then retrieve it by service ID (async)"""
 
 import asyncio
+import sys
 import os
+import sys
 
 
 import random
@@ -14,7 +16,7 @@ async def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
-        return
+        return 1
 
     original_sandbox = None
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -64,8 +66,12 @@ async def main():
             )
             print(f"  Retrieved sandbox output: {result.stdout.strip()}")
 
+        return 0
+
     except Exception as e:
         print(f"Error: {e}")
+        return 1
+
     finally:
         # Cleanup: delete the sandbox (works from either instance)
         if original_sandbox:
@@ -75,4 +81,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()))
