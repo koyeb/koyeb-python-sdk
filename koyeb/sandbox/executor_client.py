@@ -158,15 +158,20 @@ class SandboxClient:
         """
         Check the health status of the server.
 
+        Uses a short timeout and no retries since callers (wait_ready)
+        already handle polling with backoff.
+
         Returns:
             Dict with status information
 
         Raises:
             requests.HTTPError: If the health check fails
+            requests.Timeout: If the health check times out
         """
-        response = self._request_with_retry(
-            "GET", f"{self.base_url}/health", timeout=self.timeout
+        response = self._session.get(
+            f"{self.base_url}/health", timeout=5
         )
+        response.raise_for_status()
         return response.json()
 
     def run(

@@ -83,6 +83,7 @@ class Sandbox:
         name: Optional[str] = None,
         api_token: Optional[str] = None,
         sandbox_secret: Optional[str] = None,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
     ):
         self.sandbox_id = sandbox_id
         self.app_id = app_id
@@ -90,6 +91,7 @@ class Sandbox:
         self.name = name
         self.api_token = api_token
         self.sandbox_secret = sandbox_secret
+        self.poll_interval = poll_interval
         self._created_at = time.time()
         self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
         self._domain: Optional[str] = None
@@ -123,6 +125,7 @@ class Sandbox:
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
         enable_mesh: bool = None,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -156,6 +159,7 @@ class Sandbox:
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
                 enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
+                poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -200,6 +204,7 @@ class Sandbox:
             delete_after_inactivity_delay=delete_after_inactivity_delay,
             app_id=app_id,
             enable_mesh=enable_mesh,
+            poll_interval=poll_interval,
         )
 
         if wait_ready:
@@ -234,6 +239,7 @@ class Sandbox:
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
         enable_mesh: bool = None,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
@@ -302,6 +308,7 @@ class Sandbox:
             name=name,
             api_token=api_token,
             sandbox_secret=sandbox_secret,
+            poll_interval=poll_interval,
         )
 
     @classmethod
@@ -383,20 +390,25 @@ class Sandbox:
     def wait_ready(
         self,
         timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
-        poll_interval: float = DEFAULT_POLL_INTERVAL,
+        poll_interval: Optional[float] = None,
     ) -> bool:
         """
-        Wait for sandbox to become ready with proper polling.
+        Wait for sandbox to become ready with exponential backoff polling.
+
+        Starts polling at 0.1s intervals, doubling each time up to poll_interval.
 
         Args:
             timeout: Maximum time to wait in seconds
-            poll_interval: Time between health checks in seconds
+            poll_interval: Maximum time between health checks in seconds (defaults to instance poll_interval)
 
         Returns:
             bool: True if sandbox became ready, False if timeout
         """
+        if poll_interval is None:
+            poll_interval = self.poll_interval
         start_time = time.time()
         sandbox_url = None
+        current_interval = 0.1
 
         while time.time() - start_time < timeout:
             # Get sandbox URL on first iteration or if not yet retrieved
@@ -404,7 +416,8 @@ class Sandbox:
                 sandbox_url = self._get_sandbox_url()
                 # If URL is not available yet, wait and retry
                 if sandbox_url is None:
-                    time.sleep(poll_interval)
+                    time.sleep(current_interval)
+                    current_interval = min(current_interval * 2, poll_interval)
                     continue
 
             is_healthy = self.is_healthy()
@@ -412,37 +425,41 @@ class Sandbox:
             if is_healthy:
                 return True
 
-            time.sleep(poll_interval)
+            time.sleep(current_interval)
+            current_interval = min(current_interval * 2, poll_interval)
 
         return False
 
     def wait_tcp_proxy_ready(
         self,
         timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
-        poll_interval: float = DEFAULT_POLL_INTERVAL,
+        poll_interval: Optional[float] = None,
     ) -> bool:
         """
         Wait for TCP proxy to become ready and available.
 
-        Polls the deployment metadata until the TCP proxy information is available.
-        This is useful when enable_tcp_proxy=True was set during sandbox creation,
-        as the proxy information may not be immediately available.
+        Polls the deployment metadata with exponential backoff until the TCP proxy
+        information is available. Starts at 0.1s intervals, doubling up to poll_interval.
 
         Args:
             timeout: Maximum time to wait in seconds
-            poll_interval: Time between checks in seconds
+            poll_interval: Maximum time between checks in seconds (defaults to instance poll_interval)
 
         Returns:
             bool: True if TCP proxy became ready, False if timeout
         """
+        if poll_interval is None:
+            poll_interval = self.poll_interval
         start_time = time.time()
+        current_interval = 0.1
 
         while time.time() - start_time < timeout:
             tcp_proxy_info = self.get_tcp_proxy_info()
             if tcp_proxy_info is not None:
                 return True
 
-            time.sleep(poll_interval)
+            time.sleep(current_interval)
+            current_interval = min(current_interval * 2, poll_interval)
 
         return False
 
@@ -1050,6 +1067,7 @@ class AsyncSandbox(Sandbox):
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
         enable_mesh: bool = False,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1085,6 +1103,7 @@ class AsyncSandbox(Sandbox):
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
                 enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
+                poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -1122,6 +1141,7 @@ class AsyncSandbox(Sandbox):
                 delete_after_inactivity_delay=delete_after_inactivity_delay,
                 app_id=app_id,
                 enable_mesh=enable_mesh,
+                poll_interval=poll_interval,
             ),
         )
 
@@ -1133,6 +1153,7 @@ class AsyncSandbox(Sandbox):
             name=sync_result.name,
             api_token=sync_result.api_token,
             sandbox_secret=sync_result.sandbox_secret,
+            poll_interval=poll_interval,
         )
         sandbox._created_at = sync_result._created_at
 
@@ -1150,19 +1171,24 @@ class AsyncSandbox(Sandbox):
     async def wait_ready(
         self,
         timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
-        poll_interval: float = DEFAULT_POLL_INTERVAL,
+        poll_interval: Optional[float] = None,
     ) -> bool:
         """
-        Wait for sandbox to become ready with proper async polling.
+        Wait for sandbox to become ready with exponential backoff async polling.
+
+        Starts polling at 0.1s intervals, doubling each time up to poll_interval.
 
         Args:
             timeout: Maximum time to wait in seconds
-            poll_interval: Time between health checks in seconds
+            poll_interval: Maximum time between health checks in seconds (defaults to instance poll_interval)
 
         Returns:
             bool: True if sandbox became ready, False if timeout
         """
+        if poll_interval is None:
+            poll_interval = self.poll_interval
         start_time = time.time()
+        current_interval = 0.1
 
         while time.time() - start_time < timeout:
             loop = asyncio.get_running_loop()
@@ -1171,30 +1197,33 @@ class AsyncSandbox(Sandbox):
             if is_healthy:
                 return True
 
-            await asyncio.sleep(poll_interval)
+            await asyncio.sleep(current_interval)
+            current_interval = min(current_interval * 2, poll_interval)
 
         return False
 
     async def wait_tcp_proxy_ready(
         self,
         timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
-        poll_interval: float = DEFAULT_POLL_INTERVAL,
+        poll_interval: Optional[float] = None,
     ) -> bool:
         """
         Wait for TCP proxy to become ready and available asynchronously.
 
-        Polls the deployment metadata until the TCP proxy information is available.
-        This is useful when enable_tcp_proxy=True was set during sandbox creation,
-        as the proxy information may not be immediately available.
+        Polls the deployment metadata with exponential backoff until the TCP proxy
+        information is available. Starts at 0.1s intervals, doubling up to poll_interval.
 
         Args:
             timeout: Maximum time to wait in seconds
-            poll_interval: Time between checks in seconds
+            poll_interval: Maximum time between checks in seconds (defaults to instance poll_interval)
 
         Returns:
             bool: True if TCP proxy became ready, False if timeout
         """
+        if poll_interval is None:
+            poll_interval = self.poll_interval
         start_time = time.time()
+        current_interval = 0.1
 
         while time.time() - start_time < timeout:
             loop = asyncio.get_running_loop()
@@ -1204,7 +1233,8 @@ class AsyncSandbox(Sandbox):
             if tcp_proxy_info is not None:
                 return True
 
-            await asyncio.sleep(poll_interval)
+            await asyncio.sleep(current_interval)
+            current_interval = min(current_interval * 2, poll_interval)
 
         return False
 

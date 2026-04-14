@@ -88,6 +88,7 @@ def main(run_long_tests=False):
             name=f"example-sandbox-timed-{suffix}",
             wait_ready=True,
             api_token=api_token,
+            # poll_interval=0.1,
         )
         create_duration = time.time() - create_start
         tracker.record("Sandbox creation", create_duration, "setup")

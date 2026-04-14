@@ -1004,7 +1004,8 @@ def create(cls,
            delete_after_delay: int = 0,
            delete_after_inactivity_delay: int = 0,
            app_id: Optional[str] = None,
-           enable_mesh: bool = None) -> Sandbox
+           enable_mesh: bool = None,
+           poll_interval: float = DEFAULT_POLL_INTERVAL) -> Sandbox
 ```
 
 Create a new sandbox instance.
@@ -1039,6 +1040,7 @@ Create a new sandbox instance.
   after this many seconds.
 - `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
 - `enable_mesh` - Enable or disable mesh for this sandbox. Disabled by default
+- `poll_interval` - Time between health checks in seconds when wait_ready is True (default: 0.5)
   
 
 **Returns**:
@@ -1096,15 +1098,17 @@ Get a sandbox by service ID.
 
 ```python
 def wait_ready(timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
-               poll_interval: float = DEFAULT_POLL_INTERVAL) -> bool
+               poll_interval: Optional[float] = None) -> bool
 ```
 
-Wait for sandbox to become ready with proper polling.
+Wait for sandbox to become ready with exponential backoff polling.
+
+Starts polling at 0.1s intervals, doubling each time up to poll_interval.
 
 **Arguments**:
 
 - `timeout` - Maximum time to wait in seconds
-- `poll_interval` - Time between health checks in seconds
+- `poll_interval` - Maximum time between health checks in seconds (defaults to instance poll_interval)
   
 
 **Returns**:
@@ -1117,19 +1121,18 @@ Wait for sandbox to become ready with proper polling.
 
 ```python
 def wait_tcp_proxy_ready(timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
-                         poll_interval: float = DEFAULT_POLL_INTERVAL) -> bool
+                         poll_interval: Optional[float] = None) -> bool
 ```
 
 Wait for TCP proxy to become ready and available.
 
-Polls the deployment metadata until the TCP proxy information is available.
-This is useful when enable_tcp_proxy=True was set during sandbox creation,
-as the proxy information may not be immediately available.
+Polls the deployment metadata with exponential backoff until the TCP proxy
+information is available. Starts at 0.1s intervals, doubling up to poll_interval.
 
 **Arguments**:
 
 - `timeout` - Maximum time to wait in seconds
-- `poll_interval` - Time between checks in seconds
+- `poll_interval` - Maximum time between checks in seconds (defaults to instance poll_interval)
   
 
 **Returns**:
@@ -1166,12 +1169,13 @@ def get_domain() -> Optional[str]
 
 Get the public domain of the sandbox.
 
-Returns the domain name (e.g., "app-name-org.koyeb.app") without protocol or path.
-To construct the URL, use: f"https://{sandbox.get_domain()}"
+Returns the domain (e.g., "app-name-org.koyeb.app/r/routing_key/" or
+"app-name-org.koyeb.app") without protocol. To get the full URL with protocol,
+use sandbox._get_url()
 
 **Returns**:
 
-- `Optional[str]` - The domain name or None if unavailable
+- `Optional[str]` - The domain or None if unavailable
 
 <a id="koyeb/sandbox.sandbox.Sandbox.get_tcp_proxy_info"></a>
 
@@ -1536,7 +1540,8 @@ async def create(cls,
                  delete_after_delay: int = 0,
                  delete_after_inactivity_delay: int = 0,
                  app_id: Optional[str] = None,
-                 enable_mesh: bool = False) -> AsyncSandbox
+                 enable_mesh: bool = False,
+                 poll_interval: float = DEFAULT_POLL_INTERVAL) -> AsyncSandbox
 ```
 
 Create a new sandbox instance with async support.
@@ -1573,6 +1578,7 @@ Create a new sandbox instance with async support.
   after this many seconds.
 - `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
 - `enable_mesh` - Enable or disable mesh for this sandbox. Disabled by default
+- `poll_interval` - Time between health checks in seconds when wait_ready is True (default: 0.5)
   
 
 **Returns**:
@@ -1591,15 +1597,17 @@ Create a new sandbox instance with async support.
 
 ```python
 async def wait_ready(timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
-                     poll_interval: float = DEFAULT_POLL_INTERVAL) -> bool
+                     poll_interval: Optional[float] = None) -> bool
 ```
 
-Wait for sandbox to become ready with proper async polling.
+Wait for sandbox to become ready with exponential backoff async polling.
+
+Starts polling at 0.1s intervals, doubling each time up to poll_interval.
 
 **Arguments**:
 
 - `timeout` - Maximum time to wait in seconds
-- `poll_interval` - Time between health checks in seconds
+- `poll_interval` - Maximum time between health checks in seconds (defaults to instance poll_interval)
   
 
 **Returns**:
@@ -1611,21 +1619,19 @@ Wait for sandbox to become ready with proper async polling.
 #### wait\_tcp\_proxy\_ready
 
 ```python
-async def wait_tcp_proxy_ready(
-        timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
-        poll_interval: float = DEFAULT_POLL_INTERVAL) -> bool
+async def wait_tcp_proxy_ready(timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
+                               poll_interval: Optional[float] = None) -> bool
 ```
 
 Wait for TCP proxy to become ready and available asynchronously.
 
-Polls the deployment metadata until the TCP proxy information is available.
-This is useful when enable_tcp_proxy=True was set during sandbox creation,
-as the proxy information may not be immediately available.
+Polls the deployment metadata with exponential backoff until the TCP proxy
+information is available. Starts at 0.1s intervals, doubling up to poll_interval.
 
 **Arguments**:
 
 - `timeout` - Maximum time to wait in seconds
-- `poll_interval` - Time between checks in seconds
+- `poll_interval` - Maximum time between checks in seconds (defaults to instance poll_interval)
   
 
 **Returns**:
@@ -2235,6 +2241,9 @@ def health() -> Dict[str, str]
 
 Check the health status of the server.
 
+Uses a short timeout and no retries since callers (wait_ready)
+already handle polling with backoff.
+
 **Returns**:
 
   Dict with status information
@@ -2243,6 +2252,7 @@ Check the health status of the server.
 **Raises**:
 
 - `requests.HTTPError` - If the health check fails
+- `requests.Timeout` - If the health check times out
 
 <a id="koyeb/sandbox.executor_client.SandboxClient.run"></a>
 
