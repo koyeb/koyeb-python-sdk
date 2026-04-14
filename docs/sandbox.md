@@ -1149,16 +1149,6 @@ def delete() -> None
 
 Delete the sandbox instance.
 
-<a id="koyeb/sandbox.sandbox.Sandbox.get_url_and_header_from_metadata"></a>
-
-#### get\_url\_and\_header\_from\_metadata
-
-```python
-def get_url_and_header_from_metadata() -> Optional[Tuple[str, str]]
-```
-
-Get the public url of the sandbox and the routing key to use to reach it.
-
 <a id="koyeb/sandbox.sandbox.Sandbox.get_domain"></a>
 
 #### get\_domain

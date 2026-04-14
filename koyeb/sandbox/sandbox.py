@@ -468,7 +468,7 @@ class Sandbox:
         apps_api, _, _, _, _ = get_api_client(self.api_token)
         apps_api.delete_app(self.app_id)
 
-    def get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
+    def _get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
         """
         Get the public url of the sandbox and the routing key to use to reach it.
         """
@@ -528,7 +528,7 @@ class Sandbox:
             Optional[str]: The full URL or None if unavailable
         """
         if self._url is None:
-            url_data = self.get_url_and_header_from_metadata()
+            url_data = self._get_url_and_header_from_metadata()
             if url_data:
                 self._url = f"{url_data[0]}/r/{url_data[1]}/"
                 return self._url
@@ -613,7 +613,7 @@ class Sandbox:
             Optional[str]: the routing key to use to reach the sandbox, if needed
         """
         if self._sandbox_url is None:
-            url_data = self.get_url_and_header_from_metadata()
+            url_data = self._get_url_and_header_from_metadata()
             if url_data:
                 self._sandbox_url = (f"{url_data[0]}/koyeb-sandbox", url_data[1])
                 return self._sandbox_url
