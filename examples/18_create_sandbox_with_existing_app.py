@@ -54,7 +54,6 @@ def main():
             name=f"sandbox-in-existing-app-{suffix}",
             wait_ready=True,
             api_token=api_token,
-            region="fra",
             app_id=app_id,  # Use the existing app instead of creating a new one
         )
 

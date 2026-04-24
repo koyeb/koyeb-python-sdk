@@ -141,7 +141,6 @@ def main():
             name="auto-delete-test-1",
             wait_ready=True,
             api_token=api_token,
-            region="fra",
             delete_after_delay=delete_after_delay_1,
         )
         create_duration = time.time() - create_start
@@ -184,7 +183,6 @@ def main():
             name=f"auto-delete-test-2-{suffix}",
             wait_ready=True,
             api_token=api_token,
-            region="fra",
             idle_timeout=idle_timeout_2,
             delete_after_inactivity_delay=delete_after_inactivity_2,
         )
