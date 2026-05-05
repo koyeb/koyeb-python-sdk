@@ -693,6 +693,10 @@ class Sandbox:
 
     def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations"""
+        # Check deployment status first to avoid sending traffic to a non-ready sandbox
+        if not self._is_deployment_healthy():
+            return False
+
         sandbox_url, header = self._get_sandbox_url()
         if not sandbox_url or not self.sandbox_secret:
             return False
