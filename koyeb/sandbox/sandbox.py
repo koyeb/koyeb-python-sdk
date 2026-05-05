@@ -11,7 +11,7 @@ import os
 import secrets
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
@@ -26,12 +26,13 @@ from .utils import (
     SandboxError,
     SandboxTimeoutError,
     async_wrapper,
+    build_config_files,
     build_env_vars,
     create_deployment_definition,
     create_docker_source,
     create_koyeb_sandbox_routes,
     create_sandbox_client,
-    get_api_client,
+    get_api_clients,
     logger,
     run_sync_in_executor,
     validate_port,
@@ -111,7 +112,8 @@ class Sandbox:
         wait_ready: bool = True,
         instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
+        env: Optional[Dict[str, Any]] = None,
+        config_files: Optional[Dict[str, Any]] = None,
         region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
@@ -139,6 +141,10 @@ class Sandbox:
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
                 env: Environment variables
+                config_files: Config files to create in the sandbox, as a dictionary mapping
+                    file paths to file contents. Values can be plain strings (default permissions 0644)
+                    or ``ConfigFile`` instances for custom permissions
+                    (e.g., {"/etc/myapp/config.yaml": "key: value", "/etc/myapp/cert.pem": ConfigFile(content="...", permissions="0600")})
                 region: Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
@@ -191,6 +197,7 @@ class Sandbox:
             instance_type=instance_type,
             exposed_port_protocol=exposed_port_protocol,
             env=env,
+            config_files=config_files,
             region=region,
             api_token=api_token,
             timeout=timeout,
@@ -225,7 +232,8 @@ class Sandbox:
         image: str = "koyeb/sandbox",
         instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
+        env: Optional[Dict[str, Any]] = None,
+        config_files: Optional[Dict[str, Any]] = None,
         region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
@@ -246,7 +254,9 @@ class Sandbox:
         Subclasses can override to return their own type.
         """
 
-        apps_api, services_api, _, _, _ = get_api_client(api_token)
+        clients = get_api_clients(api_token)
+        apps_api = clients.apps
+        services_api = clients.services
 
         # Always create routes (ports are always exposed, default to "http")
         routes = create_koyeb_sandbox_routes()
@@ -270,6 +280,7 @@ class Sandbox:
             app_id = app_response.app.id
 
         env_vars = build_env_vars(env)
+        config_file_objects = build_config_files(config_files)
         docker_source = create_docker_source(
             image, [], privileged=privileged, image_registry_secret=registry_secret
         )
@@ -287,6 +298,7 @@ class Sandbox:
             _experimental_enable_light_sleep=_experimental_enable_light_sleep,
             _experimental_deep_sleep_value=_experimental_deep_sleep_value,
             enable_mesh=enable_mesh,
+            config_files=config_file_objects if config_file_objects else None,
         )
 
         service_life_cycle = ServiceLifeCycle(
@@ -341,8 +353,9 @@ class Sandbox:
         if not id:
             raise ValueError("id is required")
 
-        _, services_api, _, _, _ = get_api_client(api_token)
-        deployments_api = DeploymentsApi(services_api.api_client)
+        clients = get_api_clients(api_token)
+        services_api = clients.services
+        deployments_api = clients.deployments
 
         # Get service by ID
         try:
@@ -465,8 +478,8 @@ class Sandbox:
 
     def delete(self) -> None:
         """Delete the sandbox instance."""
-        apps_api, _, _, _, _ = get_api_client(self.api_token)
-        apps_api.delete_app(self.app_id)
+        clients = get_api_clients(self.api_token)
+        clients.apps.delete_app(self.app_id)
 
     def _get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
         """
@@ -475,9 +488,11 @@ class Sandbox:
         try:
             from koyeb.api.exceptions import ApiException, NotFoundException
 
-            from .utils import get_api_client
+            from .utils import get_api_clients
 
-            _, services_api, _, _, deployments_api = get_api_client(self.api_token)
+            clients = get_api_clients(self.api_token)
+            services_api = clients.services
+            deployments_api = clients.deployments
             service_response = services_api.get_service(self.service_id)
             service = service_response.service
             deployment = deployments_api.get_deployment(service.active_deployment_id or service.latest_deployment_id)
@@ -501,9 +516,11 @@ class Sandbox:
         try:
             from koyeb.api.exceptions import ApiException, NotFoundException
 
-            from .utils import get_api_client
+            from .utils import get_api_clients
 
-            apps_api, services_api, _, _, _ = get_api_client(self.api_token)
+            clients = get_api_clients(self.api_token)
+            apps_api = clients.apps
+            services_api = clients.services
             service_response = services_api.get_service(self.service_id)
             service = service_response.service
 
@@ -570,9 +587,10 @@ class Sandbox:
         try:
             from koyeb.api.exceptions import ApiException, NotFoundException
 
-            from .utils import get_api_client
+            from .utils import get_api_clients
 
-            _, services_api, _, _, _ = get_api_client(self.api_token)
+            clients = get_api_clients(self.api_token)
+            services_api = clients.services
             service_response = services_api.get_service(self.service_id)
             service = service_response.service
 
@@ -941,7 +959,9 @@ class Sandbox:
             >>> sandbox.update_life_cycle(delete_after_delay=600, delete_after_inactivity=300)
         """
         try:
-            _, services_api, _, _, deployments_api = get_api_client(self.api_token)
+            clients = get_api_clients(self.api_token)
+            services_api = clients.services
+            deployments_api = clients.deployments
             service_response = services_api.get_service(self.service_id)
             service = service_response.service
 
@@ -1053,7 +1073,8 @@ class AsyncSandbox(Sandbox):
         wait_ready: bool = True,
         instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
+        env: Optional[Dict[str, Any]] = None,
+        config_files: Optional[Dict[str, Any]] = None,
         region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
@@ -1081,6 +1102,10 @@ class AsyncSandbox(Sandbox):
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
                 env: Environment variables
+                config_files: Config files to create in the sandbox, as a dictionary mapping
+                    file paths to file contents. Values can be plain strings (default permissions 0644)
+                    or ``ConfigFile`` instances for custom permissions
+                    (e.g., {"/etc/myapp/config.yaml": "key: value", "/etc/myapp/cert.pem": ConfigFile(content="...", permissions="0600")})
                 region: Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
                 api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
@@ -1128,6 +1153,7 @@ class AsyncSandbox(Sandbox):
                 instance_type=instance_type,
                 exposed_port_protocol=exposed_port_protocol,
                 env=env,
+                config_files=config_files,
                 region=region,
                 api_token=api_token,
                 timeout=timeout,

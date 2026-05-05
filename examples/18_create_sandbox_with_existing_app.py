@@ -9,7 +9,7 @@ import time
 
 from koyeb import Sandbox
 from koyeb.api.models.create_app import CreateApp
-from koyeb.sandbox.utils import get_api_client
+from koyeb.sandbox.utils import get_api_clients
 
 
 def main():
@@ -29,7 +29,7 @@ def main():
         print("=" * 60)
         print()
 
-        apps_api, _, _, _, _ = get_api_client(api_token)
+        apps_api = get_api_clients(api_token).apps
 
         app_name = f"my-sandbox-app-{int(time.time())}"
         print(f"  Creating app: {app_name}")

@@ -3,6 +3,6 @@
 __version__ = "1.4.3"
 
 # Make Sandbox available at package level
-from .sandbox import Sandbox, AsyncSandbox
+from .sandbox import Sandbox, AsyncSandbox, ConfigFile, Secret
 
-__all__ = ["Sandbox", "AsyncSandbox"]
+__all__ = ["Sandbox", "AsyncSandbox", "ConfigFile", "Secret"]

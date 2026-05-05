@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from koyeb import Sandbox
-from koyeb.sandbox.utils import get_api_client
+from koyeb.sandbox.utils import get_api_clients
 
 
 class TimingTracker:
@@ -66,7 +66,7 @@ class TimingTracker:
 
 def get_service_lifecycle(api_token: str, service_id: str):
     """Fetch and return the service lifecycle settings from the API"""
-    _, services_api, _, _, _ = get_api_client(api_token)
+    services_api = get_api_clients(api_token).services
     service_response = services_api.get_service(service_id)
     return service_response.service.life_cycle
 
@@ -74,7 +74,7 @@ def get_service_lifecycle(api_token: str, service_id: str):
 def service_exists(api_token: str, service_id: str) -> bool:
     """Check if a service still exists"""
     try:
-        _, services_api, _, _, _ = get_api_client(api_token)
+        services_api = get_api_clients(api_token).services
         services_api.get_service(service_id)
         return True
     except Exception:

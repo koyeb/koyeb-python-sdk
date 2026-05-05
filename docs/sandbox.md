@@ -992,6 +992,7 @@ def create(cls,
            instance_type: str = "micro",
            exposed_port_protocol: Optional[str] = None,
            env: Optional[Dict[str, str]] = None,
+           config_files: Optional[Dict[str, str]] = None,
            region: Optional[str] = None,
            api_token: Optional[str] = None,
            timeout: int = 300,
@@ -1020,6 +1021,8 @@ Create a new sandbox instance.
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
 - `env` - Environment variables
+- `config_files` - Config files to create in the sandbox, as a dictionary mapping
+  file paths to file contents (e.g., {"/etc/myapp/config.yaml": "key: value"})
 - `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
@@ -1518,6 +1521,7 @@ async def create(cls,
                  instance_type: str = "micro",
                  exposed_port_protocol: Optional[str] = None,
                  env: Optional[Dict[str, str]] = None,
+                 config_files: Optional[Dict[str, str]] = None,
                  region: Optional[str] = None,
                  api_token: Optional[str] = None,
                  timeout: int = 300,
@@ -1546,6 +1550,8 @@ Create a new sandbox instance with async support.
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
 - `env` - Environment variables
+- `config_files` - Config files to create in the sandbox, as a dictionary mapping
+  file paths to file contents (e.g., {"/etc/myapp/config.yaml": "key: value"})
 - `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
@@ -1802,16 +1808,24 @@ seconds
 
 seconds for HTTP requests
 
-<a id="koyeb/sandbox.utils.get_api_client"></a>
+<a id="koyeb/sandbox.utils.ApiClients"></a>
 
-#### get\_api\_client
+## ApiClients Objects
 
 ```python
-def get_api_client(
-    api_token: Optional[str] = None,
-    host: Optional[str] = None
-) -> tuple[AppsApi, ServicesApi, InstancesApi, CatalogInstancesApi,
-           DeploymentsApi]
+@dataclass(frozen=True)
+class ApiClients()
+```
+
+Bundle of Koyeb API clients sharing a single underlying ApiClient.
+
+<a id="koyeb/sandbox.utils.get_api_clients"></a>
+
+#### get\_api\_clients
+
+```python
+def get_api_clients(api_token: Optional[str] = None,
+                    host: Optional[str] = None) -> ApiClients
 ```
 
 Get configured API clients for Koyeb operations.
@@ -1824,7 +1838,7 @@ Get configured API clients for Koyeb operations.
 
 **Returns**:
 
-  Tuple of (AppsApi, ServicesApi, InstancesApi, CatalogInstancesApi) instances
+  ApiClients with apps, services, instances, catalog_instances, deployments, and secrets attributes
   
 
 **Raises**:
@@ -1849,6 +1863,26 @@ Build environment variables list from dictionary.
 **Returns**:
 
   List of DeploymentEnv objects
+
+<a id="koyeb/sandbox.utils.build_config_files"></a>
+
+#### build\_config\_files
+
+```python
+def build_config_files(
+        config_files: Optional[Dict[str, str]]) -> List[ConfigFile]
+```
+
+Build config files list from dictionary.
+
+**Arguments**:
+
+- `config_files` - Dictionary mapping file paths to file contents
+  
+
+**Returns**:
+
+  List of ConfigFile objects
 
 <a id="koyeb/sandbox.utils.create_docker_source"></a>
 
@@ -1952,7 +1986,9 @@ def create_deployment_definition(
         enable_tcp_proxy: bool = False,
         _experimental_enable_light_sleep: bool = False,
         _experimental_deep_sleep_value: int = 3900,
-        enable_mesh: bool = None) -> DeploymentDefinition
+        enable_mesh: bool = None,
+        config_files: Optional[List[ConfigFile]] = None
+) -> DeploymentDefinition
 ```
 
 Create deployment definition for a sandbox service.

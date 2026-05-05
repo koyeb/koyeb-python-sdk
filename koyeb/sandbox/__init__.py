@@ -6,7 +6,9 @@ Koyeb Sandbox - Interactive execution environment for running arbitrary code on 
 
 __version__ = "1.4.3"
 
+from koyeb.api.models.config_file import ConfigFile
 from koyeb.api.models.instance_status import InstanceStatus as SandboxStatus
+from koyeb.api.models.secret import Secret
 
 from .exec import (
     AsyncSandboxExecutor,
@@ -22,6 +24,8 @@ from .utils import SandboxError, SandboxTimeoutError
 __all__ = [
     "Sandbox",
     "AsyncSandbox",
+    "ConfigFile",
+    "Secret",
     "SandboxFilesystem",
     "SandboxExecutor",
     "AsyncSandboxExecutor",
