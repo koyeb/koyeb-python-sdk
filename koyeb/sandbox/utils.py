@@ -144,29 +144,34 @@ def build_env_vars(env: Optional[Dict[str, str]]) -> List[DeploymentEnv]:
 
 def create_docker_source(
     image: str,
-    command_args: List[str],
     privileged: Optional[bool] = None,
     image_registry_secret: Optional[str] = None,
+    entrypoint: Optional[List[str]] = None,
+    command: Optional[str] = None,
+    args: Optional[List[str]] = None,
 ) -> DockerSource:
     """
     Create Docker source configuration.
 
     Args:
         image: Docker image name
-        command_args: Command and arguments to run (optional, empty list means use image default)
         privileged: If True, run the container in privileged mode (default: None/False)
         image_registry_secret: Name of the secret containing registry credentials
             for pulling private images
+        entrypoint: Override the default entrypoint of the Docker image
+        command: Override the default command of the Docker image
+        args: Arguments to pass to the command
 
     Returns:
         DockerSource object
     """
     return DockerSource(
         image=image,
-        command=command_args[0] if command_args else None,
-        args=list(command_args[1:]) if len(command_args) > 1 else None,
+        command=command,
+        args=args,
         privileged=privileged,
         image_registry_secret=image_registry_secret,
+        entrypoint=entrypoint,
     )
 
 
