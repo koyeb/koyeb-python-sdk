@@ -1,6 +1,6 @@
 [project]
 name = "koyeb-sdk"
-version = "1.4.3"
+version = "1.4.4"
 description = "Koyeb python sdk"
 authors = [{ name = "Koyeb team", email = "support@koyeb.com" }]
 license = "Apache-2.0"
