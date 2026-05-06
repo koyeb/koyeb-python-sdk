@@ -128,6 +128,9 @@ class Sandbox:
         app_id: Optional[str] = None,
         enable_mesh: bool = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
+        entrypoint: Optional[List[str]] = None,
+        command: Optional[str] = None,
+        args: Optional[List[str]] = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -162,6 +165,8 @@ class Sandbox:
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
                 enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
+                entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
+                command: Override the default command of the Docker image (e.g., "python app.py")
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -207,6 +212,9 @@ class Sandbox:
             app_id=app_id,
             enable_mesh=enable_mesh,
             poll_interval=poll_interval,
+            entrypoint=entrypoint,
+            command=command,
+            args=args,
         )
 
         if wait_ready:
@@ -242,6 +250,9 @@ class Sandbox:
         app_id: Optional[str] = None,
         enable_mesh: bool = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
+        entrypoint: Optional[List[str]] = None,
+        command: Optional[str] = None,
+        args: Optional[List[str]] = None,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
@@ -273,7 +284,8 @@ class Sandbox:
 
         env_vars = build_env_vars(env)
         docker_source = create_docker_source(
-            image, [], privileged=privileged, image_registry_secret=registry_secret
+            image, privileged=privileged, image_registry_secret=registry_secret,
+            entrypoint=entrypoint, command=command, args=args,
         )
 
         deployment_definition = create_deployment_definition(
@@ -1111,6 +1123,9 @@ class AsyncSandbox(Sandbox):
         app_id: Optional[str] = None,
         enable_mesh: bool = False,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
+        entrypoint: Optional[List[str]] = None,
+        command: Optional[str] = None,
+        args: Optional[List[str]] = None,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1147,6 +1162,8 @@ class AsyncSandbox(Sandbox):
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
                 enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
+                entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
+                command: Override the default command of the Docker image (e.g., "python app.py")
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -1185,6 +1202,9 @@ class AsyncSandbox(Sandbox):
                 app_id=app_id,
                 enable_mesh=enable_mesh,
                 poll_interval=poll_interval,
+                entrypoint=entrypoint,
+                command=command,
+                args=args,
             ),
         )
 
