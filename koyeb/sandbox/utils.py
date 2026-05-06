@@ -486,3 +486,7 @@ class SandboxError(Exception):
 
 class SandboxTimeoutError(SandboxError):
     """Raised when a sandbox operation times out"""
+
+
+class SandboxDeploymentError(SandboxError):
+    """Raised when a sandbox deployment reaches an error state"""
