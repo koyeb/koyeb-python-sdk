@@ -43,6 +43,11 @@ print(f'Platform: {sys.platform}')
         )
         print(result.stdout.strip())
 
+        # Failing command returns non-zero exit code
+        result = sandbox.exec("ls /nonexistent")
+        print(f"Exit code: {result.exit_code}")
+        assert result.exit_code != 0, "Expected non-zero exit code"
+
         return 0
     except Exception as e:
         print(f"Error: {e}")

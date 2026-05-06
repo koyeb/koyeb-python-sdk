@@ -51,6 +51,14 @@ for i in range(5):
             on_stdout=lambda data: print(data.strip()),
         )
 
+        # Failing command with streaming returns non-zero exit code
+        result = sandbox.exec(
+            "ls /nonexistent",
+            on_stderr=lambda data: print(f"ERR: {data.strip()}"),
+        )
+        print(f"Exit code: {result.exit_code}")
+        assert result.exit_code != 0, "Expected non-zero exit code"
+
         return 0
     except Exception as e:
         print(f"Error: {e}")
