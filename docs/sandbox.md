@@ -2143,6 +2143,16 @@ class SandboxTimeoutError(SandboxError)
 
 Raised when a sandbox operation times out
 
+<a id="koyeb/sandbox.utils.SandboxDeploymentError"></a>
+
+## SandboxDeploymentError Objects
+
+```python
+class SandboxDeploymentError(SandboxError)
+```
+
+Raised when a sandbox deployment reaches an error state
+
 <a id="koyeb/sandbox.executor_client"></a>
 
 # koyeb/sandbox.executor\_client
