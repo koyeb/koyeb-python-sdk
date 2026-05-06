@@ -17,6 +17,7 @@ from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
 from koyeb.api.models.create_app import AppLifeCycle, CreateApp
 from koyeb.api.models.create_service import CreateService, ServiceLifeCycle
+from koyeb.api.models.deployment_status import DeploymentStatus
 from koyeb.api.models.update_service import UpdateService
 
 from .executor_client import ConnectionInfo
@@ -387,6 +388,26 @@ class Sandbox:
             sandbox_secret=sandbox_secret,
         )
 
+    def _is_deployment_healthy(self) -> bool:
+        """
+        Check if the sandbox deployment status is HEALTHY via the API.
+
+        Returns:
+            bool: True if the deployment status is HEALTHY, False otherwise
+        """
+        try:
+            _, services_api, _, _, deployments_api = get_api_client(self.api_token)
+            service_response = services_api.get_service(self.service_id)
+            service = service_response.service
+            deployment_id = service.active_deployment_id or service.latest_deployment_id
+            if not deployment_id:
+                return False
+            deployment_response = deployments_api.get_deployment(deployment_id)
+            status = deployment_response.deployment.status
+            return status == DeploymentStatus.HEALTHY
+        except Exception:
+            return False
+
     def wait_ready(
         self,
         timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
@@ -394,6 +415,9 @@ class Sandbox:
     ) -> bool:
         """
         Wait for sandbox to become ready with exponential backoff polling.
+
+        First waits for the deployment status to become HEALTHY, then polls the
+        sandbox health endpoint to confirm the executor is responsive.
 
         Starts polling at 0.1s intervals, doubling each time up to poll_interval.
 
@@ -407,15 +431,14 @@ class Sandbox:
         if poll_interval is None:
             poll_interval = self.poll_interval
         start_time = time.time()
-        sandbox_url = None
+        deployment_healthy = False
         current_interval = 0.1
 
         while time.time() - start_time < timeout:
-            # Get sandbox URL on first iteration or if not yet retrieved
-            if sandbox_url is None:
-                sandbox_url = self._get_sandbox_url()
-                # If URL is not available yet, wait and retry
-                if sandbox_url is None:
+            # First, wait for the deployment to be healthy before sending traffic
+            if not deployment_healthy:
+                deployment_healthy = self._is_deployment_healthy()
+                if not deployment_healthy:
                     time.sleep(current_interval)
                     current_interval = min(current_interval * 2, poll_interval)
                     continue
@@ -670,6 +693,10 @@ class Sandbox:
 
     def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations"""
+        # Check deployment status first to avoid sending traffic to a non-ready sandbox
+        if not self._is_deployment_healthy():
+            return False
+
         sandbox_url, header = self._get_sandbox_url()
         if not sandbox_url or not self.sandbox_secret:
             return False
@@ -1176,6 +1203,9 @@ class AsyncSandbox(Sandbox):
         """
         Wait for sandbox to become ready with exponential backoff async polling.
 
+        First waits for the deployment status to become HEALTHY, then polls the
+        sandbox health endpoint to confirm the executor is responsive.
+
         Starts polling at 0.1s intervals, doubling each time up to poll_interval.
 
         Args:
@@ -1188,10 +1218,22 @@ class AsyncSandbox(Sandbox):
         if poll_interval is None:
             poll_interval = self.poll_interval
         start_time = time.time()
+        deployment_healthy = False
         current_interval = 0.1
 
         while time.time() - start_time < timeout:
             loop = asyncio.get_running_loop()
+
+            # First, wait for the deployment to be healthy before sending traffic
+            if not deployment_healthy:
+                deployment_healthy = await loop.run_in_executor(
+                    None, super()._is_deployment_healthy
+                )
+                if not deployment_healthy:
+                    await asyncio.sleep(current_interval)
+                    current_interval = min(current_interval * 2, poll_interval)
+                    continue
+
             is_healthy = await loop.run_in_executor(None, super().is_healthy)
 
             if is_healthy:

@@ -1103,6 +1103,9 @@ def wait_ready(timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
 
 Wait for sandbox to become ready with exponential backoff polling.
 
+First waits for the deployment status to become HEALTHY, then polls the
+sandbox health endpoint to confirm the executor is responsive.
+
 Starts polling at 0.1s intervals, doubling each time up to poll_interval.
 
 **Arguments**:
@@ -1591,6 +1594,9 @@ async def wait_ready(timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
 ```
 
 Wait for sandbox to become ready with exponential backoff async polling.
+
+First waits for the deployment status to become HEALTHY, then polls the
+sandbox health endpoint to confirm the executor is responsive.
 
 Starts polling at 0.1s intervals, doubling each time up to poll_interval.
 
