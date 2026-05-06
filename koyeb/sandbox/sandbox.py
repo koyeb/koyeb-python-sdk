@@ -24,6 +24,7 @@ from .executor_client import ConnectionInfo
 from .utils import (
     DEFAULT_INSTANCE_WAIT_TIMEOUT,
     DEFAULT_POLL_INTERVAL,
+    SandboxDeploymentError,
     SandboxError,
     SandboxTimeoutError,
     async_wrapper,
@@ -388,12 +389,20 @@ class Sandbox:
             sandbox_secret=sandbox_secret,
         )
 
+    _DEPLOYMENT_ERROR_STATUSES = {
+        DeploymentStatus.ERROR,
+        DeploymentStatus.ERRORING,
+    }
+
     def _is_deployment_healthy(self) -> bool:
         """
         Check if the sandbox deployment status is HEALTHY via the API.
 
         Returns:
             bool: True if the deployment status is HEALTHY, False otherwise
+
+        Raises:
+            SandboxDeploymentError: If the deployment has reached a terminal error state
         """
         try:
             _, services_api, _, _, deployments_api = get_api_client(self.api_token)
@@ -404,7 +413,14 @@ class Sandbox:
                 return False
             deployment_response = deployments_api.get_deployment(deployment_id)
             status = deployment_response.deployment.status
+            if status in self._DEPLOYMENT_ERROR_STATUSES:
+                raise SandboxDeploymentError(
+                    f"Sandbox '{self.name}' deployment reached status {status.value}. "
+                    f"The sandbox will not become ready."
+                )
             return status == DeploymentStatus.HEALTHY
+        except SandboxDeploymentError:
+            raise
         except Exception:
             return False
 
