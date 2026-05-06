@@ -181,7 +181,7 @@ class SandboxExecutor:
 
             stdout = response.get("stdout", "")
             stderr = response.get("stderr", "")
-            exit_code = response.get("exit_code", 0)
+            exit_code = response.get("code", 0)
 
             return CommandResult(
                 stdout=stdout,
@@ -370,7 +370,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
 
             stdout = response.get("stdout", "")
             stderr = response.get("stderr", "")
-            exit_code = response.get("exit_code", 0)
+            exit_code = response.get("code", 0)
 
             return CommandResult(
                 stdout=stdout,
