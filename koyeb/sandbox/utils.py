@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 import shlex
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from koyeb.api import ApiClient, Configuration
@@ -16,11 +17,14 @@ from koyeb.api.api import (
     CatalogInstancesApi,
     DeploymentsApi,
     InstancesApi,
+    SecretsApi,
     ServicesApi,
 )
+from koyeb.api.models.config_file import ConfigFile
 from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
 from koyeb.api.models.deployment_env import DeploymentEnv
+from koyeb.api.models.secret import Secret
 from koyeb.api.models.deployment_instance_type import DeploymentInstanceType
 from koyeb.api.models.deployment_port import DeploymentPort
 from koyeb.api.models.deployment_proxy_port import DeploymentProxyPort
@@ -88,9 +92,21 @@ def _validate_port_protocol(protocol: str) -> str:
         ) from e
 
 
-def get_api_client(
+@dataclass(frozen=True)
+class ApiClients:
+    """Bundle of Koyeb API clients sharing a single underlying ApiClient."""
+
+    apps: AppsApi
+    services: ServicesApi
+    instances: InstancesApi
+    catalog_instances: CatalogInstancesApi
+    deployments: DeploymentsApi
+    secrets: SecretsApi
+
+
+def get_api_clients(
     api_token: Optional[str] = None, host: Optional[str] = None
-) -> tuple[AppsApi, ServicesApi, InstancesApi, CatalogInstancesApi, DeploymentsApi]:
+) -> ApiClients:
     """
     Get configured API clients for Koyeb operations.
 
@@ -99,7 +115,7 @@ def get_api_client(
         host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 
     Returns:
-        Tuple of (AppsApi, ServicesApi, InstancesApi, CatalogInstancesApi) instances
+        ApiClients with apps, services, instances, catalog_instances, deployments, and secrets attributes
 
     Raises:
         ValueError: If API token is not provided
@@ -116,21 +132,25 @@ def get_api_client(
     configuration.api_key_prefix["Bearer"] = "Bearer"
 
     api_client = ApiClient(configuration)
-    return (
-        AppsApi(api_client),
-        ServicesApi(api_client),
-        InstancesApi(api_client),
-        CatalogInstancesApi(api_client),
-        DeploymentsApi(api_client),
+    return ApiClients(
+        apps=AppsApi(api_client),
+        services=ServicesApi(api_client),
+        instances=InstancesApi(api_client),
+        catalog_instances=CatalogInstancesApi(api_client),
+        deployments=DeploymentsApi(api_client),
+        secrets=SecretsApi(api_client),
     )
 
 
-def build_env_vars(env: Optional[Dict[str, str]]) -> List[DeploymentEnv]:
+def build_env_vars(env: Optional[Dict[str, Any]]) -> List[DeploymentEnv]:
     """
     Build environment variables list from dictionary.
 
     Args:
-        env: Dictionary of environment variables
+        env: Dictionary of environment variables. Values can be plain strings
+            or ``Secret`` instances. A ``Secret`` value is rendered as
+            ``"{{ secret.<name> }}"`` so the Koyeb API substitutes the secret
+            value at deploy time.
 
     Returns:
         List of DeploymentEnv objects
@@ -138,8 +158,51 @@ def build_env_vars(env: Optional[Dict[str, str]]) -> List[DeploymentEnv]:
     env_vars = []
     if env:
         for key, value in env.items():
+            if isinstance(value, Secret):
+                value = "{{ secret." + value.name + " }}"
             env_vars.append(DeploymentEnv(key=key, value=value))
     return env_vars
+
+
+DEFAULT_CONFIG_FILE_PERMISSIONS = "0644"
+
+
+def build_config_files(
+    config_files: Optional[Dict[str, Any]],
+) -> List[ConfigFile]:
+    """
+    Build config files list from dictionary.
+
+    Args:
+        config_files: Dictionary mapping file paths to file contents.
+            Values can be plain strings (default permissions 0644) or
+            ``ConfigFile`` instances (custom permissions). The dict key is
+            always used as the file path.
+
+    Returns:
+        List of ConfigFile objects
+    """
+    result = []
+    if config_files:
+        for path, value in config_files.items():
+            if isinstance(value, ConfigFile):
+                result.append(
+                    ConfigFile(
+                        path=path,
+                        content=value.content,
+                        permissions=value.permissions
+                        or DEFAULT_CONFIG_FILE_PERMISSIONS,
+                    )
+                )
+            else:
+                result.append(
+                    ConfigFile(
+                        path=path,
+                        content=value,
+                        permissions=DEFAULT_CONFIG_FILE_PERMISSIONS,
+                    )
+                )
+    return result
 
 
 def create_docker_source(
@@ -249,6 +312,7 @@ def create_deployment_definition(
     _experimental_enable_light_sleep: bool = False,
     _experimental_deep_sleep_value: int = 3900,
     enable_mesh: bool = None,
+    config_files: Optional[List[ConfigFile]] = None,
 ) -> DeploymentDefinition:
     """
     Create deployment definition for a sandbox service.
@@ -341,6 +405,7 @@ def create_deployment_definition(
         scalings=scalings,
         regions=regions_list,
         mesh=mesh,
+        config_files=config_files if config_files else None,
     )
 
 

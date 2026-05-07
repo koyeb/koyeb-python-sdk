@@ -9,13 +9,13 @@ import time
 import random
 import string
 from koyeb import Sandbox
-from koyeb.sandbox.utils import get_api_client
+from koyeb.sandbox.utils import get_api_clients
 
 
 def service_exists(api_token: str, service_id: str) -> bool:
     """Check if a service still exists"""
     try:
-        _, services_api, _, _, _ = get_api_client(api_token)
+        services_api = get_api_clients(api_token).services
         services_api.get_service(service_id)
         return True
     except Exception:
