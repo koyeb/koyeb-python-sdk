@@ -430,7 +430,9 @@ class Sandbox:
             SandboxDeploymentError: If the deployment has reached a terminal error state
         """
         try:
-            _, services_api, _, _, deployments_api = get_api_client(self.api_token)
+            clients = get_api_clients(self.api_token)
+            services_api = clients.services
+            deployments_api = clients.deployments
             service_response = services_api.get_service(self.service_id)
             service = service_response.service
             deployment_id = service.active_deployment_id or service.latest_deployment_id
