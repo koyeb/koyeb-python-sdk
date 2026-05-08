@@ -448,7 +448,8 @@ class Sandbox:
             return status == DeploymentStatus.HEALTHY
         except SandboxDeploymentError:
             raise
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not get deployment for service {self.service_id}: {e}")
             return False
 
     def wait_ready(
