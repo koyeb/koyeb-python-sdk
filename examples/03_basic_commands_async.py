@@ -45,9 +45,6 @@ print(f'Platform: {sys.platform}')
         print(result.stdout.strip())
 
         return 0
-    except Exception as e:
-        print(f"Error: {e}")
-        return 1
     finally:
         if sandbox:
             await sandbox.delete()

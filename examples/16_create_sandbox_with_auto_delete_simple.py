@@ -85,10 +85,6 @@ def main():
 
         return 0
 
-    except Exception as e:
-        print(f"\n✗ Error occurred: {e}")
-        return 1
-
     finally:
         if sandbox:
             print()

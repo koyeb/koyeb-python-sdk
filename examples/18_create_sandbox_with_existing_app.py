@@ -84,10 +84,6 @@ def main():
 
         return 0
 
-    except Exception as e:
-        print(f"Error: {e}")
-        return 1
-
     finally:
         # Clean up: delete the app (which will also delete the sandbox service)
         if app_id:

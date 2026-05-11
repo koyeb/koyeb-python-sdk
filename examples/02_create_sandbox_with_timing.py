@@ -137,11 +137,6 @@ def main(run_long_tests=False):
             print(f"    ✓ took {multi_check_duration:.1f}s")
 
             return 0
-    except Exception as e:
-        print(f"\n✗ Error occurred: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
     finally:
         if sandbox:
             print("  → Deleting sandbox...")

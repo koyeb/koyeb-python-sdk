@@ -282,10 +282,6 @@ def main():
             print(f"    Expected: ~{idle_timeout_2 + delete_after_inactivity_2}s (idle + delete delay)")
         return 0
 
-    except Exception as e:
-        print(f"\n✗ Error occurred: {e}")
-        return 1
-
     finally:
         # Clean up any sandboxes that weren't auto-deleted
         if sandbox1:
