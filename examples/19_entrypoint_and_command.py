@@ -33,9 +33,6 @@ def main():
         print(f"  {result.stdout.strip()}")
         assert result.exit_code == 0, "Expected /tmp/command-was-here to exist"
         print("  OK: custom command created the file")
-    except Exception as e:
-        print(f"  Error: {e}")
-        return 1
     finally:
         if sandbox:
             sandbox.delete()
@@ -58,9 +55,6 @@ def main():
         print(f"  Marker content: {content}")
         assert content == "yes", f"Expected 'yes', got '{content}'"
         print("  OK: python3 entrypoint created the marker file")
-    except Exception as e:
-        print(f"  Error: {e}")
-        return 1
     finally:
         if sandbox:
             sandbox.delete()

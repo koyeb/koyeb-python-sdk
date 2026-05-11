@@ -60,9 +60,6 @@ for i in range(5):
         assert result.exit_code != 0, "Expected non-zero exit code"
 
         return 0
-    except Exception as e:
-        print(f"Error: {e}")
-        return 1
     finally:
         if sandbox:
             sandbox.delete()
