@@ -308,7 +308,7 @@ class SandboxFilesystem:
             path = file_info["path"]
             content = file_info["content"]
             encoding = file_info.get("encoding", "utf-8")
-            self.write_file(path, content, encoding)
+            SandboxFilesystem.write_file(self, path, content, encoding)
 
     def exists(self, path: str) -> bool:
         """Check if file/directory exists synchronously"""
@@ -352,7 +352,7 @@ class SandboxFilesystem:
         with open(local_path, "rb") as f:
             content_bytes = f.read()
 
-        self.write_file(remote_path, content_bytes, encoding=encoding)
+        SandboxFilesystem.write_file(self, remote_path, content_bytes, encoding=encoding)
 
     def download_file(
         self, remote_path: str, local_path: str, encoding: str = "utf-8"
@@ -368,7 +368,7 @@ class SandboxFilesystem:
         Raises:
             SandboxFileNotFoundError: If remote file doesn't exist
         """
-        file_info = self.read_file(remote_path, encoding=encoding)
+        file_info = SandboxFilesystem.read_file(self, remote_path, encoding=encoding)
 
         if isinstance(file_info.content, bytes):
             content_bytes = file_info.content
@@ -388,7 +388,7 @@ class SandboxFilesystem:
         Returns:
             List of file/directory names
         """
-        return self.list_dir(path)
+        return SandboxFilesystem.list_dir(self, path)
 
     def rm(self, path: str, recursive: bool = False) -> None:
         """

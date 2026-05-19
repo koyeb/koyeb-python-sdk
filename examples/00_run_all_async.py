@@ -198,7 +198,7 @@ async def main():
     for example_file in example_files:
         example_name = example_file.name
         timeout = flow_timeouts.get(example_name, args.timeout)
-        result = await run_example(example_file, timeout, suffix)
+        result = await run_example(example_file, timeout)
         results.append(result)
 
         # Break on error
