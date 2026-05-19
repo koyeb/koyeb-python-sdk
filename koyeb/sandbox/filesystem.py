@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Union
+import asyncio
 
 from .executor_client import SandboxClient
 from .utils import (
@@ -572,7 +573,6 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         """Check if path is a directory asynchronously"""
         pass
 
-    @async_wrapper("upload_file")
     async def upload_file(
         self, local_path: str, remote_path: str, encoding: str = "utf-8"
     ) -> None:
@@ -584,7 +584,15 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             remote_path: Destination path in the sandbox
             encoding: File encoding (default: "utf-8"). Use "base64" for binary files.
         """
-        pass
+        if not os.path.exists(local_path):
+            raise SandboxFileNotFoundError(f"Local file not found: {local_path}")
+
+        def _read():
+            with open(local_path, "rb") as f:
+                return f.read()
+
+        content_bytes = await asyncio.to_thread(_read)
+        await self.write_file(remote_path, content_bytes, encoding=encoding)
 
     @async_wrapper("download_file")
     async def download_file(
