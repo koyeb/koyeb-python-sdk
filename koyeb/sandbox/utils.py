@@ -9,7 +9,7 @@ import logging
 import os
 import shlex
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from koyeb.api import ApiClient, Configuration
 from koyeb.api.api import (
@@ -37,6 +37,9 @@ from koyeb.api.models.deployment_scaling_target_sleep_idle_delay import (
 from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.docker_source import DockerSource
 from koyeb.api.models.proxy_port_protocol import ProxyPortProtocol
+
+if TYPE_CHECKING:
+    from .executor_client import ConnectionInfo
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -385,12 +388,13 @@ def create_deployment_definition(
     scalings = [DeploymentScaling(min=min_scale, max=1, targets=targets)]
 
     # Set mesh configuration
-    mesh = DeploymentMesh.DEPLOYMENT_MESH_AUTO
-    if enable_mesh is None:
+    if os.getenv("KOYEB_K8S_REGION") is not None:
+        mesh = DeploymentMesh.DEPLOYMENT_MESH_DISABLED
+    elif enable_mesh is None:
         mesh = DeploymentMesh.DEPLOYMENT_MESH_AUTO
     elif not enable_mesh:
         mesh = DeploymentMesh.DEPLOYMENT_MESH_DISABLED
-    elif enable_mesh:
+    else:
         mesh = DeploymentMesh.DEPLOYMENT_MESH_ENABLED
 
     return DeploymentDefinition(
@@ -518,7 +522,7 @@ def async_wrapper(method_name: str):
 
 
 def create_sandbox_client(
-    conn_info: Optional['ConnectionInfo'],
+    conn_info: Optional["ConnectionInfo"],
     existing_client: Optional[Any] = None,
 ) -> Any:
     """
