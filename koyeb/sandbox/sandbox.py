@@ -87,6 +87,7 @@ class Sandbox:
         api_token: Optional[str] = None,
         sandbox_secret: Optional[str] = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
+        host: Optional[str] = None,
     ):
         self.sandbox_id = sandbox_id
         self.app_id = app_id
@@ -95,6 +96,7 @@ class Sandbox:
         self.api_token = api_token
         self.sandbox_secret = sandbox_secret
         self.poll_interval = poll_interval
+        self.host = host
         self._created_at = time.time()
         self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
         self._domain: Optional[str] = None
@@ -133,6 +135,7 @@ class Sandbox:
         entrypoint: Optional[List[str]] = None,
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
+        host: Optional[str] = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -173,6 +176,7 @@ class Sandbox:
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
+                host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -222,6 +226,7 @@ class Sandbox:
             entrypoint=entrypoint,
             command=command,
             args=args,
+            host=host,
         )
 
         if wait_ready:
@@ -261,13 +266,14 @@ class Sandbox:
         entrypoint: Optional[List[str]] = None,
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
+        host: Optional[str] = None,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
         Subclasses can override to return their own type.
         """
 
-        clients = get_api_clients(api_token)
+        clients = get_api_clients(api_token, host)
         apps_api = clients.apps
         services_api = clients.services
 
@@ -335,6 +341,7 @@ class Sandbox:
             api_token=api_token,
             sandbox_secret=sandbox_secret,
             poll_interval=poll_interval,
+            host=host,
         )
 
     @classmethod
@@ -342,6 +349,7 @@ class Sandbox:
         cls,
         id: str,
         api_token: Optional[str] = None,
+        host: Optional[str] = None,
     ) -> "Sandbox":
         """
         Get a sandbox by service ID.
@@ -349,6 +357,7 @@ class Sandbox:
         Args:
             id: Service ID of the sandbox
             api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+            host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 
         Returns:
             Sandbox: The Sandbox instance
@@ -367,7 +376,7 @@ class Sandbox:
         if not id:
             raise ValueError("id is required")
 
-        clients = get_api_clients(api_token)
+        clients = get_api_clients(api_token, host)
         services_api = clients.services
         deployments_api = clients.deployments
 
@@ -412,6 +421,7 @@ class Sandbox:
             name=sandbox_name,
             api_token=api_token,
             sandbox_secret=sandbox_secret,
+            host=host,
         )
 
     _DEPLOYMENT_ERROR_STATUSES = {
@@ -430,7 +440,7 @@ class Sandbox:
             SandboxDeploymentError: If the deployment has reached a terminal error state
         """
         try:
-            clients = get_api_clients(self.api_token)
+            clients = get_api_clients(self.api_token, self.host)
             services_api = clients.services
             deployments_api = clients.deployments
             service_response = services_api.get_service(self.service_id)
@@ -532,7 +542,7 @@ class Sandbox:
 
     def delete(self) -> None:
         """Delete the sandbox instance."""
-        clients = get_api_clients(self.api_token)
+        clients = get_api_clients(self.api_token, self.host)
         clients.apps.delete_app(self.app_id)
 
     def _get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
@@ -544,7 +554,7 @@ class Sandbox:
 
             from .utils import get_api_clients
 
-            clients = get_api_clients(self.api_token)
+            clients = get_api_clients(self.api_token, self.host)
             services_api = clients.services
             deployments_api = clients.deployments
             service_response = services_api.get_service(self.service_id)
@@ -572,7 +582,7 @@ class Sandbox:
 
             from .utils import get_api_clients
 
-            clients = get_api_clients(self.api_token)
+            clients = get_api_clients(self.api_token, self.host)
             apps_api = clients.apps
             services_api = clients.services
             service_response = services_api.get_service(self.service_id)
@@ -643,7 +653,7 @@ class Sandbox:
 
             from .utils import get_api_clients
 
-            clients = get_api_clients(self.api_token)
+            clients = get_api_clients(self.api_token, self.host)
             services_api = clients.services
             service_response = services_api.get_service(self.service_id)
             service = service_response.service
@@ -1017,7 +1027,7 @@ class Sandbox:
             >>> sandbox.update_life_cycle(delete_after_delay=600, delete_after_inactivity=300)
         """
         try:
-            clients = get_api_clients(self.api_token)
+            clients = get_api_clients(self.api_token, self.host)
             services_api = clients.services
             deployments_api = clients.deployments
             service_response = services_api.get_service(self.service_id)
@@ -1091,6 +1101,7 @@ class AsyncSandbox(Sandbox):
         cls,
         id: str,
         api_token: Optional[str] = None,
+        host: Optional[str] = None,
     ) -> "AsyncSandbox":
         """
         Get a sandbox by service ID asynchronously.
@@ -1098,6 +1109,7 @@ class AsyncSandbox(Sandbox):
         Args:
             id: Service ID of the sandbox
             api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+            host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 
         Returns:
             AsyncSandbox: The AsyncSandbox instance
@@ -1107,7 +1119,7 @@ class AsyncSandbox(Sandbox):
             SandboxError: If sandbox is not found or retrieval fails
         """
         sync_sandbox = await run_sync_in_executor(
-            Sandbox.get_from_id, id=id, api_token=api_token
+            Sandbox.get_from_id, id=id, api_token=api_token, host=host
         )
 
         # Convert Sandbox instance to AsyncSandbox instance
@@ -1118,6 +1130,7 @@ class AsyncSandbox(Sandbox):
             name=sync_sandbox.name,
             api_token=sync_sandbox.api_token,
             sandbox_secret=sync_sandbox.sandbox_secret,
+            host=sync_sandbox.host,
         )
         async_sandbox._created_at = sync_sandbox._created_at
 
@@ -1150,6 +1163,7 @@ class AsyncSandbox(Sandbox):
         entrypoint: Optional[List[str]] = None,
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
+        host: Optional[str] = None,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1192,6 +1206,7 @@ class AsyncSandbox(Sandbox):
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
+                host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -1234,6 +1249,7 @@ class AsyncSandbox(Sandbox):
                 entrypoint=entrypoint,
                 command=command,
                 args=args,
+                host=host,
             ),
         )
 
@@ -1246,6 +1262,7 @@ class AsyncSandbox(Sandbox):
             api_token=sync_result.api_token,
             sandbox_secret=sync_result.sandbox_secret,
             poll_interval=poll_interval,
+            host=sync_result.host,
         )
         sandbox._created_at = sync_result._created_at
 
