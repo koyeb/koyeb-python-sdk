@@ -126,7 +126,9 @@ def get_api_clients(
             "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
         )
 
-    api_host = host or os.getenv("KOYEB_API_HOST", "https://app.koyeb.com")
+    api_host = os.getenv("KOYEB_API_HOST", host)
+    if not api_host:
+        api_host = "https://app.koyeb.com"
     configuration = Configuration(host=api_host)
     configuration.api_key["Bearer"] = token
     configuration.api_key_prefix["Bearer"] = "Bearer"
