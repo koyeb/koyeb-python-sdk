@@ -102,6 +102,9 @@ class Sandbox:
         self._domain: Optional[str] = None
         self._url: Optional[str] = None
         self._client = None
+        self._deployment_id: Optional[str] = None
+        self._executor = None
+        self._filesystem = None
 
     @property
     def id(self) -> str:
@@ -394,27 +397,27 @@ class Sandbox:
 
         sandbox_name = service.name
 
-        # Get deployment to extract sandbox_secret from env vars
+        # Get deployment to extract sandbox_secret and metadata
         deployment_id = service.active_deployment_id or service.latest_deployment_id
         sandbox_secret = None
+        sandbox_metadata = None
 
         if deployment_id:
             try:
                 deployment_response = deployments_api.get_deployment(id=deployment_id)
-                if (
-                    deployment_response.deployment
-                    and deployment_response.deployment.definition
-                    and deployment_response.deployment.definition.env
-                ):
+                deployment = deployment_response.deployment
+                if deployment and deployment.definition and deployment.definition.env:
                     # Find SANDBOX_SECRET in env vars
-                    for env_var in deployment_response.deployment.definition.env:
+                    for env_var in deployment.definition.env:
                         if env_var.key == "SANDBOX_SECRET":
                             sandbox_secret = env_var.value
                             break
+                if deployment and deployment.metadata:
+                    sandbox_metadata = deployment.metadata
             except Exception as e:
                 logger.debug(f"Could not get deployment {deployment_id}: {e}")
 
-        return cls(
+        sandbox = cls(
             sandbox_id=service.id,
             app_id=service.app_id,
             service_id=service.id,
@@ -423,15 +426,52 @@ class Sandbox:
             sandbox_secret=sandbox_secret,
             host=host,
         )
+        if deployment_id:
+            sandbox._deployment_id = deployment_id
+
+        # Pre-cache sandbox URL from deployment metadata or app domain
+        if sandbox_metadata and sandbox_metadata.sandbox:
+            sandbox._sandbox_url = (
+                f"{sandbox_metadata.sandbox.public_url}/koyeb-sandbox",
+                sandbox_metadata.sandbox.routing_key,
+            )
+        else:
+            # Fallback: resolve domain from app (we already have app_id)
+            try:
+                app_response = clients.apps.get_app(service.app_id)
+                app = app_response.app
+                if hasattr(app, "domains") and app.domains:
+                    sandbox._sandbox_url = (
+                        f"https://{app.domains[0].name}/koyeb-sandbox",
+                        None,
+                    )
+            except Exception:
+                pass
+
+        return sandbox
 
     _DEPLOYMENT_ERROR_STATUSES = {
         DeploymentStatus.ERROR,
         DeploymentStatus.ERRORING,
     }
 
+    def _resolve_deployment_id(self) -> Optional[str]:
+        """Resolve and cache the deployment ID for this sandbox's service."""
+        if self._deployment_id is not None:
+            return self._deployment_id
+        clients = get_api_clients(self.api_token, self.host)
+        service_response = clients.services.get_service(self.service_id)
+        service = service_response.service
+        deployment_id = service.active_deployment_id or service.latest_deployment_id
+        if deployment_id:
+            self._deployment_id = deployment_id
+        return deployment_id
+
     def _is_deployment_healthy(self) -> bool:
         """
         Check if the sandbox deployment status is HEALTHY via the API.
+        When the deployment becomes healthy, also caches the sandbox URL
+        from deployment metadata if available.
 
         Returns:
             bool: True if the deployment status is HEALTHY, False otherwise
@@ -440,22 +480,28 @@ class Sandbox:
             SandboxDeploymentError: If the deployment has reached a terminal error state
         """
         try:
-            clients = get_api_clients(self.api_token, self.host)
-            services_api = clients.services
-            deployments_api = clients.deployments
-            service_response = services_api.get_service(self.service_id)
-            service = service_response.service
-            deployment_id = service.active_deployment_id or service.latest_deployment_id
+            deployment_id = self._resolve_deployment_id()
             if not deployment_id:
                 return False
-            deployment_response = deployments_api.get_deployment(deployment_id)
-            status = deployment_response.deployment.status
+            clients = get_api_clients(self.api_token, self.host)
+            deployment_response = clients.deployments.get_deployment(deployment_id)
+            deployment = deployment_response.deployment
+            status = deployment.status
             if status in self._DEPLOYMENT_ERROR_STATUSES:
                 raise SandboxDeploymentError(
                     f"Sandbox '{self.name}' deployment reached status {status.value}. "
                     f"The sandbox will not become ready."
                 )
-            return status == DeploymentStatus.HEALTHY
+            is_healthy = status == DeploymentStatus.HEALTHY
+            # Cache sandbox URL from metadata when deployment is healthy
+            if is_healthy and self._sandbox_url is None:
+                metadata = deployment.metadata
+                if metadata and metadata.sandbox:
+                    self._sandbox_url = (
+                        f"{metadata.sandbox.public_url}/koyeb-sandbox",
+                        metadata.sandbox.routing_key,
+                    )
+            return is_healthy
         except SandboxDeploymentError:
             raise
         except Exception as e:
@@ -497,9 +543,9 @@ class Sandbox:
                     current_interval = min(current_interval * 2, poll_interval)
                     continue
 
-            is_healthy = self.is_healthy()
-
-            if is_healthy:
+            # Deployment is already confirmed healthy above, skip redundant
+            # _is_deployment_healthy() check and go straight to executor health
+            if self._check_executor_health():
                 return True
 
             time.sleep(current_interval)
@@ -552,14 +598,14 @@ class Sandbox:
         try:
             from koyeb.api.exceptions import ApiException, NotFoundException
 
+            deployment_id = self._resolve_deployment_id()
+            if not deployment_id:
+                return None
+
             from .utils import get_api_clients
 
             clients = get_api_clients(self.api_token, self.host)
-            services_api = clients.services
-            deployments_api = clients.deployments
-            service_response = services_api.get_service(self.service_id)
-            service = service_response.service
-            deployment = deployments_api.get_deployment(service.active_deployment_id or service.latest_deployment_id)
+            deployment = clients.deployments.get_deployment(deployment_id)
             metadata = deployment.deployment.metadata
             if metadata and metadata.sandbox:
                 return metadata.sandbox.public_url, metadata.sandbox.routing_key
@@ -580,20 +626,17 @@ class Sandbox:
         try:
             from koyeb.api.exceptions import ApiException, NotFoundException
 
+            if not self.app_id:
+                return None
+
             from .utils import get_api_clients
 
             clients = get_api_clients(self.api_token, self.host)
-            apps_api = clients.apps
-            services_api = clients.services
-            service_response = services_api.get_service(self.service_id)
-            service = service_response.service
-
-            if service.app_id:
-                app_response = apps_api.get_app(service.app_id)
-                app = app_response.app
-                if hasattr(app, "domains") and app.domains:
-                    # Use the first public domain
-                    return app.domains[0].name
+            app_response = clients.apps.get_app(self.app_id)
+            app = app_response.app
+            if hasattr(app, "domains") and app.domains:
+                # Use the first public domain
+                return app.domains[0].name
             return None
         except (NotFoundException, ApiException, Exception):
             return None
@@ -750,22 +793,10 @@ class Sandbox:
             error_msg = response.get("error", "Unknown error")
             raise SandboxError(f"Failed to {operation}: {error_msg}")
 
-    def is_healthy(self) -> bool:
-        """Check if sandbox is healthy and ready for operations"""
-        # Check deployment status first to avoid sending traffic to a non-ready sandbox
-        if not self._is_deployment_healthy():
-            return False
-
-        sandbox_url, header = self._get_sandbox_url()
-        if not sandbox_url or not self.sandbox_secret:
-            return False
-
-        # Check executor health directly - this is what matters for operations
-        # If executor is healthy, the sandbox is usable (will wake up service if needed)
+    def _check_executor_health(self) -> bool:
+        """Check if the sandbox executor is responsive. Assumes deployment is already healthy."""
         try:
-            from .executor_client import SandboxClient
-
-            client = SandboxClient(ConnectionInfo(sandbox_url, header, self.sandbox_secret))
+            client = self._get_client()
             health_response = client.health()
             if isinstance(health_response, dict):
                 status = health_response.get("status", "").lower()
@@ -774,19 +805,31 @@ class Sandbox:
         except Exception:
             return False
 
+    def is_healthy(self) -> bool:
+        """Check if sandbox is healthy and ready for operations"""
+        # Check deployment status first to avoid sending traffic to a non-ready sandbox
+        if not self._is_deployment_healthy():
+            return False
+
+        return self._check_executor_health()
+
     @property
     def filesystem(self) -> "SandboxFilesystem":
         """Get filesystem operations interface"""
-        from .filesystem import SandboxFilesystem
+        if self._filesystem is None:
+            from .filesystem import SandboxFilesystem
 
-        return SandboxFilesystem(self)
+            self._filesystem = SandboxFilesystem(self)
+        return self._filesystem
 
     @property
     def exec(self) -> "SandboxExecutor":
         """Get command execution interface"""
-        from .exec import SandboxExecutor
+        if self._executor is None:
+            from .exec import SandboxExecutor
 
-        return SandboxExecutor(self)
+            self._executor = SandboxExecutor(self)
+        return self._executor
 
     def expose_port(self, port: int) -> ExposedPort:
         """
@@ -1316,7 +1359,9 @@ class AsyncSandbox(Sandbox):
                     current_interval = min(current_interval * 2, poll_interval)
                     continue
 
-            is_healthy = await loop.run_in_executor(None, super().is_healthy)
+            # Deployment is already confirmed healthy above, skip redundant
+            # _is_deployment_healthy() check and go straight to executor health
+            is_healthy = await loop.run_in_executor(None, super()._check_executor_health)
 
             if is_healthy:
                 return True
@@ -1375,16 +1420,20 @@ class AsyncSandbox(Sandbox):
     @property
     def exec(self) -> "AsyncSandboxExecutor":
         """Get async command execution interface"""
-        from .exec import AsyncSandboxExecutor
+        if self._executor is None:
+            from .exec import AsyncSandboxExecutor
 
-        return AsyncSandboxExecutor(self)
+            self._executor = AsyncSandboxExecutor(self)
+        return self._executor
 
     @property
     def filesystem(self) -> "AsyncSandboxFilesystem":
         """Get filesystem operations interface"""
-        from .filesystem import AsyncSandboxFilesystem
+        if self._filesystem is None:
+            from .filesystem import AsyncSandboxFilesystem
 
-        return AsyncSandboxFilesystem(self)
+            self._filesystem = AsyncSandboxFilesystem(self)
+        return self._filesystem
 
     @async_wrapper("expose_port")
     async def expose_port(self, port: int) -> ExposedPort:

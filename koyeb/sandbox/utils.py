@@ -9,7 +9,7 @@ import logging
 import os
 import shlex
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from koyeb.api import ApiClient, Configuration
 from koyeb.api.api import (
@@ -104,11 +104,16 @@ class ApiClients:
     secrets: SecretsApi
 
 
+_api_clients_cache: Dict[Tuple[str, str], ApiClients] = {}
+
+
 def get_api_clients(
     api_token: Optional[str] = None, host: Optional[str] = None
 ) -> ApiClients:
     """
     Get configured API clients for Koyeb operations.
+
+    Caches clients by (token, host) to reuse the underlying HTTP connection pool.
 
     Args:
         api_token: Koyeb API token. If not provided, will try to get from KOYEB_API_TOKEN env var
@@ -129,12 +134,17 @@ def get_api_clients(
     api_host = os.getenv("KOYEB_API_HOST", host)
     if not api_host:
         api_host = "https://app.koyeb.com"
+    cache_key = (token, api_host)
+
+    if cache_key in _api_clients_cache:
+        return _api_clients_cache[cache_key]
+
     configuration = Configuration(host=api_host)
     configuration.api_key["Bearer"] = token
     configuration.api_key_prefix["Bearer"] = "Bearer"
 
     api_client = ApiClient(configuration)
-    return ApiClients(
+    clients = ApiClients(
         apps=AppsApi(api_client),
         services=ServicesApi(api_client),
         instances=InstancesApi(api_client),
@@ -142,6 +152,8 @@ def get_api_clients(
         deployments=DeploymentsApi(api_client),
         secrets=SecretsApi(api_client),
     )
+    _api_clients_cache[cache_key] = clients
+    return clients
 
 
 def build_env_vars(env: Optional[Dict[str, Any]]) -> List[DeploymentEnv]:

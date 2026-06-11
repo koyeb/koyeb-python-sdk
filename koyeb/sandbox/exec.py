@@ -69,14 +69,10 @@ class SandboxExecutor:
 
     def __init__(self, sandbox: Sandbox) -> None:
         self.sandbox = sandbox
-        self._client = None
 
     def _get_client(self) -> SandboxClient:
-        """Get or create SandboxClient instance"""
-        if self._client is None:
-            conn_info = self.sandbox._get_conn_info()
-            self._client = create_sandbox_client(conn_info)
-        return self._client
+        """Get or create SandboxClient instance, shared with the sandbox"""
+        return self.sandbox._get_client()
 
     def __call__(
         self,
