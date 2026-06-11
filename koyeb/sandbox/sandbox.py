@@ -395,27 +395,27 @@ class Sandbox:
 
         sandbox_name = service.name
 
-        # Get deployment to extract sandbox_secret from env vars
+        # Get deployment to extract sandbox_secret and metadata
         deployment_id = service.active_deployment_id or service.latest_deployment_id
         sandbox_secret = None
+        sandbox_metadata = None
 
         if deployment_id:
             try:
                 deployment_response = deployments_api.get_deployment(id=deployment_id)
-                if (
-                    deployment_response.deployment
-                    and deployment_response.deployment.definition
-                    and deployment_response.deployment.definition.env
-                ):
+                deployment = deployment_response.deployment
+                if deployment and deployment.definition and deployment.definition.env:
                     # Find SANDBOX_SECRET in env vars
-                    for env_var in deployment_response.deployment.definition.env:
+                    for env_var in deployment.definition.env:
                         if env_var.key == "SANDBOX_SECRET":
                             sandbox_secret = env_var.value
                             break
+                if deployment and deployment.metadata:
+                    sandbox_metadata = deployment.metadata
             except Exception as e:
                 logger.debug(f"Could not get deployment {deployment_id}: {e}")
 
-        return cls(
+        sandbox = cls(
             sandbox_id=service.id,
             app_id=service.app_id,
             service_id=service.id,
@@ -424,6 +424,29 @@ class Sandbox:
             sandbox_secret=sandbox_secret,
             host=host,
         )
+        if deployment_id:
+            sandbox._deployment_id = deployment_id
+
+        # Pre-cache sandbox URL from deployment metadata or app domain
+        if sandbox_metadata and sandbox_metadata.sandbox:
+            sandbox._sandbox_url = (
+                f"{sandbox_metadata.sandbox.public_url}/koyeb-sandbox",
+                sandbox_metadata.sandbox.routing_key,
+            )
+        else:
+            # Fallback: resolve domain from app (we already have app_id)
+            try:
+                app_response = clients.apps.get_app(service.app_id)
+                app = app_response.app
+                if hasattr(app, "domains") and app.domains:
+                    sandbox._sandbox_url = (
+                        f"https://{app.domains[0].name}/koyeb-sandbox",
+                        None,
+                    )
+            except Exception:
+                pass
+
+        return sandbox
 
     _DEPLOYMENT_ERROR_STATUSES = {
         DeploymentStatus.ERROR,
@@ -445,6 +468,8 @@ class Sandbox:
     def _is_deployment_healthy(self) -> bool:
         """
         Check if the sandbox deployment status is HEALTHY via the API.
+        When the deployment becomes healthy, also caches the sandbox URL
+        from deployment metadata if available.
 
         Returns:
             bool: True if the deployment status is HEALTHY, False otherwise
@@ -458,13 +483,23 @@ class Sandbox:
                 return False
             clients = get_api_clients(self.api_token, self.host)
             deployment_response = clients.deployments.get_deployment(deployment_id)
-            status = deployment_response.deployment.status
+            deployment = deployment_response.deployment
+            status = deployment.status
             if status in self._DEPLOYMENT_ERROR_STATUSES:
                 raise SandboxDeploymentError(
                     f"Sandbox '{self.name}' deployment reached status {status.value}. "
                     f"The sandbox will not become ready."
                 )
-            return status == DeploymentStatus.HEALTHY
+            is_healthy = status == DeploymentStatus.HEALTHY
+            # Cache sandbox URL from metadata when deployment is healthy
+            if is_healthy and self._sandbox_url is None:
+                metadata = deployment.metadata
+                if metadata and metadata.sandbox:
+                    self._sandbox_url = (
+                        f"{metadata.sandbox.public_url}/koyeb-sandbox",
+                        metadata.sandbox.routing_key,
+                    )
+            return is_healthy
         except SandboxDeploymentError:
             raise
         except Exception as e:
@@ -589,20 +624,17 @@ class Sandbox:
         try:
             from koyeb.api.exceptions import ApiException, NotFoundException
 
+            if not self.app_id:
+                return None
+
             from .utils import get_api_clients
 
             clients = get_api_clients(self.api_token, self.host)
-            apps_api = clients.apps
-            services_api = clients.services
-            service_response = services_api.get_service(self.service_id)
-            service = service_response.service
-
-            if service.app_id:
-                app_response = apps_api.get_app(service.app_id)
-                app = app_response.app
-                if hasattr(app, "domains") and app.domains:
-                    # Use the first public domain
-                    return app.domains[0].name
+            app_response = clients.apps.get_app(self.app_id)
+            app = app_response.app
+            if hasattr(app, "domains") and app.domains:
+                # Use the first public domain
+                return app.domains[0].name
             return None
         except (NotFoundException, ApiException, Exception):
             return None
