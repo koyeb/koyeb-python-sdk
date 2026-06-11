@@ -27,7 +27,6 @@ from .utils import (
     SandboxDeploymentError,
     SandboxError,
     SandboxTimeoutError,
-    async_wrapper,
     build_config_files,
     build_env_vars,
     create_deployment_definition,
@@ -36,13 +35,12 @@ from .utils import (
     create_sandbox_client,
     get_api_clients,
     logger,
-    run_sync_in_executor,
     validate_port,
 )
 
 if TYPE_CHECKING:
     from .exec import AsyncSandboxExecutor, SandboxExecutor
-    from .executor_client import SandboxClient
+    from .executor_client import AsyncSandboxClient, SandboxClient
     from .filesystem import AsyncSandboxFilesystem, SandboxFilesystem
 
 
@@ -170,9 +168,9 @@ class Sandbox:
                     pulling private images. Create the secret via Koyeb dashboard or CLI first.
                 _experimental_enable_light_sleep: If True, uses idle_timeout for light_sleep and sets
                     deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
-                delete_after_create: If >0, automatically delete the sandbox if there was no activity
+                delete_after_delay: If >0, automatically delete the sandbox if there was no activity
                     after this many seconds since creation.
-                delete_after_sleep: If >0, automatically delete the sandbox if service sleeps due to inactivity
+                delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
                 enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
@@ -1122,22 +1120,22 @@ class Sandbox:
 class AsyncSandbox(Sandbox):
     """
     Async sandbox for running code on Koyeb infrastructure.
-    Inherits from Sandbox and provides async wrappers for all operations.
+    Inherits from Sandbox and provides native async implementations.
     """
 
-    async def _run_sync(self, method, *args, **kwargs):
-        """
-        Helper method to run a synchronous method in an executor.
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._async_client = None
 
-        Args:
-            method: The sync method to run (from super())
-            *args: Positional arguments for the method
-            **kwargs: Keyword arguments for the method
+    def _get_async_client(self) -> "AsyncSandboxClient":
+        """Get or create AsyncSandboxClient instance."""
+        if self._async_client is None:
+            from .utils import create_async_sandbox_client
 
-        Returns:
-            Result of the synchronous method call
-        """
-        return await run_sync_in_executor(method, *args, **kwargs)
+            sandbox_url, routing_key = self._get_sandbox_url()
+            conn_info = ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
+            self._async_client = create_async_sandbox_client(conn_info)
+        return self._async_client
 
     @classmethod
     async def get_from_id(
@@ -1161,23 +1159,83 @@ class AsyncSandbox(Sandbox):
             ValueError: If API token is not provided or id is invalid
             SandboxError: If sandbox is not found or retrieval fails
         """
-        sync_sandbox = await run_sync_in_executor(
-            Sandbox.get_from_id, id=id, api_token=api_token, host=host
-        )
+        if api_token is None:
+            api_token = os.getenv("KOYEB_API_TOKEN")
+            if not api_token:
+                raise ValueError(
+                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
+                )
 
-        # Convert Sandbox instance to AsyncSandbox instance
-        async_sandbox = cls(
-            sandbox_id=sync_sandbox.sandbox_id,
-            app_id=sync_sandbox.app_id,
-            service_id=sync_sandbox.service_id,
-            name=sync_sandbox.name,
-            api_token=sync_sandbox.api_token,
-            sandbox_secret=sync_sandbox.sandbox_secret,
-            host=sync_sandbox.host,
-        )
-        async_sandbox._created_at = sync_sandbox._created_at
+        if not id:
+            raise ValueError("id is required")
 
-        return async_sandbox
+        from .utils import get_async_api_clients
+        from koyeb.api_async.exceptions import ApiException as AsyncApiException
+        from koyeb.api_async.exceptions import NotFoundException as AsyncNotFoundException
+
+        clients = get_async_api_clients(api_token, host)
+
+        try:
+            service_response = await clients.services.get_service(id=id)
+            service = service_response.service
+        except AsyncNotFoundException as e:
+            raise SandboxError(f"Sandbox not found with id: {id}") from e
+        except AsyncApiException as e:
+            raise SandboxError(f"Failed to retrieve sandbox with id: {id}: {e}") from e
+
+        if service is None:
+            raise SandboxError(f"Sandbox not found with id: {id}")
+
+        sandbox_name = service.name
+
+        deployment_id = service.active_deployment_id or service.latest_deployment_id
+        sandbox_secret = None
+        sandbox_metadata = None
+
+        if deployment_id:
+            try:
+                deployment_response = await clients.deployments.get_deployment(id=deployment_id)
+                deployment = deployment_response.deployment
+                if deployment and deployment.definition and deployment.definition.env:
+                    for env_var in deployment.definition.env:
+                        if env_var.key == "SANDBOX_SECRET":
+                            sandbox_secret = env_var.value
+                            break
+                if deployment and deployment.metadata:
+                    sandbox_metadata = deployment.metadata
+            except Exception as e:
+                logger.debug(f"Could not get deployment {deployment_id}: {e}")
+
+        sandbox = cls(
+            sandbox_id=service.id,
+            app_id=service.app_id,
+            service_id=service.id,
+            name=sandbox_name,
+            api_token=api_token,
+            sandbox_secret=sandbox_secret,
+            host=host,
+        )
+        if deployment_id:
+            sandbox._deployment_id = deployment_id
+
+        if sandbox_metadata and sandbox_metadata.sandbox:
+            sandbox._sandbox_url = (
+                f"{sandbox_metadata.sandbox.public_url}/koyeb-sandbox",
+                sandbox_metadata.sandbox.routing_key,
+            )
+        else:
+            try:
+                app_response = await clients.apps.get_app(service.app_id)
+                app = app_response.app
+                if hasattr(app, "domains") and app.domains:
+                    sandbox._sandbox_url = (
+                        f"https://{app.domains[0].name}/koyeb-sandbox",
+                        None,
+                    )
+            except Exception:
+                pass
+
+        return sandbox
 
     @classmethod
     async def create(
@@ -1265,49 +1323,82 @@ class AsyncSandbox(Sandbox):
                     "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
 
-        loop = asyncio.get_running_loop()
-        sync_result = await loop.run_in_executor(
-            None,
-            lambda: Sandbox._create_sync(
-                name=name,
-                image=image,
-                instance_type=instance_type,
-                exposed_port_protocol=exposed_port_protocol,
-                env=env,
-                config_files=config_files,
-                region=region,
-                api_token=api_token,
-                timeout=timeout,
-                idle_timeout=idle_timeout,
-                enable_tcp_proxy=enable_tcp_proxy,
-                privileged=privileged,
-                registry_secret=registry_secret,
-                _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-                _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-                delete_after_delay=delete_after_delay,
-                delete_after_inactivity_delay=delete_after_inactivity_delay,
-                app_id=app_id,
-                enable_mesh=enable_mesh,
-                poll_interval=poll_interval,
-                entrypoint=entrypoint,
-                command=command,
-                args=args,
-                host=host,
-            ),
+        from .utils import get_async_api_clients
+        from koyeb.api_async.models.create_app import CreateApp as AsyncCreateApp
+        from koyeb.api_async.models.create_app import AppLifeCycle as AsyncAppLifeCycle
+        from koyeb.api_async.models.create_service import CreateService as AsyncCreateService
+        from koyeb.api_async.models.create_service import ServiceLifeCycle as AsyncServiceLifeCycle
+
+        clients = get_async_api_clients(api_token, host)
+
+        # Always create routes
+        routes = create_koyeb_sandbox_routes()
+
+        # Generate secure sandbox secret
+        sandbox_secret = secrets.token_urlsafe(32)
+
+        # Add SANDBOX_SECRET to environment variables
+        if env is None:
+            env = {}
+        env["SANDBOX_SECRET"] = sandbox_secret
+
+        # Use provided app_id or create a new app
+        if app_id is None:
+            app_name = f"sandbox-app-{name}-{int(time.time())}"
+            app_response = await clients.apps.create_app(
+                app=AsyncCreateApp(
+                    name=app_name, life_cycle=AsyncAppLifeCycle(delete_when_empty=True)
+                )
+            )
+            app_id = app_response.app.id
+
+        env_vars = build_env_vars(env)
+        config_file_objects = build_config_files(config_files)
+        docker_source = create_docker_source(
+            image, privileged=privileged, image_registry_secret=registry_secret,
+            entrypoint=entrypoint, command=command, args=args,
         )
 
-        # Convert Sandbox instance to AsyncSandbox instance
-        sandbox = cls(
-            sandbox_id=sync_result.sandbox_id,
-            app_id=sync_result.app_id,
-            service_id=sync_result.service_id,
-            name=sync_result.name,
-            api_token=sync_result.api_token,
-            sandbox_secret=sync_result.sandbox_secret,
-            poll_interval=poll_interval,
-            host=sync_result.host,
+        deployment_definition = create_deployment_definition(
+            name=name,
+            docker_source=docker_source,
+            env_vars=env_vars,
+            instance_type=instance_type,
+            exposed_port_protocol=exposed_port_protocol,
+            region=region,
+            routes=routes,
+            idle_timeout=idle_timeout,
+            enable_tcp_proxy=enable_tcp_proxy,
+            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+            _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+            enable_mesh=enable_mesh,
+            config_files=config_file_objects if config_file_objects else None,
         )
-        sandbox._created_at = sync_result._created_at
+
+        service_life_cycle = AsyncServiceLifeCycle(
+            delete_after_create=delete_after_delay,
+            delete_after_sleep=delete_after_inactivity_delay,
+        )
+        # Convert sync DeploymentDefinition to dict so the async Pydantic model
+        # (which expects koyeb.api_async.models.DeploymentDefinition) can coerce it.
+        create_service = AsyncCreateService(
+            app_id=app_id,
+            definition=deployment_definition.to_dict(),
+            life_cycle=service_life_cycle,
+        )
+        service_response = await clients.services.create_service(service=create_service)
+        service_id = service_response.service.id
+
+        sandbox = cls(
+            sandbox_id=name,
+            app_id=app_id,
+            service_id=service_id,
+            name=name,
+            api_token=api_token,
+            sandbox_secret=sandbox_secret,
+            poll_interval=poll_interval,
+            host=host,
+        )
 
         if wait_ready:
             is_ready = await sandbox.wait_ready(timeout=timeout)
@@ -1319,6 +1410,59 @@ class AsyncSandbox(Sandbox):
                 )
 
         return sandbox
+
+    async def _async_is_deployment_healthy(self) -> bool:
+        """Check deployment health via async API."""
+        try:
+            from .utils import get_async_api_clients
+
+            deployment_id = self._deployment_id
+            if not deployment_id:
+                # Resolve deployment ID via async API
+                clients = get_async_api_clients(self.api_token, self.host)
+                service_response = await clients.services.get_service(self.service_id)
+                service = service_response.service
+                deployment_id = service.active_deployment_id or service.latest_deployment_id
+                if deployment_id:
+                    self._deployment_id = deployment_id
+                else:
+                    return False
+
+            clients = get_async_api_clients(self.api_token, self.host)
+            deployment_response = await clients.deployments.get_deployment(deployment_id)
+            deployment = deployment_response.deployment
+            status = deployment.status
+            if status in self._DEPLOYMENT_ERROR_STATUSES:
+                raise SandboxDeploymentError(
+                    f"Sandbox '{self.name}' deployment reached status {status.value}. "
+                    f"The sandbox will not become ready."
+                )
+            is_healthy = status == DeploymentStatus.HEALTHY
+            if is_healthy and self._sandbox_url is None:
+                metadata = deployment.metadata
+                if metadata and metadata.sandbox:
+                    self._sandbox_url = (
+                        f"{metadata.sandbox.public_url}/koyeb-sandbox",
+                        metadata.sandbox.routing_key,
+                    )
+            return is_healthy
+        except SandboxDeploymentError:
+            raise
+        except Exception as e:
+            logger.debug(f"Could not get deployment for service {self.service_id}: {e}")
+            return False
+
+    async def _async_check_executor_health(self) -> bool:
+        """Check executor health via async client."""
+        try:
+            client = self._get_async_client()
+            health_response = await client.health()
+            if isinstance(health_response, dict):
+                status = health_response.get("status", "").lower()
+                return status in ["ok", "healthy", "ready"]
+            return True
+        except Exception:
+            return False
 
     async def wait_ready(
         self,
@@ -1347,22 +1491,14 @@ class AsyncSandbox(Sandbox):
         current_interval = 0.1
 
         while time.time() - start_time < timeout:
-            loop = asyncio.get_running_loop()
-
-            # First, wait for the deployment to be healthy before sending traffic
             if not deployment_healthy:
-                deployment_healthy = await loop.run_in_executor(
-                    None, super()._is_deployment_healthy
-                )
+                deployment_healthy = await self._async_is_deployment_healthy()
                 if not deployment_healthy:
                     await asyncio.sleep(current_interval)
                     current_interval = min(current_interval * 2, poll_interval)
                     continue
 
-            # Deployment is already confirmed healthy above, skip redundant
-            # _is_deployment_healthy() check and go straight to executor health
-            is_healthy = await loop.run_in_executor(None, super()._check_executor_health)
-
+            is_healthy = await self._async_check_executor_health()
             if is_healthy:
                 return True
 
@@ -1395,27 +1531,47 @@ class AsyncSandbox(Sandbox):
         current_interval = 0.1
 
         while time.time() - start_time < timeout:
-            loop = asyncio.get_running_loop()
-            tcp_proxy_info = await loop.run_in_executor(
-                None, super().get_tcp_proxy_info
-            )
-            if tcp_proxy_info is not None:
-                return True
+            from .utils import get_async_api_clients
+            from koyeb.api_async.api.deployments_api import DeploymentsApi as AsyncDeploymentsApi
+
+            try:
+                clients = get_async_api_clients(self.api_token, self.host)
+                service_response = await clients.services.get_service(self.service_id)
+                service = service_response.service
+
+                if service.active_deployment_id:
+                    deployment_response = await clients.deployments.get_deployment(
+                        service.active_deployment_id
+                    )
+                    deployment = deployment_response.deployment
+
+                    if deployment.metadata and deployment.metadata.proxy_ports:
+                        for proxy_port in deployment.metadata.proxy_ports:
+                            if (
+                                proxy_port.port == 3031
+                                and proxy_port.host
+                                and proxy_port.public_port
+                            ):
+                                return True
+            except Exception:
+                pass
 
             await asyncio.sleep(current_interval)
             current_interval = min(current_interval * 2, poll_interval)
 
         return False
 
-    @async_wrapper("delete")
     async def delete(self) -> None:
         """Delete the sandbox instance asynchronously."""
-        pass
+        from .utils import get_async_api_clients
+        clients = get_async_api_clients(self.api_token, self.host)
+        await clients.apps.delete_app(self.app_id)
 
-    @async_wrapper("is_healthy")
     async def is_healthy(self) -> bool:
-        """Check if sandbox is healthy and ready for operations asynchronously"""
-        pass
+        """Check if sandbox is healthy and ready for operations asynchronously."""
+        if not await self._async_is_deployment_healthy():
+            return False
+        return await self._async_check_executor_health()
 
     @property
     def exec(self) -> "AsyncSandboxExecutor":
@@ -1435,32 +1591,80 @@ class AsyncSandbox(Sandbox):
             self._filesystem = AsyncSandboxFilesystem(self)
         return self._filesystem
 
-    @async_wrapper("expose_port")
     async def expose_port(self, port: int) -> ExposedPort:
         """Expose a port to external connections via TCP proxy asynchronously."""
-        pass
+        validate_port(port)
+        client = self._get_async_client()
+        try:
+            try:
+                await client.unbind_port()
+            except Exception as e:
+                logger.debug(f"Error unbinding existing port (this is okay): {e}")
 
-    @async_wrapper("unexpose_port")
+            response = await client.bind_port(port)
+            self._check_response_error(response, f"expose port {port}")
+
+            url = self._get_url()
+            if not url:
+                raise SandboxError("URL not available for exposed port")
+
+            exposed_port = int(response.get("port", port))
+            return ExposedPort(port=exposed_port, exposed_at=url)
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to expose port {port}: {str(e)}") from e
+
     async def unexpose_port(self) -> None:
         """Unexpose a port from external connections asynchronously."""
-        pass
+        client = self._get_async_client()
+        try:
+            response = await client.unbind_port()
+            self._check_response_error(response, "unexpose port")
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to unexpose port: {str(e)}") from e
 
-    @async_wrapper("launch_process")
     async def launch_process(
         self, cmd: str, cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None
     ) -> str:
         """Launch a background process in the sandbox asynchronously."""
-        pass
+        client = self._get_async_client()
+        try:
+            response = await client.start_process(cmd, cwd, env)
+            process_id = response.get("id")
+            if process_id:
+                return process_id
+            error_msg = response.get("error", response.get("message", "Unknown error"))
+            raise SandboxError(f"Failed to launch process: {error_msg}")
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to launch process: {str(e)}") from e
 
-    @async_wrapper("kill_process")
     async def kill_process(self, process_id: str) -> None:
         """Kill a background process by its ID asynchronously."""
-        pass
+        client = self._get_async_client()
+        try:
+            response = await client.kill_process(process_id)
+            self._check_response_error(response, f"kill process {process_id}")
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to kill process {process_id}: {str(e)}") from e
 
-    @async_wrapper("list_processes")
     async def list_processes(self) -> List[ProcessInfo]:
         """List all background processes asynchronously."""
-        pass
+        client = self._get_async_client()
+        try:
+            response = await client.list_processes()
+            processes_data = response.get("processes", [])
+            return [ProcessInfo(**process) for process in processes_data]
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to list processes: {str(e)}") from e
 
     async def kill_all_processes(self) -> int:
         """Kill all running background processes asynchronously."""
@@ -1479,14 +1683,46 @@ class AsyncSandbox(Sandbox):
                     pass
         return killed_count
 
-    @async_wrapper("update_lifecycle")
     async def update_lifecycle(
         self,
         delete_after_delay: Optional[int] = None,
         delete_after_inactivity: Optional[int] = None,
     ) -> None:
         """Update the sandbox's life cycle settings asynchronously."""
-        pass
+        try:
+            from .utils import get_async_api_clients
+            from koyeb.api_async.models.create_service import ServiceLifeCycle as AsyncServiceLifeCycle
+            from koyeb.api_async.models.update_service import UpdateService as AsyncUpdateService
+
+            clients = get_async_api_clients(self.api_token, self.host)
+            service_response = await clients.services.get_service(self.service_id)
+            service = service_response.service
+
+            deployment_response = await clients.deployments.get_deployment(
+                service.latest_deployment_id
+            )
+            deployment = deployment_response.deployment
+
+            if not service:
+                raise SandboxError("Sandbox service not found")
+
+            life_cycle = service.life_cycle or AsyncServiceLifeCycle()
+            if delete_after_delay is not None:
+                life_cycle.delete_after_create = delete_after_delay
+            if delete_after_inactivity is not None:
+                life_cycle.delete_after_sleep = delete_after_inactivity
+
+            await clients.services.update_service(
+                id=self.service_id,
+                service=AsyncUpdateService(
+                    definition=deployment.definition,
+                    life_cycle=life_cycle,
+                ),
+            )
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to update life cycle: {str(e)}")
 
     async def __aenter__(self) -> "AsyncSandbox":
         """Async context manager entry - returns self."""
@@ -1495,7 +1731,9 @@ class AsyncSandbox(Sandbox):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit - automatically deletes the sandbox."""
         try:
-            # Clean up client if it exists
+            # Clean up clients if they exist
+            if self._async_client is not None:
+                await self._async_client.close()
             if self._client is not None:
                 self._client.close()
             await self.delete()

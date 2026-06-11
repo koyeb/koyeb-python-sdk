@@ -4,6 +4,20 @@
 
 Koyeb Sandbox - Interactive execution environment for running arbitrary code on Koyeb
 
+<a id="koyeb/sandbox.test_utils"></a>
+
+# koyeb/sandbox.test\_utils
+
+<a id="koyeb/sandbox.test_utils.TestCreateDockerSource"></a>
+
+## TestCreateDockerSource Objects
+
+```python
+class TestCreateDockerSource(unittest.TestCase)
+```
+
+Tests for create_docker_source entrypoint, command, and args support.
+
 <a id="koyeb/sandbox.exec"></a>
 
 # koyeb/sandbox.exec
@@ -133,7 +147,8 @@ class AsyncSandboxExecutor(SandboxExecutor)
 Async command execution interface for Koyeb Sandbox instances.
 Bound to a specific sandbox instance.
 
-Inherits from SandboxExecutor and provides async command execution.
+Inherits from SandboxExecutor and provides async command execution
+using native async I/O via AsyncSandboxClient.
 
 <a id="koyeb/sandbox.exec.AsyncSandboxExecutor.__call__"></a>
 
@@ -528,14 +543,13 @@ class AsyncSandboxFilesystem(SandboxFilesystem)
 ```
 
 Async filesystem operations for Koyeb Sandbox instances.
-Inherits from SandboxFilesystem and provides async methods.
+Uses native async I/O via AsyncSandboxClient.
 
 <a id="koyeb/sandbox.filesystem.AsyncSandboxFilesystem.write_file"></a>
 
 #### write\_file
 
 ```python
-@async_wrapper("write_file")
 async def write_file(path: str,
                      content: Union[str, bytes],
                      encoding: str = "utf-8") -> None
@@ -554,7 +568,6 @@ Write content to a file asynchronously.
 #### read\_file
 
 ```python
-@async_wrapper("read_file")
 async def read_file(path: str, encoding: str = "utf-8") -> FileInfo
 ```
 
@@ -576,7 +589,6 @@ Read a file from the sandbox asynchronously.
 #### mkdir
 
 ```python
-@async_wrapper("mkdir")
 async def mkdir(path: str) -> None
 ```
 
@@ -593,7 +605,6 @@ Note: Parent directories are always created automatically by the API.
 #### list\_dir
 
 ```python
-@async_wrapper("list_dir")
 async def list_dir(path: str = ".") -> List[str]
 ```
 
@@ -613,7 +624,6 @@ List contents of a directory asynchronously.
 #### delete\_file
 
 ```python
-@async_wrapper("delete_file")
 async def delete_file(path: str) -> None
 ```
 
@@ -628,7 +638,6 @@ Delete a file asynchronously.
 #### delete\_dir
 
 ```python
-@async_wrapper("delete_dir")
 async def delete_dir(path: str) -> None
 ```
 
@@ -643,7 +652,6 @@ Delete a directory asynchronously.
 #### rename\_file
 
 ```python
-@async_wrapper("rename_file")
 async def rename_file(old_path: str, new_path: str) -> None
 ```
 
@@ -659,7 +667,6 @@ Rename a file asynchronously.
 #### move\_file
 
 ```python
-@async_wrapper("move_file")
 async def move_file(source_path: str, destination_path: str) -> None
 ```
 
@@ -689,7 +696,6 @@ Write multiple files in a single operation asynchronously.
 #### exists
 
 ```python
-@async_wrapper("exists")
 async def exists(path: str) -> bool
 ```
 
@@ -700,7 +706,6 @@ Check if file/directory exists asynchronously
 #### is\_file
 
 ```python
-@async_wrapper("is_file")
 async def is_file(path: str) -> bool
 ```
 
@@ -711,7 +716,6 @@ Check if path is a file asynchronously
 #### is\_dir
 
 ```python
-@async_wrapper("is_dir")
 async def is_dir(path: str) -> bool
 ```
 
@@ -722,7 +726,6 @@ Check if path is a directory asynchronously
 #### upload\_file
 
 ```python
-@async_wrapper("upload_file")
 async def upload_file(local_path: str,
                       remote_path: str,
                       encoding: str = "utf-8") -> None
@@ -735,13 +738,18 @@ Upload a local file to the sandbox asynchronously.
 - `local_path` - Path to the local file
 - `remote_path` - Destination path in the sandbox
 - `encoding` - File encoding (default: "utf-8"). Use "base64" for binary files.
+  
+
+**Raises**:
+
+- `SandboxFileNotFoundError` - If local file doesn't exist
+- `UnicodeDecodeError` - If file cannot be decoded with specified encoding
 
 <a id="koyeb/sandbox.filesystem.AsyncSandboxFilesystem.download_file"></a>
 
 #### download\_file
 
 ```python
-@async_wrapper("download_file")
 async def download_file(remote_path: str,
                         local_path: str,
                         encoding: str = "utf-8") -> None
@@ -754,6 +762,11 @@ Download a file from the sandbox to a local path asynchronously.
 - `remote_path` - Path to the file in the sandbox
 - `local_path` - Destination path on the local filesystem
 - `encoding` - File encoding (default: "utf-8"). Use "base64" for binary files.
+  
+
+**Raises**:
+
+- `SandboxFileNotFoundError` - If remote file doesn't exist
 
 <a id="koyeb/sandbox.filesystem.AsyncSandboxFilesystem.ls"></a>
 
@@ -779,7 +792,6 @@ List directory contents asynchronously.
 #### rm
 
 ```python
-@async_wrapper("rm")
 async def rm(path: str, recursive: bool = False) -> None
 ```
 
@@ -991,8 +1003,8 @@ def create(cls,
            wait_ready: bool = True,
            instance_type: str = "micro",
            exposed_port_protocol: Optional[str] = None,
-           env: Optional[Dict[str, str]] = None,
-           config_files: Optional[Dict[str, str]] = None,
+           env: Optional[Dict[str, Any]] = None,
+           config_files: Optional[Dict[str, Any]] = None,
            region: Optional[str] = None,
            api_token: Optional[str] = None,
            timeout: int = 300,
@@ -1006,7 +1018,11 @@ def create(cls,
            delete_after_inactivity_delay: int = 0,
            app_id: Optional[str] = None,
            enable_mesh: bool = None,
-           poll_interval: float = DEFAULT_POLL_INTERVAL) -> Sandbox
+           poll_interval: float = DEFAULT_POLL_INTERVAL,
+           entrypoint: Optional[List[str]] = None,
+           command: Optional[str] = None,
+           args: Optional[List[str]] = None,
+           host: Optional[str] = None) -> Sandbox
 ```
 
 Create a new sandbox instance.
@@ -1022,7 +1038,9 @@ Create a new sandbox instance.
   If provided, must be one of "http" or "http2".
 - `env` - Environment variables
 - `config_files` - Config files to create in the sandbox, as a dictionary mapping
-  file paths to file contents (e.g., {"/etc/myapp/config.yaml": "key: value"})
+  file paths to file contents. Values can be plain strings (default permissions 0644)
+  or ``ConfigFile`` instances for custom permissions
+  (e.g., {"/etc/myapp/config.yaml": "key: value", "/etc/myapp/cert.pem": ConfigFile(content="...", permissions="0600")})
 - `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
@@ -1037,13 +1055,16 @@ Create a new sandbox instance.
   pulling private images. Create the secret via Koyeb dashboard or CLI first.
 - `_experimental_enable_light_sleep` - If True, uses idle_timeout for light_sleep and sets
   deep_sleep=3900. If False, uses idle_timeout for deep_sleep (default: False)
-- `delete_after_create` - If >0, automatically delete the sandbox if there was no activity
+- `delete_after_delay` - If >0, automatically delete the sandbox if there was no activity
   after this many seconds since creation.
-- `delete_after_sleep` - If >0, automatically delete the sandbox if service sleeps due to inactivity
+- `delete_after_inactivity_delay` - If >0, automatically delete the sandbox if service sleeps due to inactivity
   after this many seconds.
 - `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
 - `enable_mesh` - Enable or disable mesh for this sandbox. Disabled by default
 - `poll_interval` - Time between health checks in seconds when wait_ready is True (default: 0.5)
+- `entrypoint` - Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
+- `command` - Override the default command of the Docker image (e.g., "python app.py")
+- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
   
 
 **Returns**:
@@ -1074,7 +1095,10 @@ Create a new sandbox instance.
 
 ```python
 @classmethod
-def get_from_id(cls, id: str, api_token: Optional[str] = None) -> "Sandbox"
+def get_from_id(cls,
+                id: str,
+                api_token: Optional[str] = None,
+                host: Optional[str] = None) -> "Sandbox"
 ```
 
 Get a sandbox by service ID.
@@ -1083,6 +1107,7 @@ Get a sandbox by service ID.
 
 - `id` - Service ID of the sandbox
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
   
 
 **Returns**:
@@ -1480,7 +1505,7 @@ class AsyncSandbox(Sandbox)
 ```
 
 Async sandbox for running code on Koyeb infrastructure.
-Inherits from Sandbox and provides async wrappers for all operations.
+Inherits from Sandbox and provides native async implementations.
 
 <a id="koyeb/sandbox.sandbox.AsyncSandbox.get_from_id"></a>
 
@@ -1490,7 +1515,8 @@ Inherits from Sandbox and provides async wrappers for all operations.
 @classmethod
 async def get_from_id(cls,
                       id: str,
-                      api_token: Optional[str] = None) -> "AsyncSandbox"
+                      api_token: Optional[str] = None,
+                      host: Optional[str] = None) -> "AsyncSandbox"
 ```
 
 Get a sandbox by service ID asynchronously.
@@ -1499,6 +1525,7 @@ Get a sandbox by service ID asynchronously.
 
 - `id` - Service ID of the sandbox
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
   
 
 **Returns**:
@@ -1523,8 +1550,8 @@ async def create(cls,
                  wait_ready: bool = True,
                  instance_type: str = "micro",
                  exposed_port_protocol: Optional[str] = None,
-                 env: Optional[Dict[str, str]] = None,
-                 config_files: Optional[Dict[str, str]] = None,
+                 env: Optional[Dict[str, Any]] = None,
+                 config_files: Optional[Dict[str, Any]] = None,
                  region: Optional[str] = None,
                  api_token: Optional[str] = None,
                  timeout: int = 300,
@@ -1538,7 +1565,11 @@ async def create(cls,
                  delete_after_inactivity_delay: int = 0,
                  app_id: Optional[str] = None,
                  enable_mesh: bool = False,
-                 poll_interval: float = DEFAULT_POLL_INTERVAL) -> AsyncSandbox
+                 poll_interval: float = DEFAULT_POLL_INTERVAL,
+                 entrypoint: Optional[List[str]] = None,
+                 command: Optional[str] = None,
+                 args: Optional[List[str]] = None,
+                 host: Optional[str] = None) -> AsyncSandbox
 ```
 
 Create a new sandbox instance with async support.
@@ -1554,7 +1585,9 @@ Create a new sandbox instance with async support.
   If provided, must be one of "http" or "http2".
 - `env` - Environment variables
 - `config_files` - Config files to create in the sandbox, as a dictionary mapping
-  file paths to file contents (e.g., {"/etc/myapp/config.yaml": "key: value"})
+  file paths to file contents. Values can be plain strings (default permissions 0644)
+  or ``ConfigFile`` instances for custom permissions
+  (e.g., {"/etc/myapp/config.yaml": "key: value", "/etc/myapp/cert.pem": ConfigFile(content="...", permissions="0600")})
 - `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
 - `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
@@ -1578,6 +1611,9 @@ Create a new sandbox instance with async support.
 - `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
 - `enable_mesh` - Enable or disable mesh for this sandbox. Disabled by default
 - `poll_interval` - Time between health checks in seconds when wait_ready is True (default: 0.5)
+- `entrypoint` - Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
+- `command` - Override the default command of the Docker image (e.g., "python app.py")
+- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
   
 
 **Returns**:
@@ -1645,7 +1681,6 @@ information is available. Starts at 0.1s intervals, doubling up to poll_interval
 #### delete
 
 ```python
-@async_wrapper("delete")
 async def delete() -> None
 ```
 
@@ -1656,11 +1691,10 @@ Delete the sandbox instance asynchronously.
 #### is\_healthy
 
 ```python
-@async_wrapper("is_healthy")
 async def is_healthy() -> bool
 ```
 
-Check if sandbox is healthy and ready for operations asynchronously
+Check if sandbox is healthy and ready for operations asynchronously.
 
 <a id="koyeb/sandbox.sandbox.AsyncSandbox.exec"></a>
 
@@ -1689,7 +1723,6 @@ Get filesystem operations interface
 #### expose\_port
 
 ```python
-@async_wrapper("expose_port")
 async def expose_port(port: int) -> ExposedPort
 ```
 
@@ -1700,7 +1733,6 @@ Expose a port to external connections via TCP proxy asynchronously.
 #### unexpose\_port
 
 ```python
-@async_wrapper("unexpose_port")
 async def unexpose_port() -> None
 ```
 
@@ -1711,7 +1743,6 @@ Unexpose a port from external connections asynchronously.
 #### launch\_process
 
 ```python
-@async_wrapper("launch_process")
 async def launch_process(cmd: str,
                          cwd: Optional[str] = None,
                          env: Optional[Dict[str, str]] = None) -> str
@@ -1724,7 +1755,6 @@ Launch a background process in the sandbox asynchronously.
 #### kill\_process
 
 ```python
-@async_wrapper("kill_process")
 async def kill_process(process_id: str) -> None
 ```
 
@@ -1735,7 +1765,6 @@ Kill a background process by its ID asynchronously.
 #### list\_processes
 
 ```python
-@async_wrapper("list_processes")
 async def list_processes() -> List[ProcessInfo]
 ```
 
@@ -1756,7 +1785,6 @@ Kill all running background processes asynchronously.
 #### update\_lifecycle
 
 ```python
-@async_wrapper("update_lifecycle")
 async def update_lifecycle(
         delete_after_delay: Optional[int] = None,
         delete_after_inactivity: Optional[int] = None) -> None
@@ -1836,6 +1864,8 @@ def get_api_clients(api_token: Optional[str] = None,
 
 Get configured API clients for Koyeb operations.
 
+Caches clients by (token, host) to reuse the underlying HTTP connection pool.
+
 **Arguments**:
 
 - `api_token` - Koyeb API token. If not provided, will try to get from KOYEB_API_TOKEN env var
@@ -1851,19 +1881,61 @@ Get configured API clients for Koyeb operations.
 
 - `ValueError` - If API token is not provided
 
+<a id="koyeb/sandbox.utils.AsyncApiClients"></a>
+
+## AsyncApiClients Objects
+
+```python
+@dataclass(frozen=True)
+class AsyncApiClients()
+```
+
+Bundle of async Koyeb API clients sharing a single underlying AsyncApiClient.
+
+<a id="koyeb/sandbox.utils.get_async_api_clients"></a>
+
+#### get\_async\_api\_clients
+
+```python
+def get_async_api_clients(api_token: Optional[str] = None,
+                          host: Optional[str] = None) -> AsyncApiClients
+```
+
+Get configured async API clients for Koyeb operations.
+
+Caches clients by (token, host) to reuse the underlying HTTP connection pool.
+
+**Arguments**:
+
+- `api_token` - Koyeb API token. If not provided, will try to get from KOYEB_API_TOKEN env var
+- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var
+  
+
+**Returns**:
+
+  AsyncApiClients with async API client instances
+  
+
+**Raises**:
+
+- `ValueError` - If API token is not provided
+
 <a id="koyeb/sandbox.utils.build_env_vars"></a>
 
 #### build\_env\_vars
 
 ```python
-def build_env_vars(env: Optional[Dict[str, str]]) -> List[DeploymentEnv]
+def build_env_vars(env: Optional[Dict[str, Any]]) -> List[DeploymentEnv]
 ```
 
 Build environment variables list from dictionary.
 
 **Arguments**:
 
-- `env` - Dictionary of environment variables
+- `env` - Dictionary of environment variables. Values can be plain strings
+  or ``Secret`` instances. A ``Secret`` value is rendered as
+  ``"{{ secret.<name> }}"`` so the Koyeb API substitutes the secret
+  value at deploy time.
   
 
 **Returns**:
@@ -1876,14 +1948,17 @@ Build environment variables list from dictionary.
 
 ```python
 def build_config_files(
-        config_files: Optional[Dict[str, str]]) -> List[ConfigFile]
+        config_files: Optional[Dict[str, Any]]) -> List[ConfigFile]
 ```
 
 Build config files list from dictionary.
 
 **Arguments**:
 
-- `config_files` - Dictionary mapping file paths to file contents
+- `config_files` - Dictionary mapping file paths to file contents.
+  Values can be plain strings (default permissions 0644) or
+  ``ConfigFile`` instances (custom permissions). The dict key is
+  always used as the file path.
   
 
 **Returns**:
@@ -1895,11 +1970,12 @@ Build config files list from dictionary.
 #### create\_docker\_source
 
 ```python
-def create_docker_source(
-        image: str,
-        command_args: List[str],
-        privileged: Optional[bool] = None,
-        image_registry_secret: Optional[str] = None) -> DockerSource
+def create_docker_source(image: str,
+                         privileged: Optional[bool] = None,
+                         image_registry_secret: Optional[str] = None,
+                         entrypoint: Optional[List[str]] = None,
+                         command: Optional[str] = None,
+                         args: Optional[List[str]] = None) -> DockerSource
 ```
 
 Create Docker source configuration.
@@ -1907,10 +1983,12 @@ Create Docker source configuration.
 **Arguments**:
 
 - `image` - Docker image name
-- `command_args` - Command and arguments to run (optional, empty list means use image default)
 - `privileged` - If True, run the container in privileged mode (default: None/False)
 - `image_registry_secret` - Name of the secret containing registry credentials
   for pulling private images
+- `entrypoint` - Override the default entrypoint of the Docker image
+- `command` - Override the default command of the Docker image
+- `args` - Arguments to pass to the command
   
 
 **Returns**:
@@ -2082,54 +2160,6 @@ Uses case-insensitive matching against known error patterns.
 
   True if error message matches the error type
 
-<a id="koyeb/sandbox.utils.run_sync_in_executor"></a>
-
-#### run\_sync\_in\_executor
-
-```python
-async def run_sync_in_executor(method: Callable[..., Any], *args: Any,
-                               **kwargs: Any) -> Any
-```
-
-Run a synchronous method in an async executor.
-
-Helper function to wrap synchronous methods for async execution.
-Used by AsyncSandbox and AsyncSandboxFilesystem to wrap sync parent methods.
-
-**Arguments**:
-
-- `method` - The synchronous method to run
-- `*args` - Positional arguments for the method
-- `**kwargs` - Keyword arguments for the method
-  
-
-**Returns**:
-
-  Result of the synchronous method call
-
-<a id="koyeb/sandbox.utils.async_wrapper"></a>
-
-#### async\_wrapper
-
-```python
-def async_wrapper(method_name: str)
-```
-
-Decorator to automatically create async wrapper for sync methods.
-
-This decorator creates an async method that wraps a sync method from the parent class.
-The sync method is called via super() and executed in an executor.
-
-**Arguments**:
-
-- `method_name` - Name of the sync method to wrap (from parent class)
-  
-  Usage:
-  @async_wrapper("delete")
-  async def delete(self) -> None:
-  """Delete the sandbox instance asynchronously."""
-  pass  # Implementation is handled by decorator
-
 <a id="koyeb/sandbox.utils.create_sandbox_client"></a>
 
 #### create\_sandbox\_client
@@ -2153,6 +2183,35 @@ Used by Sandbox, SandboxExecutor, and SandboxFilesystem to avoid duplication.
 **Returns**:
 
 - `SandboxClient` - Configured client instance
+  
+
+**Raises**:
+
+- `SandboxError` - If sandbox URL or secret is not available
+
+<a id="koyeb/sandbox.utils.create_async_sandbox_client"></a>
+
+#### create\_async\_sandbox\_client
+
+```python
+def create_async_sandbox_client(conn_info: Optional['ConnectionInfo'],
+                                existing_client: Optional[Any] = None) -> Any
+```
+
+Create or return existing AsyncSandboxClient instance with validation.
+
+Helper function to create AsyncSandboxClient instances with consistent validation.
+Used by AsyncSandbox to avoid duplication.
+
+**Arguments**:
+
+- `conn_info` - The information needed to connect to the sandbox executor API
+- `existing_client` - Existing client instance to return if not None
+  
+
+**Returns**:
+
+- `AsyncSandboxClient` - Configured async client instance
   
 
 **Raises**:
@@ -2195,7 +2254,7 @@ Raised when a sandbox deployment reaches an error state
 
 Sandbox Executor API Client
 
-A simple Python client for interacting with the Sandbox Executor API.
+Sync and async Python clients for interacting with the Sandbox Executor API.
 
 <a id="koyeb/sandbox.executor_client.ConnectionInfo"></a>
 
@@ -2241,7 +2300,7 @@ Initialize the Sandbox Client.
 def close() -> None
 ```
 
-Close the HTTP session and release resources.
+Close the HTTP client and release resources.
 
 <a id="koyeb/sandbox.executor_client.SandboxClient.__enter__"></a>
 
@@ -2261,7 +2320,7 @@ Context manager entry - returns self.
 def __exit__(exc_type, exc_val, exc_tb) -> None
 ```
 
-Context manager exit - automatically closes the session.
+Context manager exit - automatically closes the client.
 
 <a id="koyeb/sandbox.executor_client.SandboxClient.__del__"></a>
 
@@ -2271,7 +2330,7 @@ Context manager exit - automatically closes the session.
 def __del__()
 ```
 
-Clean up session on deletion (fallback, not guaranteed to run).
+Clean up client on deletion (fallback, not guaranteed to run).
 
 <a id="koyeb/sandbox.executor_client.SandboxClient.health"></a>
 
@@ -2293,8 +2352,8 @@ already handle polling with backoff.
 
 **Raises**:
 
-- `requests.HTTPError` - If the health check fails
-- `requests.Timeout` - If the health check times out
+- `httpx.HTTPStatusError` - If the health check fails
+- `httpx.TimeoutException` - If the health check times out
 
 <a id="koyeb/sandbox.executor_client.SandboxClient.run"></a>
 
@@ -2639,6 +2698,432 @@ processes. This includes both active processes and processes that have completed
 
   >>> client = SandboxClient("http://localhost:8080", "secret")
   >>> result = client.list_processes()
+  >>> for process in result.get("processes", []):
+  ...     print(f"{process['id']}: {process['command']} - {process['status']}")
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient"></a>
+
+## AsyncSandboxClient Objects
+
+```python
+class AsyncSandboxClient()
+```
+
+Async client for the Sandbox Executor API using httpx.
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(conn_info: ConnectionInfo, timeout: float = DEFAULT_HTTP_TIMEOUT)
+```
+
+Initialize the Async Sandbox Client.
+
+**Arguments**:
+
+- `conn_info` - The parameters needed to connect to the sandbox
+- `timeout` - Request timeout in seconds (default: 30)
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.close"></a>
+
+#### close
+
+```python
+async def close() -> None
+```
+
+Close the HTTP client and release resources.
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.__aenter__"></a>
+
+#### \_\_aenter\_\_
+
+```python
+async def __aenter__()
+```
+
+Async context manager entry - returns self.
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.__aexit__"></a>
+
+#### \_\_aexit\_\_
+
+```python
+async def __aexit__(exc_type, exc_val, exc_tb) -> None
+```
+
+Async context manager exit - automatically closes the client.
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.health"></a>
+
+#### health
+
+```python
+async def health() -> Dict[str, str]
+```
+
+Check the health status of the server.
+
+Uses a short timeout and no retries since callers (wait_ready)
+already handle polling with backoff.
+
+**Returns**:
+
+  Dict with status information
+  
+
+**Raises**:
+
+- `httpx.HTTPStatusError` - If the health check fails
+- `httpx.TimeoutException` - If the health check times out
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.run"></a>
+
+#### run
+
+```python
+async def run(cmd: str,
+              cwd: Optional[str] = None,
+              env: Optional[Dict[str, str]] = None,
+              timeout: Optional[float] = None) -> Dict[str, Any]
+```
+
+Execute a shell command in the sandbox.
+
+**Arguments**:
+
+- `cmd` - The shell command to execute
+- `cwd` - Optional working directory for command execution
+- `env` - Optional environment variables to set/override
+- `timeout` - Optional timeout in seconds for the request
+  
+
+**Returns**:
+
+  Dict containing stdout, stderr, error (if any), and exit code
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.run_streaming"></a>
+
+#### run\_streaming
+
+```python
+async def run_streaming(
+        cmd: str,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        timeout: Optional[float] = None) -> AsyncIterator[Dict[str, Any]]
+```
+
+Execute a shell command in the sandbox and stream the output in real-time.
+
+This method uses Server-Sent Events (SSE) to stream command output line-by-line
+as it's produced. Use this for long-running commands where you want real-time
+output. For simple commands where buffered output is acceptable, use run() instead.
+
+**Arguments**:
+
+- `cmd` - The shell command to execute
+- `cwd` - Optional working directory for command execution
+- `env` - Optional environment variables to set/override
+- `timeout` - Optional timeout in seconds for the streaming request
+  
+
+**Yields**:
+
+  Dict events with the following types:
+  
+  - output events (as command produces output):
+- `{"stream"` - "stdout"|"stderr", "data": "line of output"}
+  
+  - complete event (when command finishes):
+- `{"code"` - <exit_code>, "error": false}
+  
+  - error event (if command fails to start):
+- `{"error"` - "error message"}
+  
+
+**Example**:
+
+  >>> client = AsyncSandboxClient("http://localhost:8080", "secret")
+  >>> async for event in client.run_streaming("echo 'Hello'; sleep 1; echo 'World'"):
+  ...     if "stream" in event:
+  ...         print(f"{event['stream']}: {event['data']}")
+  ...     elif "code" in event:
+  ...         print(f"Exit code: {event['code']}")
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.write_file"></a>
+
+#### write\_file
+
+```python
+async def write_file(path: str, content: str) -> Dict[str, Any]
+```
+
+Write content to a file.
+
+**Arguments**:
+
+- `path` - The file path to write to
+- `content` - The content to write
+  
+
+**Returns**:
+
+  Dict with success status and error if any
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.read_file"></a>
+
+#### read\_file
+
+```python
+async def read_file(path: str) -> Dict[str, Any]
+```
+
+Read content from a file.
+
+**Arguments**:
+
+- `path` - The file path to read from
+  
+
+**Returns**:
+
+  Dict with file content and error if any
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.delete_file"></a>
+
+#### delete\_file
+
+```python
+async def delete_file(path: str) -> Dict[str, Any]
+```
+
+Delete a file.
+
+**Arguments**:
+
+- `path` - The file path to delete
+  
+
+**Returns**:
+
+  Dict with success status and error if any
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.make_dir"></a>
+
+#### make\_dir
+
+```python
+async def make_dir(path: str) -> Dict[str, Any]
+```
+
+Create a directory (including parent directories).
+
+**Arguments**:
+
+- `path` - The directory path to create
+  
+
+**Returns**:
+
+  Dict with success status and error if any
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.delete_dir"></a>
+
+#### delete\_dir
+
+```python
+async def delete_dir(path: str) -> Dict[str, Any]
+```
+
+Recursively delete a directory and all its contents.
+
+**Arguments**:
+
+- `path` - The directory path to delete
+  
+
+**Returns**:
+
+  Dict with success status and error if any
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.list_dir"></a>
+
+#### list\_dir
+
+```python
+async def list_dir(path: str) -> Dict[str, Any]
+```
+
+List the contents of a directory.
+
+**Arguments**:
+
+- `path` - The directory path to list
+  
+
+**Returns**:
+
+  Dict with entries list and error if any
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.bind_port"></a>
+
+#### bind\_port
+
+```python
+async def bind_port(port: int) -> Dict[str, Any]
+```
+
+Bind a port to the TCP proxy for external access.
+
+Configures the TCP proxy to forward traffic to the specified port inside the sandbox.
+This allows you to expose services running inside the sandbox to external connections.
+
+**Arguments**:
+
+- `port` - The port number to bind to (must be a valid port number)
+  
+
+**Returns**:
+
+  Dict with success status, message, and port information
+  
+
+**Notes**:
+
+  - Only one port can be bound at a time
+  - Binding a new port will override the previous binding
+  - The port must be available and accessible within the sandbox environment
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.unbind_port"></a>
+
+#### unbind\_port
+
+```python
+async def unbind_port(port: Optional[int] = None) -> Dict[str, Any]
+```
+
+Unbind a port from the TCP proxy.
+
+Removes the TCP proxy port binding, stopping traffic forwarding to the previously bound port.
+
+**Arguments**:
+
+- `port` - Optional port number to unbind. If provided, it must match the currently bound port.
+  If not provided, any existing binding will be removed.
+  
+
+**Returns**:
+
+  Dict with success status and message
+  
+
+**Notes**:
+
+  - If a port is specified and doesn't match the currently bound port, the request will fail
+  - After unbinding, the TCP proxy will no longer forward traffic
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.start_process"></a>
+
+#### start\_process
+
+```python
+async def start_process(
+        cmd: str,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None) -> Dict[str, Any]
+```
+
+Start a background process in the sandbox.
+
+Starts a long-running background process that continues executing even after
+the API call completes. Use this for servers, workers, or other long-running tasks.
+
+**Arguments**:
+
+- `cmd` - The shell command to execute as a background process
+- `cwd` - Optional working directory for the process
+- `env` - Optional environment variables to set/override for the process
+  
+
+**Returns**:
+
+  Dict with process id and success status:
+  - id: The unique process ID (UUID string)
+  - success: True if the process was started successfully
+  
+
+**Example**:
+
+  >>> client = AsyncSandboxClient("http://localhost:8080", "secret")
+  >>> result = await client.start_process("python -u server.py")
+  >>> process_id = result["id"]
+  >>> print(f"Started process: {process_id}")
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.kill_process"></a>
+
+#### kill\_process
+
+```python
+async def kill_process(process_id: str) -> Dict[str, Any]
+```
+
+Kill a background process by its ID.
+
+Terminates a running background process. This sends a SIGTERM signal to the process,
+allowing it to clean up gracefully. If the process doesn't terminate within a timeout,
+it will be forcefully killed with SIGKILL.
+
+**Arguments**:
+
+- `process_id` - The unique process ID (UUID string) to kill
+  
+
+**Returns**:
+
+  Dict with success status and error message if any
+  
+
+**Example**:
+
+  >>> client = AsyncSandboxClient("http://localhost:8080", "secret")
+  >>> result = await client.kill_process("550e8400-e29b-41d4-a716-446655440000")
+  >>> if result.get("success"):
+  ...     print("Process killed successfully")
+
+<a id="koyeb/sandbox.executor_client.AsyncSandboxClient.list_processes"></a>
+
+#### list\_processes
+
+```python
+async def list_processes() -> Dict[str, Any]
+```
+
+List all background processes.
+
+Returns information about all currently running and recently completed background
+processes. This includes both active processes and processes that have completed
+(which remain in memory until server restart).
+
+**Returns**:
+
+  Dict with a list of processes:
+  - processes: List of process objects, each containing:
+  - id: Process ID (UUID string)
+  - command: The command that was executed
+  - status: Process status (e.g., "running", "completed")
+  - pid: OS process ID (if running)
+  - exit_code: Exit code (if completed)
+  - started_at: ISO 8601 timestamp when process started
+  - completed_at: ISO 8601 timestamp when process completed (if applicable)
+  
+
+**Example**:
+
+  >>> client = AsyncSandboxClient("http://localhost:8080", "secret")
+  >>> result = await client.list_processes()
   >>> for process in result.get("processes", []):
   ...     print(f"{process['id']}: {process['command']} - {process['status']}")
 
