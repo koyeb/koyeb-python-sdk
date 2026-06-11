@@ -53,7 +53,7 @@ class InviteApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> object:
-        """create_invite
+        """DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -125,7 +125,7 @@ class InviteApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[object]:
-        """create_invite
+        """DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -197,7 +197,7 @@ class InviteApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """create_invite
+        """DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)

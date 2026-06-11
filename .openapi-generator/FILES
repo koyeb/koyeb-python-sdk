@@ -41,6 +41,7 @@ koyeb/api/api/snapshots_api.py
 koyeb/api/api/sso_api.py
 koyeb/api/api/subscriptions_api.py
 koyeb/api/api/summary_api.py
+koyeb/api/api/test_api.py
 koyeb/api/api/usages_api.py
 koyeb/api/api/users_api.py
 koyeb/api/api_client.py
@@ -271,6 +272,8 @@ koyeb/api/docs/KsearchRegionalDeployment.md
 koyeb/api/docs/KsearchSearchReply.md
 koyeb/api/docs/KsearchService.md
 koyeb/api/docs/KsearchUser.md
+koyeb/api/docs/KtestTestAuthReply.md
+koyeb/api/docs/KtestTestAuthRequest.md
 koyeb/api/docs/LifecycleQuotas.md
 koyeb/api/docs/ListAppEventsReply.md
 koyeb/api/docs/ListAppsReply.md
@@ -425,6 +428,7 @@ koyeb/api/docs/SubscriptionStatus.md
 koyeb/api/docs/SubscriptionsApi.md
 koyeb/api/docs/SummaryApi.md
 koyeb/api/docs/TCPHealthCheck.md
+koyeb/api/docs/TestApi.md
 koyeb/api/docs/Token.md
 koyeb/api/docs/TriggerDeploymentMetadata.md
 koyeb/api/docs/TriggerDeploymentMetadataActorType.md
@@ -681,6 +685,8 @@ koyeb/api/models/ksearch_regional_deployment.py
 koyeb/api/models/ksearch_search_reply.py
 koyeb/api/models/ksearch_service.py
 koyeb/api/models/ksearch_user.py
+koyeb/api/models/ktest_test_auth_reply.py
+koyeb/api/models/ktest_test_auth_request.py
 koyeb/api/models/lifecycle_quotas.py
 koyeb/api/models/list_app_events_reply.py
 koyeb/api/models/list_apps_reply.py

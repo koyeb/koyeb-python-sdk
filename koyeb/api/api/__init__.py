@@ -36,6 +36,7 @@ from koyeb.api.api.sessions_api import SessionsApi
 from koyeb.api.api.snapshots_api import SnapshotsApi
 from koyeb.api.api.subscriptions_api import SubscriptionsApi
 from koyeb.api.api.summary_api import SummaryApi
+from koyeb.api.api.test_api import TestApi
 from koyeb.api.api.usages_api import UsagesApi
 from koyeb.api.api.users_api import UsersApi
 from koyeb.api.api.activity_api import ActivityApi

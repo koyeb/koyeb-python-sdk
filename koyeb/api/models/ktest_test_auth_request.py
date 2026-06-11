@@ -17,33 +17,18 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
-from typing import Any, ClassVar, Dict, List, Optional, Union
-from typing_extensions import Annotated
+from pydantic import BaseModel, ConfigDict, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-class ExecCommandIO(BaseModel):
+class KtestTestAuthRequest(BaseModel):
     """
-    ExecCommandIO
+    KtestTestAuthRequest
     """ # noqa: E501
-    data: Optional[Union[Annotated[bytes, Field(strict=True)], Annotated[str, Field(strict=True)]]] = Field(default=None, description="Data is base64 encoded")
-    close: Optional[StrictBool] = Field(default=None, description="Indicate last data frame")
-    __properties: ClassVar[List[str]] = ["data", "close"]
-
-    @field_validator('data')
-    def data_validate_regular_expression(cls, value):
-        """Validates the regular expression"""
-        if value is None:
-            return value
-
-        if not isinstance(value, str):
-            value = str(value)
-
-        if not re.match(r"^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$", value):
-            raise ValueError(r"must validate the regular expression /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/")
-        return value
+    payload: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["payload"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -63,7 +48,7 @@ class ExecCommandIO(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Optional[Self]:
-        """Create an instance of ExecCommandIO from a JSON string"""
+        """Create an instance of KtestTestAuthRequest from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -88,7 +73,7 @@ class ExecCommandIO(BaseModel):
 
     @classmethod
     def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
-        """Create an instance of ExecCommandIO from a dict"""
+        """Create an instance of KtestTestAuthRequest from a dict"""
         if obj is None:
             return None
 
@@ -96,8 +81,7 @@ class ExecCommandIO(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "data": obj.get("data"),
-            "close": obj.get("close")
+            "payload": obj.get("payload")
         })
         return _obj
 

@@ -4,16 +4,16 @@ All URIs are relative to *https://app.koyeb.com*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-[**login**](SessionsApi.md#login) | **POST** /v1/account/login | Login user
-[**logout**](SessionsApi.md#logout) | **DELETE** /v1/account/logout | Logout user
+[**login**](SessionsApi.md#login) | **POST** /v1/account/login | Login user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
+[**logout**](SessionsApi.md#logout) | **DELETE** /v1/account/logout | Logout user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 [**new_session**](SessionsApi.md#new_session) | **POST** /v1/account/session | New session
-[**refresh_token**](SessionsApi.md#refresh_token) | **PUT** /v1/account/refresh | Refresh token
+[**refresh_token**](SessionsApi.md#refresh_token) | **PUT** /v1/account/refresh | Refresh token DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
 # **login**
 > LoginReply login(body, seon_fp=seon_fp)
 
-Login user
+Login user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -51,7 +51,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     seon_fp = 'seon_fp_example' # str | Seon Fingerprint (optional)
 
     try:
-        # Login user
+        # Login user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.login(body, seon_fp=seon_fp)
         print("The response of SessionsApi->login:\n")
         pprint(api_response)
@@ -100,7 +100,7 @@ Name | Type | Description  | Notes
 # **logout**
 > object logout()
 
-Logout user
+Logout user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -134,7 +134,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     api_instance = koyeb.api.SessionsApi(api_client)
 
     try:
-        # Logout user
+        # Logout user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.logout()
         print("The response of SessionsApi->logout:\n")
         pprint(api_response)
@@ -183,6 +183,7 @@ New session
 
 Creates a new session without an organization for current user.
 NOTE: If you want a session linked to another organization, please use "Switch organization".
+DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -262,7 +263,7 @@ This endpoint does not need any parameter.
 # **refresh_token**
 > LoginReply refresh_token()
 
-Refresh token
+Refresh token DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -297,7 +298,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     api_instance = koyeb.api.SessionsApi(api_client)
 
     try:
-        # Refresh token
+        # Refresh token DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.refresh_token()
         print("The response of SessionsApi->refresh_token:\n")
         pprint(api_response)
