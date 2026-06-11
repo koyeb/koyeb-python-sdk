@@ -50,7 +50,7 @@ def main():
 
         print(f"  Creating sandbox in app: {app_id}")
         sandbox = Sandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name=f"sandbox-in-existing-app-{suffix}",
             wait_ready=True,
             api_token=api_token,

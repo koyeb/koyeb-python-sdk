@@ -48,7 +48,7 @@ def main():
 
         create_start = time.time()
         sandbox = Sandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name=f"auto-delete-test-simple-{suffix}",
             wait_ready=True,
             api_token=api_token,

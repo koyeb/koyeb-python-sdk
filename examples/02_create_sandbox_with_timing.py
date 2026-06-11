@@ -84,7 +84,7 @@ def main(run_long_tests=False):
         print("  → Creating sandbox...")
         create_start = time.time()
         sandbox = Sandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name=f"example-sandbox-timed-{suffix}",
             wait_ready=True,
             api_token=api_token,

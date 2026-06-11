@@ -36,7 +36,7 @@ async def main():
 
         # Create sandbox with env vars referencing the secret and using interpolation
         sandbox = await AsyncSandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name=f"env-vars-{suffix}",
             wait_ready=True,
             api_token=api_token,

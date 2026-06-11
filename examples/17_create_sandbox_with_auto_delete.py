@@ -137,7 +137,7 @@ def main():
 
         create_start = time.time()
         sandbox1 = Sandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name="auto-delete-test-1",
             wait_ready=True,
             api_token=api_token,
@@ -179,7 +179,7 @@ def main():
 
         create_start = time.time()
         sandbox2 = Sandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name=f"auto-delete-test-2-{suffix}",
             wait_ready=True,
             api_token=api_token,
