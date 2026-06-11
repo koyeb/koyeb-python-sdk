@@ -43,7 +43,7 @@ def main():
 
         # Create sandbox with config files referencing the secret and using interpolation
         sandbox = Sandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name=f"config-files-{suffix}",
             wait_ready=True,
             api_token=api_token,

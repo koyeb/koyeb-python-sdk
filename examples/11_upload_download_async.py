@@ -23,7 +23,7 @@ async def main():
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     try:
         sandbox = await AsyncSandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name=f"upload-download-{suffix}",
             wait_ready=True,
             api_token=api_token,

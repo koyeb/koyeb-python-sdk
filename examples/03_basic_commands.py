@@ -19,7 +19,7 @@ def main():
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     try:
         sandbox = Sandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name=f"basic-commands-{suffix}",
             wait_ready=True,
             api_token=api_token,

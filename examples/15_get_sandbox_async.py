@@ -26,7 +26,7 @@ async def main():
         # Step 1: Create a new sandbox
         print("Creating a new sandbox...")
         original_sandbox = await AsyncSandbox.create(
-            image="koyeb/sandbox",
+            image="koyeb/sandbox:slim",
             name="example-sandbox",
             wait_ready=True,
             api_token=api_token,
