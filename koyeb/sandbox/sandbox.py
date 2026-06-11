@@ -103,6 +103,8 @@ class Sandbox:
         self._url: Optional[str] = None
         self._client = None
         self._deployment_id: Optional[str] = None
+        self._executor = None
+        self._filesystem = None
 
     @property
     def id(self) -> str:
@@ -793,14 +795,8 @@ class Sandbox:
 
     def _check_executor_health(self) -> bool:
         """Check if the sandbox executor is responsive. Assumes deployment is already healthy."""
-        sandbox_url, header = self._get_sandbox_url()
-        if not sandbox_url or not self.sandbox_secret:
-            return False
-
         try:
-            from .executor_client import SandboxClient
-
-            client = SandboxClient(ConnectionInfo(sandbox_url, header, self.sandbox_secret))
+            client = self._get_client()
             health_response = client.health()
             if isinstance(health_response, dict):
                 status = health_response.get("status", "").lower()
@@ -820,16 +816,20 @@ class Sandbox:
     @property
     def filesystem(self) -> "SandboxFilesystem":
         """Get filesystem operations interface"""
-        from .filesystem import SandboxFilesystem
+        if self._filesystem is None:
+            from .filesystem import SandboxFilesystem
 
-        return SandboxFilesystem(self)
+            self._filesystem = SandboxFilesystem(self)
+        return self._filesystem
 
     @property
     def exec(self) -> "SandboxExecutor":
         """Get command execution interface"""
-        from .exec import SandboxExecutor
+        if self._executor is None:
+            from .exec import SandboxExecutor
 
-        return SandboxExecutor(self)
+            self._executor = SandboxExecutor(self)
+        return self._executor
 
     def expose_port(self, port: int) -> ExposedPort:
         """
@@ -1420,16 +1420,20 @@ class AsyncSandbox(Sandbox):
     @property
     def exec(self) -> "AsyncSandboxExecutor":
         """Get async command execution interface"""
-        from .exec import AsyncSandboxExecutor
+        if self._executor is None:
+            from .exec import AsyncSandboxExecutor
 
-        return AsyncSandboxExecutor(self)
+            self._executor = AsyncSandboxExecutor(self)
+        return self._executor
 
     @property
     def filesystem(self) -> "AsyncSandboxFilesystem":
         """Get filesystem operations interface"""
-        from .filesystem import AsyncSandboxFilesystem
+        if self._filesystem is None:
+            from .filesystem import AsyncSandboxFilesystem
 
-        return AsyncSandboxFilesystem(self)
+            self._filesystem = AsyncSandboxFilesystem(self)
+        return self._filesystem
 
     @async_wrapper("expose_port")
     async def expose_port(self, port: int) -> ExposedPort:
