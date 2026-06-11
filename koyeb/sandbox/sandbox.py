@@ -102,6 +102,7 @@ class Sandbox:
         self._domain: Optional[str] = None
         self._url: Optional[str] = None
         self._client = None
+        self._deployment_id: Optional[str] = None
 
     @property
     def id(self) -> str:
@@ -429,6 +430,18 @@ class Sandbox:
         DeploymentStatus.ERRORING,
     }
 
+    def _resolve_deployment_id(self) -> Optional[str]:
+        """Resolve and cache the deployment ID for this sandbox's service."""
+        if self._deployment_id is not None:
+            return self._deployment_id
+        clients = get_api_clients(self.api_token, self.host)
+        service_response = clients.services.get_service(self.service_id)
+        service = service_response.service
+        deployment_id = service.active_deployment_id or service.latest_deployment_id
+        if deployment_id:
+            self._deployment_id = deployment_id
+        return deployment_id
+
     def _is_deployment_healthy(self) -> bool:
         """
         Check if the sandbox deployment status is HEALTHY via the API.
@@ -440,15 +453,11 @@ class Sandbox:
             SandboxDeploymentError: If the deployment has reached a terminal error state
         """
         try:
-            clients = get_api_clients(self.api_token, self.host)
-            services_api = clients.services
-            deployments_api = clients.deployments
-            service_response = services_api.get_service(self.service_id)
-            service = service_response.service
-            deployment_id = service.active_deployment_id or service.latest_deployment_id
+            deployment_id = self._resolve_deployment_id()
             if not deployment_id:
                 return False
-            deployment_response = deployments_api.get_deployment(deployment_id)
+            clients = get_api_clients(self.api_token, self.host)
+            deployment_response = clients.deployments.get_deployment(deployment_id)
             status = deployment_response.deployment.status
             if status in self._DEPLOYMENT_ERROR_STATUSES:
                 raise SandboxDeploymentError(
@@ -497,9 +506,9 @@ class Sandbox:
                     current_interval = min(current_interval * 2, poll_interval)
                     continue
 
-            is_healthy = self.is_healthy()
-
-            if is_healthy:
+            # Deployment is already confirmed healthy above, skip redundant
+            # _is_deployment_healthy() check and go straight to executor health
+            if self._check_executor_health():
                 return True
 
             time.sleep(current_interval)
@@ -552,14 +561,14 @@ class Sandbox:
         try:
             from koyeb.api.exceptions import ApiException, NotFoundException
 
+            deployment_id = self._resolve_deployment_id()
+            if not deployment_id:
+                return None
+
             from .utils import get_api_clients
 
             clients = get_api_clients(self.api_token, self.host)
-            services_api = clients.services
-            deployments_api = clients.deployments
-            service_response = services_api.get_service(self.service_id)
-            service = service_response.service
-            deployment = deployments_api.get_deployment(service.active_deployment_id or service.latest_deployment_id)
+            deployment = clients.deployments.get_deployment(deployment_id)
             metadata = deployment.deployment.metadata
             if metadata and metadata.sandbox:
                 return metadata.sandbox.public_url, metadata.sandbox.routing_key
@@ -750,18 +759,12 @@ class Sandbox:
             error_msg = response.get("error", "Unknown error")
             raise SandboxError(f"Failed to {operation}: {error_msg}")
 
-    def is_healthy(self) -> bool:
-        """Check if sandbox is healthy and ready for operations"""
-        # Check deployment status first to avoid sending traffic to a non-ready sandbox
-        if not self._is_deployment_healthy():
-            return False
-
+    def _check_executor_health(self) -> bool:
+        """Check if the sandbox executor is responsive. Assumes deployment is already healthy."""
         sandbox_url, header = self._get_sandbox_url()
         if not sandbox_url or not self.sandbox_secret:
             return False
 
-        # Check executor health directly - this is what matters for operations
-        # If executor is healthy, the sandbox is usable (will wake up service if needed)
         try:
             from .executor_client import SandboxClient
 
@@ -773,6 +776,14 @@ class Sandbox:
             return True  # If we got a response, consider it healthy
         except Exception:
             return False
+
+    def is_healthy(self) -> bool:
+        """Check if sandbox is healthy and ready for operations"""
+        # Check deployment status first to avoid sending traffic to a non-ready sandbox
+        if not self._is_deployment_healthy():
+            return False
+
+        return self._check_executor_health()
 
     @property
     def filesystem(self) -> "SandboxFilesystem":
@@ -1316,7 +1327,9 @@ class AsyncSandbox(Sandbox):
                     current_interval = min(current_interval * 2, poll_interval)
                     continue
 
-            is_healthy = await loop.run_in_executor(None, super().is_healthy)
+            # Deployment is already confirmed healthy above, skip redundant
+            # _is_deployment_healthy() check and go straight to executor health
+            is_healthy = await loop.run_in_executor(None, super()._check_executor_health)
 
             if is_healthy:
                 return True
