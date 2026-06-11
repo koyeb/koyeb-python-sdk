@@ -4,7 +4,8 @@ This is the official Python SDK for Koyeb, a platform that allows you to deploy 
 
 # Modules
 
-- `koyeb.api`: Contains the API client and methods to interact with Koyeb's REST API. [Documentation](./docs/api.md)
+- `koyeb.api`: Contains the synchronous API client and methods to interact with Koyeb's REST API. [Documentation](./docs/api.md)
+- `koyeb.api_async`: Contains the asynchronous API client (httpx-based) and methods to interact with Koyeb's REST API. [Documentation](./docs/api_async.md)
 - `koyeb.sandbox`: Contains the Sandbox module. [Documentation](./docs/sandbox.md)
 
 ## Koyeb Sanboxes
