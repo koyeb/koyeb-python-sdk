@@ -1100,7 +1100,7 @@ class Sandbox:
         except Exception as e:
             if isinstance(e, SandboxError):
                 raise
-            raise SandboxError(f"Failed to update life cycle: {str(e)}")
+            raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
 
     def __enter__(self) -> "Sandbox":
         """Context manager entry - returns self."""
@@ -1698,13 +1698,13 @@ class AsyncSandbox(Sandbox):
             service_response = await clients.services.get_service(self.service_id)
             service = service_response.service
 
+            if not service:
+                raise SandboxError("Sandbox service not found")
+
             deployment_response = await clients.deployments.get_deployment(
                 service.latest_deployment_id
             )
             deployment = deployment_response.deployment
-
-            if not service:
-                raise SandboxError("Sandbox service not found")
 
             life_cycle = service.life_cycle or AsyncServiceLifeCycle()
             if delete_after_delay is not None:
@@ -1722,7 +1722,7 @@ class AsyncSandbox(Sandbox):
         except Exception as e:
             if isinstance(e, SandboxError):
                 raise
-            raise SandboxError(f"Failed to update life cycle: {str(e)}")
+            raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
 
     async def __aenter__(self) -> "AsyncSandbox":
         """Async context manager entry - returns self."""
