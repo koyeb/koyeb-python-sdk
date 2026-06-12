@@ -5,7 +5,7 @@ import os
 import sys
 import time
 
-import requests
+import httpx
 
 
 import random
@@ -62,11 +62,11 @@ def main():
         # Make a request to verify it's working
         print("\nMaking HTTP request to verify port exposure...")
         try:
-            response = requests.get(f"{exposed.exposed_at}/test.html", timeout=10)
+            response = httpx.get(f"{exposed.exposed_at}/test.html", timeout=10)
             response.raise_for_status()
             print(f"✓ Request successful! Status: {response.status_code}")
             print(f"✓ Response content: {response.text.strip()}")
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             print(f"⚠ Request failed: {e}")
             print("Note: Port may still be propagating. Try again in a few seconds.")
             return 1
@@ -104,11 +104,11 @@ def main():
         # Make a request to verify the new port is working
         print("\nMaking HTTP request to verify port 8081...")
         try:
-            response = requests.get(f"{exposed_2.exposed_at}/test2.html", timeout=10)
+            response = httpx.get(f"{exposed_2.exposed_at}/test2.html", timeout=10)
             response.raise_for_status()
             print(f"✓ Request successful! Status: {response.status_code}")
             print(f"✓ Response content: {response.text.strip()}")
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             print(f"⚠ Request failed: {e}")
             print("Note: Port may still be propagating. Try again in a few seconds.")
             return 1

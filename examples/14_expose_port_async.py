@@ -6,7 +6,7 @@ import sys
 import os
 import sys
 
-import requests
+import httpx
 
 
 import random
@@ -62,10 +62,8 @@ async def main():
         # Make a request to verify it's working
         print("\nMaking HTTP request to verify port exposure...")
         try:
-            loop = asyncio.get_running_loop()
-            response = await loop.run_in_executor(
-                None, requests.get, f"{exposed.exposed_at}/test.html"
-            )
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{exposed.exposed_at}/test.html", timeout=10)
             response.raise_for_status()
             print(f"✓ Request successful! Status: {response.status_code}")
             print(f"✓ Response content: {response.text.strip()}")
@@ -106,10 +104,8 @@ async def main():
         # Make a request to verify the new port is working
         print("\nMaking HTTP request to verify port 8081...")
         try:
-            loop = asyncio.get_running_loop()
-            response = await loop.run_in_executor(
-                None, requests.get, f"{exposed_2.exposed_at}/test2.html"
-            )
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{exposed_2.exposed_at}/test2.html", timeout=10)
             response.raise_for_status()
             print(f"✓ Request successful! Status: {response.status_code}")
             print(f"✓ Response content: {response.text.strip()}")
