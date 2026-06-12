@@ -53,6 +53,7 @@ __all__ = [
     "SnapshotsApi",
     "SubscriptionsApi",
     "SummaryApi",
+    "TestApi",
     "UsagesApi",
     "UsersApi",
     "ActivityApi",
@@ -277,6 +278,8 @@ __all__ = [
     "KsearchSearchReply",
     "KsearchService",
     "KsearchUser",
+    "KtestTestAuthReply",
+    "KtestTestAuthRequest",
     "LifecycleQuotas",
     "ListAppEventsReply",
     "ListAppsReply",
@@ -490,6 +493,7 @@ from koyeb.api.api.sessions_api import SessionsApi as SessionsApi
 from koyeb.api.api.snapshots_api import SnapshotsApi as SnapshotsApi
 from koyeb.api.api.subscriptions_api import SubscriptionsApi as SubscriptionsApi
 from koyeb.api.api.summary_api import SummaryApi as SummaryApi
+from koyeb.api.api.test_api import TestApi as TestApi
 from koyeb.api.api.usages_api import UsagesApi as UsagesApi
 from koyeb.api.api.users_api import UsersApi as UsersApi
 from koyeb.api.api.activity_api import ActivityApi as ActivityApi
@@ -718,6 +722,8 @@ from koyeb.api.models.ksearch_regional_deployment import KsearchRegionalDeployme
 from koyeb.api.models.ksearch_search_reply import KsearchSearchReply as KsearchSearchReply
 from koyeb.api.models.ksearch_service import KsearchService as KsearchService
 from koyeb.api.models.ksearch_user import KsearchUser as KsearchUser
+from koyeb.api.models.ktest_test_auth_reply import KtestTestAuthReply as KtestTestAuthReply
+from koyeb.api.models.ktest_test_auth_request import KtestTestAuthRequest as KtestTestAuthRequest
 from koyeb.api.models.lifecycle_quotas import LifecycleQuotas as LifecycleQuotas
 from koyeb.api.models.list_app_events_reply import ListAppEventsReply as ListAppEventsReply
 from koyeb.api.models.list_apps_reply import ListAppsReply as ListAppsReply
