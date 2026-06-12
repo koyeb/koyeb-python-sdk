@@ -98,7 +98,8 @@ class ApiClient:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+        if self.rest_client is not None and hasattr(self.rest_client, 'pool_manager'):
+            self.rest_client.pool_manager.clear()
 
     async def close(self):
         """Close the underlying HTTP connection pool."""
