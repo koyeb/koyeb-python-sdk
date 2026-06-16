@@ -4,11 +4,13 @@ All URIs are relative to *https://app.koyeb.com*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-[**create_invite**](InviteApi.md#create_invite) | **POST** /v1/account/invite | 
+[**create_invite**](InviteApi.md#create_invite) | **POST** /v1/account/invite | DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
 # **create_invite**
 > object create_invite(body)
+
+DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -44,6 +46,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     body = koyeb.api.InviteUserRequest() # InviteUserRequest | 
 
     try:
+        # DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.create_invite(body)
         print("The response of InviteApi->create_invite:\n")
         pprint(api_response)

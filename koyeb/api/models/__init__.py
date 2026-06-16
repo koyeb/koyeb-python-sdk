@@ -221,6 +221,8 @@ from koyeb.api.models.ksearch_regional_deployment import KsearchRegionalDeployme
 from koyeb.api.models.ksearch_search_reply import KsearchSearchReply
 from koyeb.api.models.ksearch_service import KsearchService
 from koyeb.api.models.ksearch_user import KsearchUser
+from koyeb.api.models.ktest_test_auth_reply import KtestTestAuthReply
+from koyeb.api.models.ktest_test_auth_request import KtestTestAuthRequest
 from koyeb.api.models.lifecycle_quotas import LifecycleQuotas
 from koyeb.api.models.list_app_events_reply import ListAppEventsReply
 from koyeb.api.models.list_apps_reply import ListAppsReply

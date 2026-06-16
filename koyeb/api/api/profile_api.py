@@ -76,7 +76,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> AcceptOrganizationInvitationReply:
-        """Accept Organization Invitation
+        """Accept Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: The id of the organization invitation to accept (required)
@@ -152,7 +152,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[AcceptOrganizationInvitationReply]:
-        """Accept Organization Invitation
+        """Accept Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: The id of the organization invitation to accept (required)
@@ -228,7 +228,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Accept Organization Invitation
+        """Accept Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: The id of the organization invitation to accept (required)
@@ -643,7 +643,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> DeclineOrganizationInvitationReply:
-        """Decline Organization Invitation
+        """Decline Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: The id of the organization invitation to decline (required)
@@ -719,7 +719,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[DeclineOrganizationInvitationReply]:
-        """Decline Organization Invitation
+        """Decline Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: The id of the organization invitation to decline (required)
@@ -795,7 +795,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Decline Organization Invitation
+        """Decline Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: The id of the organization invitation to decline (required)
@@ -2026,7 +2026,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> GetUserOrganizationInvitationReply:
-        """Get User Organization Invitation
+        """Get User Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: The id of the organization invitation to get (required)
@@ -2098,7 +2098,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[GetUserOrganizationInvitationReply]:
-        """Get User Organization Invitation
+        """Get User Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: The id of the organization invitation to get (required)
@@ -2170,7 +2170,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Get User Organization Invitation
+        """Get User Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: The id of the organization invitation to get (required)
@@ -2565,7 +2565,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ListUserOrganizationInvitationsReply:
-        """List User Organization Invitations
+        """List User Organization Invitations DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param limit: (Optional) The number of items to return
@@ -2645,7 +2645,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[ListUserOrganizationInvitationsReply]:
-        """List User Organization Invitations
+        """List User Organization Invitations DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param limit: (Optional) The number of items to return
@@ -2725,7 +2725,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """List User Organization Invitations
+        """List User Organization Invitations DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param limit: (Optional) The number of items to return
@@ -3226,7 +3226,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> LoginMethodReply:
-        """Get the login method for an email address
+        """Get the login method for an email address DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param email:
@@ -3298,7 +3298,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[LoginMethodReply]:
-        """Get the login method for an email address
+        """Get the login method for an email address DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param email:
@@ -3370,7 +3370,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Get the login method for an email address
+        """Get the login method for an email address DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param email:
@@ -3795,7 +3795,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> object:
-        """Resend Email Verification
+        """Resend Email Verification DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -3867,7 +3867,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[object]:
-        """Resend Email Verification
+        """Resend Email Verification DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -3939,7 +3939,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Resend Email Verification
+        """Resend Email Verification DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -4071,7 +4071,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> object:
-        """Reset Password
+        """Reset Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -4143,7 +4143,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[object]:
-        """Reset Password
+        """Reset Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -4215,7 +4215,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Reset Password
+        """Reset Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -4348,7 +4348,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> LoginReply:
-        """Signup
+        """Signup DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: Create new account (required)
@@ -4424,7 +4424,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[LoginReply]:
-        """Signup
+        """Signup DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: Create new account (required)
@@ -4500,7 +4500,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Signup
+        """Signup DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: Create new account (required)
@@ -4639,7 +4639,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> LoginReply:
-        """Update Password
+        """Update Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -4715,7 +4715,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[LoginReply]:
-        """Update Password
+        """Update Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -4791,7 +4791,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Update Password
+        """Update Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -6378,7 +6378,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> LoginReply:
-        """Validate
+        """Validate DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: (required)
@@ -6454,7 +6454,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[LoginReply]:
-        """Validate
+        """Validate DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: (required)
@@ -6530,7 +6530,7 @@ class ProfileApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Validate
+        """Validate DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: (required)

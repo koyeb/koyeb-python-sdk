@@ -15,7 +15,7 @@ Method | HTTP request | Description
 [**get_organization**](OrganizationApi.md#get_organization) | **GET** /v1/organizations/{id} | Get Organization
 [**github_installation**](OrganizationApi.md#github_installation) | **POST** /v1/github/installation | Start Github Installation
 [**reactivate_organization**](OrganizationApi.md#reactivate_organization) | **POST** /v1/organizations/{id}/reactivate | Reactivate an Organization
-[**switch_organization**](OrganizationApi.md#switch_organization) | **POST** /v1/organizations/{id}/switch | Switch Organization context
+[**switch_organization**](OrganizationApi.md#switch_organization) | **POST** /v1/organizations/{id}/switch | Switch Organization context DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 [**unscope_organization_token**](OrganizationApi.md#unscope_organization_token) | **POST** /v1/unscope_organization_token | Unscope Organization Token
 [**update_budget**](OrganizationApi.md#update_budget) | **PUT** /v1/organizations/{organization_id}/budget | Update Budget
 [**update_organization**](OrganizationApi.md#update_organization) | **PUT** /v1/organizations/{id} | Update Organization
@@ -971,7 +971,7 @@ Name | Type | Description  | Notes
 # **switch_organization**
 > LoginReply switch_organization(id, body, seon_fp=seon_fp)
 
-Switch Organization context
+Switch Organization context DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -1009,7 +1009,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     seon_fp = 'seon_fp_example' # str | Seon Fingerprint (optional)
 
     try:
-        # Switch Organization context
+        # Switch Organization context DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.switch_organization(id, body, seon_fp=seon_fp)
         print("The response of OrganizationApi->switch_organization:\n")
         pprint(api_response)

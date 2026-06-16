@@ -57,7 +57,7 @@ class SessionsApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> LoginReply:
-        """Login user
+        """Login user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -133,7 +133,7 @@ class SessionsApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[LoginReply]:
-        """Login user
+        """Login user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -209,7 +209,7 @@ class SessionsApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Login user
+        """Login user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param body: (required)
@@ -346,7 +346,7 @@ class SessionsApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> object:
-        """Logout user
+        """Logout user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param _request_timeout: timeout setting for this request. If one
@@ -414,7 +414,7 @@ class SessionsApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[object]:
-        """Logout user
+        """Logout user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param _request_timeout: timeout setting for this request. If one
@@ -482,7 +482,7 @@ class SessionsApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Logout user
+        """Logout user DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param _request_timeout: timeout setting for this request. If one
@@ -609,7 +609,7 @@ class SessionsApi:
     ) -> LoginReply:
         """New session
 
-        Creates a new session without an organization for current user. NOTE: If you want a session linked to another organization, please use \"Switch organization\".
+        Creates a new session without an organization for current user. NOTE: If you want a session linked to another organization, please use \"Switch organization\". DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -678,7 +678,7 @@ class SessionsApi:
     ) -> ApiResponse[LoginReply]:
         """New session
 
-        Creates a new session without an organization for current user. NOTE: If you want a session linked to another organization, please use \"Switch organization\".
+        Creates a new session without an organization for current user. NOTE: If you want a session linked to another organization, please use \"Switch organization\". DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -747,7 +747,7 @@ class SessionsApi:
     ) -> RESTResponseType:
         """New session
 
-        Creates a new session without an organization for current user. NOTE: If you want a session linked to another organization, please use \"Switch organization\".
+        Creates a new session without an organization for current user. NOTE: If you want a session linked to another organization, please use \"Switch organization\". DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -871,7 +871,7 @@ class SessionsApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> LoginReply:
-        """Refresh token
+        """Refresh token DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param _request_timeout: timeout setting for this request. If one
@@ -939,7 +939,7 @@ class SessionsApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[LoginReply]:
-        """Refresh token
+        """Refresh token DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param _request_timeout: timeout setting for this request. If one
@@ -1007,7 +1007,7 @@ class SessionsApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Refresh token
+        """Refresh token DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param _request_timeout: timeout setting for this request. If one

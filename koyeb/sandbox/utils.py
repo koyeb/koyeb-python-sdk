@@ -4,12 +4,11 @@
 Utility functions for Koyeb Sandbox
 """
 
-import asyncio
 import logging
 import os
 import shlex
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from koyeb.api import ApiClient, Configuration
 from koyeb.api.api import (
@@ -154,6 +153,87 @@ def get_api_clients(
     )
     _api_clients_cache[cache_key] = clients
     return clients
+
+
+# --- Async API clients ---
+
+from koyeb.api_async import ApiClient as AsyncApiClient
+from koyeb.api_async import Configuration as AsyncConfiguration
+from koyeb.api_async.api import (
+    AppsApi as AsyncAppsApi,
+    CatalogInstancesApi as AsyncCatalogInstancesApi,
+    DeploymentsApi as AsyncDeploymentsApi,
+    InstancesApi as AsyncInstancesApi,
+    SecretsApi as AsyncSecretsApi,
+    ServicesApi as AsyncServicesApi,
+)
+
+
+@dataclass(frozen=True)
+class AsyncApiClients:
+    """Bundle of async Koyeb API clients sharing a single underlying AsyncApiClient."""
+
+    apps: AsyncAppsApi
+    services: AsyncServicesApi
+    instances: AsyncInstancesApi
+    catalog_instances: AsyncCatalogInstancesApi
+    deployments: AsyncDeploymentsApi
+    secrets: AsyncSecretsApi
+
+
+_async_api_clients_cache: Dict[Tuple[str, str], AsyncApiClients] = {}
+
+
+def get_async_api_clients(
+    api_token: Optional[str] = None, host: Optional[str] = None
+) -> AsyncApiClients:
+    """
+    Get configured async API clients for Koyeb operations.
+
+    Caches clients by (token, host) to reuse the underlying HTTP connection pool.
+
+    Args:
+        api_token: Koyeb API token. If not provided, will try to get from KOYEB_API_TOKEN env var
+        host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var
+
+    Returns:
+        AsyncApiClients with async API client instances
+
+    Raises:
+        ValueError: If API token is not provided
+    """
+    token = api_token or os.getenv("KOYEB_API_TOKEN")
+    if not token:
+        raise ValueError(
+            "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
+        )
+
+    api_host = os.getenv("KOYEB_API_HOST", host)
+    if not api_host:
+        api_host = "https://app.koyeb.com"
+    cache_key = (token, api_host)
+
+    if cache_key in _async_api_clients_cache:
+        return _async_api_clients_cache[cache_key]
+
+    configuration = AsyncConfiguration(host=api_host)
+    configuration.api_key["Bearer"] = token
+    configuration.api_key_prefix["Bearer"] = "Bearer"
+
+    api_client = AsyncApiClient(configuration)
+    clients = AsyncApiClients(
+        apps=AsyncAppsApi(api_client),
+        services=AsyncServicesApi(api_client),
+        instances=AsyncInstancesApi(api_client),
+        catalog_instances=AsyncCatalogInstancesApi(api_client),
+        deployments=AsyncDeploymentsApi(api_client),
+        secrets=AsyncSecretsApi(api_client),
+    )
+    _async_api_clients_cache[cache_key] = clients
+    return clients
+
+
+# --- Model building helpers (shared by sync and async) ---
 
 
 def build_env_vars(env: Optional[Dict[str, Any]]) -> List[DeploymentEnv]:
@@ -472,65 +552,6 @@ def check_error_message(error_msg: str, error_type: str) -> bool:
     return any(pattern.lower() in error_msg_lower for pattern in patterns)
 
 
-async def run_sync_in_executor(
-    method: Callable[..., Any], *args: Any, **kwargs: Any
-) -> Any:
-    """
-    Run a synchronous method in an async executor.
-
-    Helper function to wrap synchronous methods for async execution.
-    Used by AsyncSandbox and AsyncSandboxFilesystem to wrap sync parent methods.
-
-    Args:
-        method: The synchronous method to run
-        *args: Positional arguments for the method
-        **kwargs: Keyword arguments for the method
-
-    Returns:
-        Result of the synchronous method call
-    """
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, lambda: method(*args, **kwargs))
-
-
-def async_wrapper(method_name: str):
-    """
-    Decorator to automatically create async wrapper for sync methods.
-
-    This decorator creates an async method that wraps a sync method from the parent class.
-    The sync method is called via super() and executed in an executor.
-
-    Args:
-        method_name: Name of the sync method to wrap (from parent class)
-
-    Usage:
-        @async_wrapper("delete")
-        async def delete(self) -> None:
-            \"\"\"Delete the sandbox instance asynchronously.\"\"\"
-            pass  # Implementation is handled by decorator
-    """
-
-    def decorator(func):
-        async def wrapper(self, *args, **kwargs):
-            # Get the parent class from MRO (Method Resolution Order)
-            # __mro__[0] is the current class, __mro__[1] is the parent
-            parent_class = self.__class__.__mro__[1]
-            # Get the unbound method from parent class
-            sync_method = getattr(parent_class, method_name)
-            # Bind it to self (equivalent to super().method_name)
-            bound_method = sync_method.__get__(self, parent_class)
-            return await self._run_sync(bound_method, *args, **kwargs)
-
-        # Preserve function metadata
-        wrapper.__name__ = func.__name__
-        wrapper.__qualname__ = func.__qualname__
-        wrapper.__doc__ = func.__doc__ or f"{method_name} (async version)"
-        wrapper.__annotations__ = func.__annotations__
-        return wrapper
-
-    return decorator
-
-
 def create_sandbox_client(
     conn_info: Optional['ConnectionInfo'],
     existing_client: Optional[Any] = None,
@@ -562,6 +583,39 @@ def create_sandbox_client(
     from .executor_client import SandboxClient
 
     return SandboxClient(conn_info)
+
+
+def create_async_sandbox_client(
+    conn_info: Optional['ConnectionInfo'],
+    existing_client: Optional[Any] = None,
+) -> Any:
+    """
+    Create or return existing AsyncSandboxClient instance with validation.
+
+    Helper function to create AsyncSandboxClient instances with consistent validation.
+    Used by AsyncSandbox to avoid duplication.
+
+    Args:
+        conn_info: The information needed to connect to the sandbox executor API
+        existing_client: Existing client instance to return if not None
+
+    Returns:
+        AsyncSandboxClient: Configured async client instance
+
+    Raises:
+        SandboxError: If sandbox URL or secret is not available
+    """
+    if existing_client is not None:
+        return existing_client
+
+    try:
+        conn_info.validate()
+    except ValueError as e:
+        raise SandboxError(str(e))
+
+    from .executor_client import AsyncSandboxClient
+
+    return AsyncSandboxClient(conn_info)
 
 
 class SandboxError(Exception):

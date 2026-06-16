@@ -3167,7 +3167,7 @@ class OrganizationApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> LoginReply:
-        """Switch Organization context
+        """Switch Organization context DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: (required)
@@ -3247,7 +3247,7 @@ class OrganizationApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[LoginReply]:
-        """Switch Organization context
+        """Switch Organization context DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: (required)
@@ -3327,7 +3327,7 @@ class OrganizationApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Switch Organization context
+        """Switch Organization context DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
         :param id: (required)

@@ -7,14 +7,13 @@ Using SandboxClient HTTP API
 
 from __future__ import annotations
 
-import asyncio
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
-from .executor_client import SandboxClient
-from .utils import SandboxError, create_sandbox_client
+from .executor_client import AsyncSandboxClient, SandboxClient
+from .utils import SandboxError
 
 if TYPE_CHECKING:
     from .sandbox import Sandbox
@@ -205,8 +204,13 @@ class AsyncSandboxExecutor(SandboxExecutor):
     Async command execution interface for Koyeb Sandbox instances.
     Bound to a specific sandbox instance.
 
-    Inherits from SandboxExecutor and provides async command execution.
+    Inherits from SandboxExecutor and provides async command execution
+    using native async I/O via AsyncSandboxClient.
     """
+
+    def _get_async_client(self) -> AsyncSandboxClient:
+        """Get AsyncSandboxClient instance from the sandbox."""
+        return self.sandbox._get_async_client()
 
     async def __call__(
         self,
@@ -248,63 +252,16 @@ class AsyncSandboxExecutor(SandboxExecutor):
 
         # Use streaming if callbacks are provided
         if on_stdout or on_stderr:
-            stdout_buffer = []
-            stderr_buffer = []
+            stdout_buffer: List[str] = []
+            stderr_buffer: List[str] = []
             exit_code = 0
 
             try:
-                client = self._get_client()
+                client = self._get_async_client()
 
-                # Create async generator for streaming events
-                async def stream_events() -> AsyncIterator[Dict[str, Any]]:
-                    """Async generator that yields events as they arrive."""
-                    import queue
-                    from threading import Thread
-
-                    event_queue: queue.Queue[Dict[str, Any] | None] = queue.Queue()
-                    done = False
-
-                    def sync_stream():
-                        """Synchronous generator for streaming."""
-                        nonlocal done
-                        try:
-                            for event in client.run_streaming(
-                                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
-                            ):
-                                event_queue.put(event)
-                            event_queue.put(None)  # Sentinel
-                        except Exception as e:
-                            event_queue.put({"error": str(e)})
-                            event_queue.put(None)
-                        finally:
-                            done = True
-
-                    # Start streaming in a thread
-                    thread = Thread(target=sync_stream, daemon=True)
-                    thread.start()
-
-                    # Yield events as they arrive
-                    while True:
-                        try:
-                            # Use get_nowait to avoid blocking in executor
-                            event = event_queue.get_nowait()
-                            if event is None:
-                                # Sentinel received, streaming is complete
-                                break
-                            yield event
-                        except queue.Empty:
-                            # Check if thread is done and queue is empty
-                            if done and event_queue.empty():
-                                break
-                            # Wait a bit before checking again
-                            await asyncio.sleep(0.01)
-                            continue
-
-                    # Wait for thread to complete (should be done by now)
-                    thread.join(timeout=1.0)
-
-                # Process events as they arrive
-                async for event in stream_events():
+                async for event in client.run_streaming(
+                    cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+                ):
                     if "stream" in event:
                         stream_type = event["stream"]
                         data = event["data"]
@@ -320,7 +277,6 @@ class AsyncSandboxExecutor(SandboxExecutor):
                     elif "code" in event:
                         exit_code = event["code"]
                     elif "error" in event and isinstance(event["error"], str):
-                        # Error starting command
                         return CommandResult(
                             stdout="",
                             stderr=event["error"],
@@ -352,16 +308,11 @@ class AsyncSandboxExecutor(SandboxExecutor):
                     command=command,
                 )
 
-        # Run in executor to avoid blocking
-        loop = asyncio.get_running_loop()
-
+        # Use native async for non-streaming execution
         try:
-            client = self._get_client()
-            response = await loop.run_in_executor(
-                None,
-                lambda: client.run(
-                    cmd=command, cwd=cwd, env=env, timeout=float(timeout)
-                ),
+            client = self._get_async_client()
+            response = await client.run(
+                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
             )
 
             stdout = response.get("stdout", "")

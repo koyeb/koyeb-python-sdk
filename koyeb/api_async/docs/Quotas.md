@@ -1,0 +1,50 @@
+# Quotas
+
+
+## Properties
+
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**apps** | **str** |  | [optional] 
+**services** | **str** |  | [optional] 
+**domains** | **str** |  | [optional] 
+**services_by_app** | **str** |  | [optional] 
+**service_provisioning_concurrency** | **str** |  | [optional] 
+**memory_mb** | **str** |  | [optional] 
+**instance_types** | **List[str]** |  | [optional] 
+**regions** | **List[str]** |  | [optional] 
+**max_organization_members** | **str** |  | [optional] 
+**max_instances_by_type** | **Dict[str, str]** |  | [optional] 
+**persistent_volumes_by_region** | [**Dict[str, PersistentVolumeQuotas]**](PersistentVolumeQuotas.md) |  | [optional] 
+**custom_domains** | **str** |  | [optional] 
+**domains_load_balancer** | [**DomainLoadBalancerQuotas**](DomainLoadBalancerQuotas.md) |  | [optional] 
+**metrics_retention** | **int** |  | [optional] 
+**logs_retention** | **int** |  | [optional] 
+**access_reserved_subdomains** | **List[str]** |  | [optional] 
+**proxy_ports** | **int** |  | [optional] 
+**scale_to_zero** | [**ScaleToZeroQuotas**](ScaleToZeroQuotas.md) |  | [optional] 
+**archives** | **str** |  | [optional] 
+**archive_max_size_mb** | **str** |  | [optional] 
+**lifecycle** | [**LifecycleQuotas**](LifecycleQuotas.md) |  | [optional] 
+**max_projects** | **str** |  | [optional] 
+
+## Example
+
+```python
+from koyeb.api_async.models.quotas import Quotas
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of Quotas from a JSON string
+quotas_instance = Quotas.from_json(json)
+# print the JSON string representation of the object
+print(Quotas.to_json())
+
+# convert the object into a dict
+quotas_dict = quotas_instance.to_dict()
+# create an instance of Quotas from a dict
+quotas_from_dict = Quotas.from_dict(quotas_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
+

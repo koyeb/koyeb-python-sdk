@@ -8,10 +8,16 @@ DOCKER ?= docker
 
 
 .PHONY: gen-api-client
-gen-api-client: fetch-spec
+gen-api-client: fetch-spec gen-api-client-sync gen-api-client-async
+
+.PHONY: gen-api-client-sync
+gen-api-client-sync:
+	mkdir -p koyeb/api/.openapi-generator
 	$(DOCKER) run --rm \
 		-v `pwd`/spec:/spec \
-		-v `pwd`:/builder openapitools/openapi-generator-cli:${OPENAPI_GENERATOR_VERSION} \
+		-v `pwd`:/builder \
+		-v `pwd`/koyeb/api/.openapi-generator:/builder/.openapi-generator \
+		openapitools/openapi-generator-cli:${OPENAPI_GENERATOR_VERSION} \
 			generate \
 			--git-user-id ${GIT_USER_ID} \
 			--git-repo-id ${GIT_REPO_ID} \
@@ -22,6 +28,27 @@ gen-api-client: fetch-spec
 			--additional-properties packageVersion=${PACKAGE_VERSION} \
 			--additional-properties licenseInfo="Apache-2.0" \
 			--additional-properties generateSourceCodeOnly=true
+	git checkout -- koyeb/__init__.py
+
+.PHONY: gen-api-client-async
+gen-api-client-async:
+	mkdir -p koyeb/api_async/.openapi-generator
+	$(DOCKER) run --rm \
+		-v `pwd`/spec:/spec \
+		-v `pwd`:/builder \
+		-v `pwd`/koyeb/api_async/.openapi-generator:/builder/.openapi-generator \
+		openapitools/openapi-generator-cli:${OPENAPI_GENERATOR_VERSION} \
+			generate \
+			--git-user-id ${GIT_USER_ID} \
+			--git-repo-id ${GIT_REPO_ID} \
+			-i /spec/openapi.json \
+			-g python \
+			-o /builder \
+			--package-name koyeb.api_async \
+			--additional-properties packageVersion=${PACKAGE_VERSION} \
+			--additional-properties licenseInfo="Apache-2.0" \
+			--additional-properties generateSourceCodeOnly=true \
+			--additional-properties library=httpx
 	git checkout -- koyeb/__init__.py
 
 

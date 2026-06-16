@@ -4,35 +4,35 @@ All URIs are relative to *https://app.koyeb.com*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-[**accept_organization_invitation**](ProfileApi.md#accept_organization_invitation) | **POST** /v1/account/organization_invitations/{id}/accept | Accept Organization Invitation
+[**accept_organization_invitation**](ProfileApi.md#accept_organization_invitation) | **POST** /v1/account/organization_invitations/{id}/accept | Accept Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 [**clear_idenfy_verification_result**](ProfileApi.md#clear_idenfy_verification_result) | **POST** /v1/account/idenfy | ClearIdenfyVerificationResult marks the current result for idenfy as superseded
-[**decline_organization_invitation**](ProfileApi.md#decline_organization_invitation) | **POST** /v1/account/organization_invitations/{id}/decline | Decline Organization Invitation
+[**decline_organization_invitation**](ProfileApi.md#decline_organization_invitation) | **POST** /v1/account/organization_invitations/{id}/decline | Decline Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 [**get_current_organization**](ProfileApi.md#get_current_organization) | **GET** /v1/account/organization | Get Current Organization
 [**get_current_user**](ProfileApi.md#get_current_user) | **GET** /v1/account/profile | Get Current User
 [**get_idenfy_token**](ProfileApi.md#get_idenfy_token) | **GET** /v1/account/idenfy | Begin a session with iDenfy, emit an authToken
 [**get_o_auth_options**](ProfileApi.md#get_o_auth_options) | **GET** /v1/account/oauth | Get OAuth Providers
-[**get_user_organization_invitation**](ProfileApi.md#get_user_organization_invitation) | **GET** /v1/account/organization_invitations/{id} | Get User Organization Invitation
+[**get_user_organization_invitation**](ProfileApi.md#get_user_organization_invitation) | **GET** /v1/account/organization_invitations/{id} | Get User Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 [**get_user_settings**](ProfileApi.md#get_user_settings) | **GET** /v1/account/settings | 
-[**list_user_organization_invitations**](ProfileApi.md#list_user_organization_invitations) | **GET** /v1/account/organization_invitations | List User Organization Invitations
+[**list_user_organization_invitations**](ProfileApi.md#list_user_organization_invitations) | **GET** /v1/account/organization_invitations | List User Organization Invitations DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 [**list_user_organizations**](ProfileApi.md#list_user_organizations) | **GET** /v1/account/organizations | List User Organizations
-[**login_method**](ProfileApi.md#login_method) | **GET** /v1/account/login_method | Get the login method for an email address
+[**login_method**](ProfileApi.md#login_method) | **GET** /v1/account/login_method | Get the login method for an email address DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 [**o_auth_callback**](ProfileApi.md#o_auth_callback) | **POST** /v1/account/oauth | Authenticate using OAuth
-[**resend_email_validation**](ProfileApi.md#resend_email_validation) | **POST** /v1/account/resend_validation | Resend Email Verification
-[**reset_password**](ProfileApi.md#reset_password) | **POST** /v1/account/reset_password | Reset Password
-[**signup**](ProfileApi.md#signup) | **POST** /v1/account/signup | Signup
-[**update_password**](ProfileApi.md#update_password) | **POST** /v1/account/update_password | Update Password
+[**resend_email_validation**](ProfileApi.md#resend_email_validation) | **POST** /v1/account/resend_validation | Resend Email Verification DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
+[**reset_password**](ProfileApi.md#reset_password) | **POST** /v1/account/reset_password | Reset Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
+[**signup**](ProfileApi.md#signup) | **POST** /v1/account/signup | Signup DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
+[**update_password**](ProfileApi.md#update_password) | **POST** /v1/account/update_password | Update Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 [**update_user**](ProfileApi.md#update_user) | **PUT** /v1/account/profile | Update User
 [**update_user2**](ProfileApi.md#update_user2) | **PATCH** /v1/account/profile | Update User
 [**update_user_settings**](ProfileApi.md#update_user_settings) | **PATCH** /v1/account/settings | 
 [**update_user_v2**](ProfileApi.md#update_user_v2) | **PUT** /v2/account/profile | Update User V2
 [**update_user_v22**](ProfileApi.md#update_user_v22) | **PATCH** /v2/account/profile | Update User V2
-[**validate**](ProfileApi.md#validate) | **POST** /v1/account/validate/{id} | Validate
+[**validate**](ProfileApi.md#validate) | **POST** /v1/account/validate/{id} | Validate DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 
 # **accept_organization_invitation**
 > AcceptOrganizationInvitationReply accept_organization_invitation(id, body)
 
-Accept Organization Invitation
+Accept Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -69,7 +69,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     body = None # object | 
 
     try:
-        # Accept Organization Invitation
+        # Accept Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.accept_organization_invitation(id, body)
         print("The response of ProfileApi->accept_organization_invitation:\n")
         pprint(api_response)
@@ -202,7 +202,7 @@ Name | Type | Description  | Notes
 # **decline_organization_invitation**
 > DeclineOrganizationInvitationReply decline_organization_invitation(id, body)
 
-Decline Organization Invitation
+Decline Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -239,7 +239,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     body = None # object | 
 
     try:
-        # Decline Organization Invitation
+        # Decline Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.decline_organization_invitation(id, body)
         print("The response of ProfileApi->decline_organization_invitation:\n")
         pprint(api_response)
@@ -618,7 +618,7 @@ Name | Type | Description  | Notes
 # **get_user_organization_invitation**
 > GetUserOrganizationInvitationReply get_user_organization_invitation(id)
 
-Get User Organization Invitation
+Get User Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -654,7 +654,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     id = 'id_example' # str | The id of the organization invitation to get
 
     try:
-        # Get User Organization Invitation
+        # Get User Organization Invitation DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.get_user_organization_invitation(id)
         print("The response of ProfileApi->get_user_organization_invitation:\n")
         pprint(api_response)
@@ -779,7 +779,7 @@ This endpoint does not need any parameter.
 # **list_user_organization_invitations**
 > ListUserOrganizationInvitationsReply list_user_organization_invitations(limit=limit, offset=offset, statuses=statuses)
 
-List User Organization Invitations
+List User Organization Invitations DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -817,7 +817,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     statuses = ['statuses_example'] # List[str] | (Optional) Filter on organization invitation statuses (optional)
 
     try:
-        # List User Organization Invitations
+        # List User Organization Invitations DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.list_user_organization_invitations(limit=limit, offset=offset, statuses=statuses)
         print("The response of ProfileApi->list_user_organization_invitations:\n")
         pprint(api_response)
@@ -961,7 +961,7 @@ Name | Type | Description  | Notes
 # **login_method**
 > LoginMethodReply login_method(email=email)
 
-Get the login method for an email address
+Get the login method for an email address DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -997,7 +997,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     email = 'email_example' # str |  (optional)
 
     try:
-        # Get the login method for an email address
+        # Get the login method for an email address DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.login_method(email=email)
         print("The response of ProfileApi->login_method:\n")
         pprint(api_response)
@@ -1132,7 +1132,7 @@ Name | Type | Description  | Notes
 # **resend_email_validation**
 > object resend_email_validation(body)
 
-Resend Email Verification
+Resend Email Verification DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -1167,7 +1167,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     body = None # object | 
 
     try:
-        # Resend Email Verification
+        # Resend Email Verification DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.resend_email_validation(body)
         print("The response of ProfileApi->resend_email_validation:\n")
         pprint(api_response)
@@ -1215,7 +1215,7 @@ Name | Type | Description  | Notes
 # **reset_password**
 > object reset_password(body)
 
-Reset Password
+Reset Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -1251,7 +1251,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     body = koyeb.api.ResetPasswordRequest() # ResetPasswordRequest | 
 
     try:
-        # Reset Password
+        # Reset Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.reset_password(body)
         print("The response of ProfileApi->reset_password:\n")
         pprint(api_response)
@@ -1299,7 +1299,7 @@ Name | Type | Description  | Notes
 # **signup**
 > LoginReply signup(body, seon_fp=seon_fp)
 
-Signup
+Signup DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -1337,7 +1337,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     seon_fp = 'seon_fp_example' # str | Seon Fingerprint (optional)
 
     try:
-        # Signup
+        # Signup DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.signup(body, seon_fp=seon_fp)
         print("The response of ProfileApi->signup:\n")
         pprint(api_response)
@@ -1386,7 +1386,7 @@ Name | Type | Description  | Notes
 # **update_password**
 > LoginReply update_password(body, seon_fp=seon_fp)
 
-Update Password
+Update Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -1424,7 +1424,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     seon_fp = 'seon_fp_example' # str | Seon Fingerprint (optional)
 
     try:
-        # Update Password
+        # Update Password DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.update_password(body, seon_fp=seon_fp)
         print("The response of ProfileApi->update_password:\n")
         pprint(api_response)
@@ -1903,7 +1903,7 @@ Name | Type | Description  | Notes
 # **validate**
 > LoginReply validate(id, seon_fp=seon_fp)
 
-Validate
+Validate DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
 
 ### Example
 
@@ -1940,7 +1940,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
     seon_fp = 'seon_fp_example' # str | Seon Fingerprint (optional)
 
     try:
-        # Validate
+        # Validate DEPRECATED: this has been replaced by WorkOS and will be dropped soon.
         api_response = api_instance.validate(id, seon_fp=seon_fp)
         print("The response of ProfileApi->validate:\n")
         pprint(api_response)
