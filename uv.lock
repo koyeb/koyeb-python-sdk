@@ -7,8 +7,8 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-06-04T18:53:37.889138Z"
-exclude-newer-span = "P7D"
+exclude-newer = "2026-06-20T13:16:30.316362Z"
+exclude-newer-span = "P2D"
 
 [[package]]
 name = "annotated-types"
@@ -468,7 +468,7 @@ wheels = [
 
 [[package]]
 name = "koyeb-sdk"
-version = "1.4.8"
+version = "1.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
