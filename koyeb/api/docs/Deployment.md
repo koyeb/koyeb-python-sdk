@@ -27,6 +27,7 @@ Name | Type | Description | Notes
 **role** | [**DeploymentRole**](DeploymentRole.md) |  | [optional] [default to DeploymentRole.INVALID]
 **version** | **str** |  | [optional] 
 **deployment_group** | **str** |  | [optional] 
+**instance_snapshot_id** | **str** |  | [optional] 
 
 ## Example
 

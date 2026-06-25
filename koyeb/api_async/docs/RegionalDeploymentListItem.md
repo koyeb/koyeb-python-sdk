@@ -12,6 +12,7 @@ Name | Type | Description | Notes
 **status** | [**RegionalDeploymentStatus**](RegionalDeploymentStatus.md) |  | [optional] [default to RegionalDeploymentStatus.PENDING]
 **messages** | **List[str]** |  | [optional] 
 **definition** | [**RegionalDeploymentDefinition**](RegionalDeploymentDefinition.md) |  | [optional] 
+**instance_snapshot_id** | **str** |  | [optional] 
 
 ## Example
 

@@ -38,9 +38,6 @@ class ExecCommandIO(BaseModel):
         if value is None:
             return value
 
-        if not isinstance(value, str):
-            value = str(value)
-
         if not re.match(r"^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$", value):
             raise ValueError(r"must validate the regular expression /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/")
         return value

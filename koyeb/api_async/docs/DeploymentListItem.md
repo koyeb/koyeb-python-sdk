@@ -23,6 +23,7 @@ Name | Type | Description | Notes
 **messages** | **List[str]** |  | [optional] 
 **provisioning_info** | [**DeploymentProvisioningInfo**](DeploymentProvisioningInfo.md) |  | [optional] 
 **database_info** | [**DeploymentDatabaseInfo**](DeploymentDatabaseInfo.md) |  | [optional] 
+**instance_snapshot_id** | **str** |  | [optional] 
 **version** | **str** |  | [optional] 
 **deployment_group** | **str** |  | [optional] 
 

@@ -26,6 +26,7 @@ Name | Type | Description | Notes
 **metadata** | **object** |  | [optional] 
 **provisioning_info** | [**DeploymentProvisioningInfo**](DeploymentProvisioningInfo.md) |  | [optional] 
 **role** | [**RegionalDeploymentRole**](RegionalDeploymentRole.md) |  | [optional] [default to RegionalDeploymentRole.INVALID]
+**instance_snapshot_id** | **str** |  | [optional] 
 **version** | **str** |  | [optional] 
 **deployment_group** | **str** |  | [optional] 
 **deployment_id** | **str** |  | [optional] 
