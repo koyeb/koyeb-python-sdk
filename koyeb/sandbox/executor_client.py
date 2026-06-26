@@ -13,7 +13,7 @@ from typing import Any, AsyncIterator, Dict, Iterator, Optional
 
 import httpx
 
-from .utils import DEFAULT_HTTP_TIMEOUT
+from .utils import DEFAULT_HTTP_TIMEOUT, SandboxServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +156,11 @@ class SandboxClient:
                     backoff *= 2
                     last_exception = e
                     continue
+                if e.response.status_code >= 500:
+                    raise SandboxServiceError(
+                        status_code=e.response.status_code,
+                        message=e.response.text,
+                    ) from e
                 raise
             except httpx.TimeoutException as e:
                 logger.warning(f"Request timeout after {self.timeout}s: {e}")
@@ -166,7 +171,10 @@ class SandboxClient:
 
         # If we exhausted all retries, raise the last exception
         if last_exception:
-            raise last_exception
+            raise SandboxServiceError(
+                status_code=last_exception.response.status_code,
+                message=last_exception.response.text,
+            ) from last_exception
 
     def health(self) -> Dict[str, str]:
         """
@@ -274,6 +282,11 @@ class SandboxClient:
             json=payload,
             timeout=timeout if timeout is not None else self.timeout,
         ) as response:
+            if response.status_code >= 500:
+                raise SandboxServiceError(
+                    status_code=response.status_code,
+                    message=response.text,
+                )
             response.raise_for_status()
             for line in response.iter_lines():
                 event = _parse_sse_line(line)
@@ -611,6 +624,11 @@ class AsyncSandboxClient:
                     backoff *= 2
                     last_exception = e
                     continue
+                if e.response.status_code >= 500:
+                    raise SandboxServiceError(
+                        status_code=e.response.status_code,
+                        message=e.response.text,
+                    ) from e
                 raise
             except httpx.TimeoutException as e:
                 logger.warning(f"Request timeout after {self.timeout}s: {e}")
@@ -621,7 +639,10 @@ class AsyncSandboxClient:
 
         # If we exhausted all retries, raise the last exception
         if last_exception:
-            raise last_exception
+            raise SandboxServiceError(
+                status_code=last_exception.response.status_code,
+                message=last_exception.response.text,
+            ) from last_exception
 
     async def health(self) -> Dict[str, str]:
         """
@@ -729,6 +750,11 @@ class AsyncSandboxClient:
             json=payload,
             timeout=timeout if timeout is not None else self.timeout,
         ) as response:
+            if response.status_code >= 500:
+                raise SandboxServiceError(
+                    status_code=response.status_code,
+                    message=response.text,
+                )
             response.raise_for_status()
             async for line in response.aiter_lines():
                 event = _parse_sse_line(line)

@@ -13,7 +13,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from .executor_client import AsyncSandboxClient, SandboxClient
-from .utils import SandboxError
+from .utils import SandboxError, SandboxServiceError
 
 if TYPE_CHECKING:
     from .sandbox import Sandbox
@@ -159,6 +159,8 @@ class SandboxExecutor:
                     duration=time.time() - start_time,
                     command=command,
                 )
+            except SandboxServiceError:
+                raise
             except Exception as e:
                 return CommandResult(
                     stdout="",
@@ -188,6 +190,8 @@ class SandboxExecutor:
                 duration=time.time() - start_time,
                 command=command,
             )
+        except SandboxServiceError:
+            raise
         except Exception as e:
             return CommandResult(
                 stdout="",
@@ -298,6 +302,8 @@ class AsyncSandboxExecutor(SandboxExecutor):
                     duration=time.time() - start_time,
                     command=command,
                 )
+            except SandboxServiceError:
+                raise
             except Exception as e:
                 return CommandResult(
                     stdout="",
@@ -329,6 +335,8 @@ class AsyncSandboxExecutor(SandboxExecutor):
                 duration=time.time() - start_time,
                 command=command,
             )
+        except SandboxServiceError:
+            raise
         except Exception as e:
             return CommandResult(
                 stdout="",
