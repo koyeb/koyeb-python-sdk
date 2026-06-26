@@ -96,11 +96,9 @@ class SandboxFilesystem:
             if response.get("error"):
                 error_msg = response.get("error", "Unknown error")
                 raise SandboxFilesystemError(f"Failed to write file: {error_msg}")
-        except SandboxServiceError:
+        except (SandboxServiceError, SandboxFilesystemError):
             raise
         except Exception as e:
-            if isinstance(e, SandboxFilesystemError):
-                raise
             raise SandboxFilesystemError(f"Failed to write file: {str(e)}") from e
 
     def read_file(self, path: str, encoding: str = "utf-8") -> FileInfo:
@@ -470,11 +468,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             if response.get("error"):
                 error_msg = response.get("error", "Unknown error")
                 raise SandboxFilesystemError(f"Failed to write file: {error_msg}")
-        except SandboxServiceError:
+        except (SandboxServiceError, SandboxFilesystemError):
             raise
         except Exception as e:
-            if isinstance(e, SandboxFilesystemError):
-                raise
             raise SandboxFilesystemError(f"Failed to write file: {str(e)}") from e
 
     async def read_file(self, path: str, encoding: str = "utf-8") -> FileInfo:
