@@ -13,7 +13,7 @@ from typing import Any, AsyncIterator, Dict, Iterator, Optional
 
 import httpx
 
-from .utils import DEFAULT_HTTP_TIMEOUT, SandboxServiceError
+from .utils import DEFAULT_HTTP_TIMEOUT, SandboxServiceError, SandboxTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -163,8 +163,9 @@ class SandboxClient:
                     ) from e
                 raise
             except httpx.TimeoutException as e:
-                logger.warning(f"Request timeout after {self.timeout}s: {e}")
-                raise
+                raise SandboxTimeoutError(
+                    f"Request timed out after {kwargs.get('timeout', self.timeout)}s"
+                ) from e
             except httpx.RequestError as e:
                 logger.warning(f"Request failed: {e}")
                 raise
@@ -276,22 +277,29 @@ class SandboxClient:
         if env is not None:
             payload["env"] = env
 
-        with self._client.stream(
-            "POST",
-            f"{self.base_url}/run_streaming",
-            json=payload,
-            timeout=timeout if timeout is not None else self.timeout,
-        ) as response:
-            if response.status_code >= 500:
-                raise SandboxServiceError(
-                    status_code=response.status_code,
-                    message=response.text,
-                )
-            response.raise_for_status()
-            for line in response.iter_lines():
-                event = _parse_sse_line(line)
-                if event is not None:
-                    yield event
+        request_timeout = timeout if timeout is not None else self.timeout
+        try:
+            with self._client.stream(
+                "POST",
+                f"{self.base_url}/run_streaming",
+                json=payload,
+                timeout=request_timeout,
+            ) as response:
+                if response.status_code >= 500:
+                    response.read()
+                    raise SandboxServiceError(
+                        status_code=response.status_code,
+                        message=response.text,
+                    )
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    event = _parse_sse_line(line)
+                    if event is not None:
+                        yield event
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {request_timeout}s"
+            ) from e
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """
@@ -631,8 +639,9 @@ class AsyncSandboxClient:
                     ) from e
                 raise
             except httpx.TimeoutException as e:
-                logger.warning(f"Request timeout after {self.timeout}s: {e}")
-                raise
+                raise SandboxTimeoutError(
+                    f"Request timed out after {kwargs.get('timeout', self.timeout)}s"
+                ) from e
             except httpx.RequestError as e:
                 logger.warning(f"Request failed: {e}")
                 raise
@@ -744,22 +753,29 @@ class AsyncSandboxClient:
         if env is not None:
             payload["env"] = env
 
-        async with self._client.stream(
-            "POST",
-            f"{self.base_url}/run_streaming",
-            json=payload,
-            timeout=timeout if timeout is not None else self.timeout,
-        ) as response:
-            if response.status_code >= 500:
-                raise SandboxServiceError(
-                    status_code=response.status_code,
-                    message=response.text,
-                )
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                event = _parse_sse_line(line)
-                if event is not None:
-                    yield event
+        request_timeout = timeout if timeout is not None else self.timeout
+        try:
+            async with self._client.stream(
+                "POST",
+                f"{self.base_url}/run_streaming",
+                json=payload,
+                timeout=request_timeout,
+            ) as response:
+                if response.status_code >= 500:
+                    await response.aread()
+                    raise SandboxServiceError(
+                        status_code=response.status_code,
+                        message=response.text,
+                    )
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    event = _parse_sse_line(line)
+                    if event is not None:
+                        yield event
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {request_timeout}s"
+            ) from e
 
     async def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """
