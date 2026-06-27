@@ -30,6 +30,13 @@ def main():
         )
         print(f"  ✓ Sandbox created: {sbx.name}")
 
+        # Create some files to verify filesystem preservation
+        print("✓ Creating files...")
+        sbx.filesystem.mkdir("/workspace")
+        sbx.filesystem.write_file("/workspace/test_file.txt", "Hello from snapshot!")
+        sbx.filesystem.write_file("/workspace/requirements.txt", "requests\npytest\n")
+        print("  ✓ Files created")
+
         # Install packages
         print("✓ Installing packages...")
         sbx.exec("pip3 install pytest requests")
@@ -43,10 +50,13 @@ def main():
         )
         print(f"  ✓ Snapshot created: {snapshot.name}")
 
-        # Spawn a new sandbox from the snapshot
-        print("✓ Spawning sandbox from snapshot...")
+        # Spawn a new sandbox from the snapshot with a different instance type
+        print("✓ Spawning sandbox from snapshot with different instance type...")
         sbx2 = snapshot.spawn(
+            image="python:3.12",
             name=f"test-runner-{suffix}",
+            instance_type="nano",
+            env={"SPAWNED_FROM_SNAPSHOT": "true"},
             wait_ready=False,
             api_token=api_token,
         )
@@ -57,10 +67,23 @@ def main():
         is_ready = sbx2.wait_ready(timeout=300)
         print("  ✓ Sandbox is ready")
 
-        # Verify packages are pre-installed from snapshot filesystem
-        print("✓ Verifying packages are pre-installed from snapshot filesystem...")
+        # Verify filesystem is preserved from snapshot
+        print("✓ Verifying filesystem is preserved from snapshot...")
+        
+        # Check that files exist
+        result = sbx2.exec("cat /workspace/test_file.txt")
+        assert result.stdout.strip() == "Hello from snapshot!", f"File content mismatch: {result.stdout}"
+        print("  ✓ Custom file preserved")
+        
+        # Check that packages are pre-installed
         result = sbx2.exec("python3 -c \"import requests; print('OK')\"")
-        print(f"  ✓ Result: {result.stdout.strip()}")
+        assert result.stdout.strip() == "OK", f"Package not found: {result.stdout}"
+        print("  ✓ Packages preserved")
+        
+        # Verify env var is different from snapshot (new definition)
+        result = sbx2.exec("echo $SPAWNED_FROM_SNAPSHOT")
+        assert result.stdout.strip() == "true", f"Env var not set: {result.stdout}"
+        print("  ✓ New env vars applied (different from snapshot)")
 
         return 0
     finally:

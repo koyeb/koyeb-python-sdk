@@ -166,13 +166,19 @@ class Snapshot:
                 }
                 status_param = status_map.get(status)
             
-            reply = clients.instance_snapshots.list_instance_snapshots(
-                limit=limit,
-                offset=offset,
-                service_id=service_id,
-                type=type_param,
-                status=status_param,
-            )
+            # Build kwargs, omitting None values
+            list_kwargs = {
+                "limit": str(limit),
+                "offset": str(offset),
+            }
+            if service_id:
+                list_kwargs["service_id"] = service_id
+            if type_param:
+                list_kwargs["type"] = type_param
+            if status_param:
+                list_kwargs["status"] = status_param
+            
+            reply = clients.instance_snapshots.list_instance_snapshots(**list_kwargs)
 
             snapshots = []
             if reply.instance_snapshots:
@@ -362,7 +368,7 @@ class Snapshot:
             raise SandboxError("Cannot spawn from snapshot without ID")
 
         create_params = {
-            "snapshot_id": self.id,
+            "snapshot": self,
             "wait_ready": wait_ready,
             "timeout": timeout,
         }

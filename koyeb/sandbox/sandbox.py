@@ -12,7 +12,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from .exec import AsyncSandboxExecutor, SandboxExecutor
     from .executor_client import AsyncSandboxClient, SandboxClient
     from .filesystem import AsyncSandboxFilesystem, SandboxFilesystem
+    from .snapshot import SnapshotType
 
 
 @dataclass
@@ -140,7 +141,7 @@ class Sandbox:
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
         host: Optional[str] = None,
-        snapshot_id: Optional[str] = None,
+        snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
     ) -> Sandbox:
         """
@@ -183,7 +184,9 @@ class Sandbox:
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
                 host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
-                snapshot_id: Optional snapshot ID to create the sandbox from. If provided, the sandbox will be initialized from this snapshot.
+                snapshot: Optional. A Snapshot object or snapshot name/ID string to create the sandbox from.
+                    If provided, the sandbox will be initialized from this snapshot.
+                    Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
                 sandbox_secret: Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
 
         Returns:
@@ -202,6 +205,22 @@ class Sandbox:
             ...     image="ghcr.io/myorg/myimage:latest",
             ...     registry_secret="my-ghcr-secret"
             ... )
+            
+            >>> # Create from a Snapshot object
+            >>> from koyeb.sandbox import Snapshot
+            >>> snapshot = Snapshot.get("my-snapshot-id")
+            >>> sandbox = Sandbox.create(snapshot=snapshot)
+            
+            >>> # Create from a snapshot ID string
+            >>> sandbox = Sandbox.create(snapshot="my-snapshot-id")
+            
+            >>> # Create from a snapshot with custom parameters
+            >>> sandbox = Sandbox.create(
+            ...     snapshot="my-snapshot-id",
+            ...     image="python:3.12",
+            ...     instance_type="nano",
+            ...     env={"MY_VAR": "value"}
+            ... )
         """
         if api_token is None:
             api_token = os.getenv("KOYEB_API_TOKEN")
@@ -210,6 +229,43 @@ class Sandbox:
                     "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
 
+        # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
+        actual_snapshot_id = None
+        actual_snapshot_type = None
+        
+        if snapshot is not None:
+            if isinstance(snapshot, str):
+                # snapshot is a snapshot ID or name string
+                from .snapshot import Snapshot
+                
+                # Try to get snapshot by ID first (fast path for UUIDs)
+                try:
+                    snapshot_obj = Snapshot.get(snapshot, api_token=api_token, host=host)
+                    actual_snapshot_id = snapshot_obj.id
+                    actual_snapshot_type = snapshot_obj.snapshot_type
+                except Exception:
+                    # If that fails, try to find by name
+                    try:
+                        snapshots = Snapshot.list(api_token=api_token, host=host, limit=100)
+                        for s in snapshots:
+                            if s.name == snapshot:
+                                actual_snapshot_id = s.id
+                                actual_snapshot_type = s.snapshot_type
+                                break
+                    except Exception:
+                        pass
+                    
+                    # If we couldn't resolve it, use the string as-is
+                    # Default to FILESYSTEM type if we couldn't determine it
+                    if actual_snapshot_id is None:
+                        actual_snapshot_id = snapshot
+                        from .snapshot import SnapshotType
+                        actual_snapshot_type = SnapshotType.FILESYSTEM
+            else:
+                # snapshot is a Snapshot object
+                actual_snapshot_id = snapshot.id
+                actual_snapshot_type = snapshot.snapshot_type
+        
         sandbox = cls._create_sync(
             name=name,
             image=image,
@@ -235,7 +291,8 @@ class Sandbox:
             command=command,
             args=args,
             host=host,
-            snapshot_id=snapshot_id,
+            snapshot_id=actual_snapshot_id,
+            snapshot_type=actual_snapshot_type,
             sandbox_secret=sandbox_secret,
         )
 
@@ -278,6 +335,7 @@ class Sandbox:
         args: Optional[List[str]] = None,
         host: Optional[str] = None,
         snapshot_id: Optional[str] = None,
+        snapshot_type: Optional["SnapshotType"] = None,
         sandbox_secret: Optional[str] = None,
     ) -> Sandbox:
         """
@@ -316,16 +374,53 @@ class Sandbox:
             delete_after_sleep=delete_after_inactivity_delay,
         )
         
-        # If using a snapshot, don't send definition
-        # The snapshot already contains all the configuration
+        # Handle snapshot creation based on snapshot type
+        # For FULL snapshots, don't provide definition (API will infer it)
+        # For FILESYSTEM snapshots, always provide definition with snapshot_id
         if snapshot_id:
-            create_service = CreateService(
-                app_id=app_id,
-                life_cycle=service_life_cycle,
-                instance_snapshot_id=snapshot_id,
-                name=name,
-            )
+            # Import here to avoid circular import
+            from .snapshot import SnapshotType as ST
+            
+            # For FULL snapshots, create service without definition
+            if snapshot_type == ST.FULL and snapshot_type is not None:
+                create_service = CreateService(
+                    app_id=app_id,
+                    life_cycle=service_life_cycle,
+                    instance_snapshot_id=snapshot_id,
+                    name=name,
+                )
+            else:
+                # For FILESYSTEM snapshots (or unknown), provide definition
+                env_vars = build_env_vars(env)
+                config_file_objects = build_config_files(config_files)
+                docker_source = create_docker_source(
+                    image, privileged=privileged, image_registry_secret=registry_secret,
+                    entrypoint=entrypoint, command=command, args=args,
+                )
+                deployment_definition = create_deployment_definition(
+                    name=name,
+                    docker_source=docker_source,
+                    env_vars=env_vars,
+                    instance_type=instance_type,
+                    exposed_port_protocol=exposed_port_protocol,
+                    region=region,
+                    routes=routes,
+                    idle_timeout=idle_timeout,
+                    enable_tcp_proxy=enable_tcp_proxy,
+                    _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+                    _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+                    enable_mesh=enable_mesh,
+                    config_files=config_file_objects if config_file_objects else None,
+                )
+                create_service = CreateService(
+                    app_id=app_id,
+                    definition=deployment_definition,
+                    life_cycle=service_life_cycle,
+                    instance_snapshot_id=snapshot_id,
+                    name=name,
+                )
         else:
+            # No snapshot, create normally with definition
             env_vars = build_env_vars(env)
             config_file_objects = build_config_files(config_files)
             docker_source = create_docker_source(
@@ -593,17 +688,8 @@ class Sandbox:
         Returns:
             Sandbox: A new sandbox instance
         """
-        from .snapshot import Snapshot
-
-        if isinstance(snapshot, str):
-            snapshot_id = snapshot
-        elif isinstance(snapshot, Snapshot):
-            snapshot_id = snapshot.id
-        else:
-            raise SandboxError(f"Invalid snapshot type: {type(snapshot)}")
-
         create_params = {
-            "snapshot_id": snapshot_id,
+            "snapshot": snapshot,
             "wait_ready": wait_ready,
             "timeout": timeout,
         }
@@ -1479,7 +1565,7 @@ class AsyncSandbox(Sandbox):
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
         host: Optional[str] = None,
-        snapshot_id: Optional[str] = None,
+        snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
     ) -> AsyncSandbox:
         """
@@ -1524,7 +1610,9 @@ class AsyncSandbox(Sandbox):
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
                 host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
-                snapshot_id: Optional snapshot ID to create the sandbox from. If provided, the sandbox will be initialized from this snapshot.
+                snapshot: Optional. A Snapshot object or snapshot name/ID string to create the sandbox from.
+                    If provided, the sandbox will be initialized from this snapshot.
+                    Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
                 sandbox_secret: Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
 
         Returns:
@@ -1540,6 +1628,43 @@ class AsyncSandbox(Sandbox):
                 raise ValueError(
                     "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
+
+        # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
+        actual_snapshot_id = None
+        actual_snapshot_type = None
+        
+        if snapshot is not None:
+            if isinstance(snapshot, str):
+                # snapshot is a snapshot ID or name string
+                from .snapshot import Snapshot
+                
+                # Try to get snapshot by ID first (fast path for UUIDs)
+                try:
+                    snapshot_obj = Snapshot.get(snapshot, api_token=api_token, host=host)
+                    actual_snapshot_id = snapshot_obj.id
+                    actual_snapshot_type = snapshot_obj.snapshot_type
+                except Exception:
+                    # If that fails, try to find by name
+                    try:
+                        snapshots = Snapshot.list(api_token=api_token, host=host, limit=100)
+                        for s in snapshots:
+                            if s.name == snapshot:
+                                actual_snapshot_id = s.id
+                                actual_snapshot_type = s.snapshot_type
+                                break
+                    except Exception:
+                        pass
+                    
+                    # If we couldn't resolve it, use the string as-is
+                    # Default to FILESYSTEM type if we couldn't determine it
+                    if actual_snapshot_id is None:
+                        actual_snapshot_id = snapshot
+                        from .snapshot import SnapshotType
+                        actual_snapshot_type = SnapshotType.FILESYSTEM
+            else:
+                # snapshot is a Snapshot object
+                actual_snapshot_id = snapshot.id
+                actual_snapshot_type = snapshot.snapshot_type
 
         from .utils import get_async_api_clients
         from koyeb.api_async.models.create_app import CreateApp as AsyncCreateApp
@@ -1578,16 +1703,53 @@ class AsyncSandbox(Sandbox):
         # Convert sync DeploymentDefinition to dict so the async Pydantic model
         # (which expects koyeb.api_async.models.DeploymentDefinition) can coerce it.
         
-        # If using a snapshot, don't send definition
-        # The snapshot already contains all the configuration
-        if snapshot_id:
-            create_service = AsyncCreateService(
-                app_id=app_id,
-                life_cycle=service_life_cycle,
-                instance_snapshot_id=snapshot_id,
-                name=name,
-            )
+        # Handle snapshot creation based on snapshot type
+        # For FULL snapshots, don't provide definition (API will infer it)
+        # For FILESYSTEM snapshots, always provide definition with snapshot_id
+        if actual_snapshot_id:
+            # Import here to avoid circular import
+            from .snapshot import SnapshotType as ST
+            
+            # For FULL snapshots, create service without definition
+            if actual_snapshot_type == ST.FULL:
+                create_service = AsyncCreateService(
+                    app_id=app_id,
+                    life_cycle=service_life_cycle,
+                    instance_snapshot_id=actual_snapshot_id,
+                    name=name,
+                )
+            else:
+                # For FILESYSTEM snapshots (or unknown), provide definition
+                env_vars = build_env_vars(env)
+                config_file_objects = build_config_files(config_files)
+                docker_source = create_docker_source(
+                    image, privileged=privileged, image_registry_secret=registry_secret,
+                    entrypoint=entrypoint, command=command, args=args,
+                )
+                deployment_definition = create_deployment_definition(
+                    name=name,
+                    docker_source=docker_source,
+                    env_vars=env_vars,
+                    instance_type=instance_type,
+                    exposed_port_protocol=exposed_port_protocol,
+                    region=region,
+                    routes=routes,
+                    idle_timeout=idle_timeout,
+                    enable_tcp_proxy=enable_tcp_proxy,
+                    _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+                    _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+                    enable_mesh=enable_mesh,
+                    config_files=config_file_objects if config_file_objects else None,
+                )
+                create_service = AsyncCreateService(
+                    app_id=app_id,
+                    definition=deployment_definition.to_dict(),
+                    life_cycle=service_life_cycle,
+                    instance_snapshot_id=actual_snapshot_id,
+                    name=name,
+                )
         else:
+            # No snapshot, create normally with definition
             env_vars = build_env_vars(env)
             config_file_objects = build_config_files(config_files)
             docker_source = create_docker_source(
@@ -1920,17 +2082,8 @@ class AsyncSandbox(Sandbox):
         Returns:
             AsyncSandbox: A new async sandbox instance
         """
-        from .snapshot import Snapshot
-
-        if isinstance(snapshot, str):
-            snapshot_id = snapshot
-        elif isinstance(snapshot, Snapshot):
-            snapshot_id = snapshot.id
-        else:
-            raise SandboxError(f"Invalid snapshot type: {type(snapshot)}")
-
         create_params = {
-            "snapshot_id": snapshot_id,
+            "snapshot": snapshot,
             "wait_ready": wait_ready,
             "timeout": timeout,
         }
