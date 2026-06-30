@@ -153,7 +153,7 @@ class Sandbox:
                     If provided, must be one of "http" or "http2".
                 exposed_port_security_policy: Optional access control for the user-facing port (3031).
                     Pass ``ApiKey("my-key")`` to require an API key via
-                    ``Authorization: Bearer <key>``, or
+                    ``x-api-key: <key>``, or
                     ``BasicAuth(username="u", password="p")`` to require HTTP Basic Auth.
                     If None, the port is publicly accessible (default).
                 env: Environment variables
