@@ -11,7 +11,7 @@ import os
 import secrets
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
@@ -22,6 +22,8 @@ from koyeb.api.models.update_service import UpdateService
 
 from .executor_client import ConnectionInfo
 from .utils import (
+    ApiKey,
+    BasicAuth,
     DEFAULT_INSTANCE_WAIT_TIMEOUT,
     DEFAULT_POLL_INTERVAL,
     SandboxDeploymentError,
@@ -31,7 +33,6 @@ from .utils import (
     build_env_vars,
     create_deployment_definition,
     create_docker_source,
-    create_koyeb_sandbox_routes,
     create_sandbox_client,
     get_api_clients,
     logger,
@@ -117,6 +118,7 @@ class Sandbox:
         wait_ready: bool = True,
         instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
+        exposed_port_security_policy: Optional[Union[ApiKey, BasicAuth]] = None,
         env: Optional[Dict[str, Any]] = None,
         config_files: Optional[Dict[str, Any]] = None,
         region: Optional[str] = None,
@@ -149,6 +151,11 @@ class Sandbox:
                 exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
+                exposed_port_security_policy: Optional access control for the user-facing port (3031).
+                    Pass ``ApiKey("my-key")`` to require an API key via
+                    ``x-api-key: <key>``, or
+                    ``BasicAuth(username="u", password="p")`` to require HTTP Basic Auth.
+                    If None, the port is publicly accessible (default).
                 env: Environment variables
                 config_files: Config files to create in the sandbox, as a dictionary mapping
                     file paths to file contents. Values can be plain strings (default permissions 0644)
@@ -195,6 +202,14 @@ class Sandbox:
             ...     image="ghcr.io/myorg/myimage:latest",
             ...     registry_secret="my-ghcr-secret"
             ... )
+
+            >>> # Protect the exposed port with an API key
+            >>> sandbox = Sandbox.create(exposed_port_security_policy=ApiKey("my-secret-key"))
+
+            >>> # Protect the exposed port with Basic Auth
+            >>> sandbox = Sandbox.create(
+            ...     exposed_port_security_policy=BasicAuth(username="admin", password="s3cr3t")
+            ... )
         """
         if api_token is None:
             api_token = os.getenv("KOYEB_API_TOKEN")
@@ -208,6 +223,7 @@ class Sandbox:
             image=image,
             instance_type=instance_type,
             exposed_port_protocol=exposed_port_protocol,
+            exposed_port_security_policy=exposed_port_security_policy,
             env=env,
             config_files=config_files,
             region=region,
@@ -248,6 +264,7 @@ class Sandbox:
         image: str = "koyeb/sandbox",
         instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
+        exposed_port_security_policy: Optional[Union[ApiKey, BasicAuth]] = None,
         env: Optional[Dict[str, Any]] = None,
         config_files: Optional[Dict[str, Any]] = None,
         region: Optional[str] = None,
@@ -277,9 +294,6 @@ class Sandbox:
         clients = get_api_clients(api_token, host)
         apps_api = clients.apps
         services_api = clients.services
-
-        # Always create routes (ports are always exposed, default to "http")
-        routes = create_koyeb_sandbox_routes()
 
         # Generate secure sandbox secret
         sandbox_secret = secrets.token_urlsafe(32)
@@ -312,8 +326,8 @@ class Sandbox:
             env_vars=env_vars,
             instance_type=instance_type,
             exposed_port_protocol=exposed_port_protocol,
+            exposed_port_security_policy=exposed_port_security_policy,
             region=region,
-            routes=routes,
             idle_timeout=idle_timeout,
             enable_tcp_proxy=enable_tcp_proxy,
             _experimental_enable_light_sleep=_experimental_enable_light_sleep,
@@ -1245,6 +1259,7 @@ class AsyncSandbox(Sandbox):
         wait_ready: bool = True,
         instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
+        exposed_port_security_policy: Optional[Union[ApiKey, BasicAuth]] = None,
         env: Optional[Dict[str, Any]] = None,
         config_files: Optional[Dict[str, Any]] = None,
         region: Optional[str] = None,
@@ -1277,6 +1292,11 @@ class AsyncSandbox(Sandbox):
                 exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
+                exposed_port_security_policy: Optional access control for the user-facing port.
+                    Pass ``ApiKey("my-key")`` to require an API key via
+                    ``x-api-key: <key>``, or
+                    ``BasicAuth(username="u", password="p")`` to require HTTP Basic Auth.
+                    If None, the port is publicly accessible (default).
                 env: Environment variables
                 config_files: Config files to create in the sandbox, as a dictionary mapping
                     file paths to file contents. Values can be plain strings (default permissions 0644)
@@ -1331,9 +1351,6 @@ class AsyncSandbox(Sandbox):
 
         clients = get_async_api_clients(api_token, host)
 
-        # Always create routes
-        routes = create_koyeb_sandbox_routes()
-
         # Generate secure sandbox secret
         sandbox_secret = secrets.token_urlsafe(32)
 
@@ -1365,8 +1382,8 @@ class AsyncSandbox(Sandbox):
             env_vars=env_vars,
             instance_type=instance_type,
             exposed_port_protocol=exposed_port_protocol,
+            exposed_port_security_policy=exposed_port_security_policy,
             region=region,
-            routes=routes,
             idle_timeout=idle_timeout,
             enable_tcp_proxy=enable_tcp_proxy,
             _experimental_enable_light_sleep=_experimental_enable_light_sleep,
