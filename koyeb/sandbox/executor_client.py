@@ -75,7 +75,7 @@ class SandboxClient:
         self.secret = conn_info.secret
         self.timeout = timeout
         self.headers = _build_headers(conn_info)
-        self._client = httpx.Client(headers=self.headers)
+        self._client = httpx.Client(headers=self.headers, trust_env=True)
         self._closed = False
 
     def close(self) -> None:
@@ -556,7 +556,7 @@ class AsyncSandboxClient:
         self.secret = conn_info.secret
         self.timeout = timeout
         self.headers = _build_headers(conn_info)
-        self._client = httpx.AsyncClient(headers=self.headers)
+        self._client = httpx.AsyncClient(headers=self.headers, trust_env=True)
         self._closed = False
 
     async def close(self) -> None:
