@@ -628,3 +628,11 @@ class SandboxTimeoutError(SandboxError):
 
 class SandboxDeploymentError(SandboxError):
     """Raised when a sandbox deployment reaches an error state"""
+
+
+class SandboxServiceError(SandboxError):
+    """Raised when the sandbox executor returns an HTTP 5xx error"""
+
+    def __init__(self, status_code: int, message: str):
+        self.status_code = status_code
+        super().__init__(f"Sandbox service error ({status_code}): {message}")
