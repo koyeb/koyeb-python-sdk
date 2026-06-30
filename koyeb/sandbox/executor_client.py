@@ -80,7 +80,7 @@ class SandboxClient:
 
     def close(self) -> None:
         """Close the HTTP client and release resources."""
-        if not self._closed and hasattr(self, "_client"):
+        if not getattr(self, "_closed", True) and hasattr(self, "_client"):
             self._client.close()
             self._closed = True
 
@@ -94,7 +94,7 @@ class SandboxClient:
 
     def __del__(self):
         """Clean up client on deletion (fallback, not guaranteed to run)."""
-        if not self._closed:
+        if not getattr(self, "_closed", True):
             self.close()
 
     def _request_with_retry(
@@ -561,7 +561,7 @@ class AsyncSandboxClient:
 
     async def close(self) -> None:
         """Close the HTTP client and release resources."""
-        if not self._closed and hasattr(self, "_client"):
+        if not getattr(self, "_closed", True) and hasattr(self, "_client"):
             await self._client.aclose()
             self._closed = True
 
