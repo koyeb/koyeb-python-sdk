@@ -15,6 +15,7 @@ koyeb/api_async/api/credentials_api.py
 koyeb/api_async/api/deployments_api.py
 koyeb/api_async/api/docker_helper_api.py
 koyeb/api_async/api/domains_api.py
+koyeb/api_async/api/instance_snapshots_api.py
 koyeb/api_async/api/instances_api.py
 koyeb/api_async/api/intercom_api.py
 koyeb/api_async/api/invite_api.py
@@ -103,6 +104,8 @@ koyeb/api_async/docs/CreateCredential.md
 koyeb/api_async/docs/CreateCredentialReply.md
 koyeb/api_async/docs/CreateDomain.md
 koyeb/api_async/docs/CreateDomainReply.md
+koyeb/api_async/docs/CreateInstanceSnapshotReply.md
+koyeb/api_async/docs/CreateInstanceSnapshotRequest.md
 koyeb/api_async/docs/CreateOrganizationInvitationReply.md
 koyeb/api_async/docs/CreateOrganizationInvitationRequest.md
 koyeb/api_async/docs/CreateOrganizationReply.md
@@ -133,6 +136,7 @@ koyeb/api_async/docs/DeactivateOrganizationRequest.md
 koyeb/api_async/docs/DeclareStageProgressRequest.md
 koyeb/api_async/docs/DeclareStepProgressRequest.md
 koyeb/api_async/docs/DeclineOrganizationInvitationReply.md
+koyeb/api_async/docs/DeleteInstanceSnapshotReply.md
 koyeb/api_async/docs/DeleteOrganizationReply.md
 koyeb/api_async/docs/DeletePersistentVolumeReply.md
 koyeb/api_async/docs/DeleteSnapshotReply.md
@@ -210,6 +214,7 @@ koyeb/api_async/docs/GetDomainReply.md
 koyeb/api_async/docs/GetGithubInstallationReply.md
 koyeb/api_async/docs/GetIdenfyTokenReply.md
 koyeb/api_async/docs/GetInstanceReply.md
+koyeb/api_async/docs/GetInstanceSnapshotReply.md
 koyeb/api_async/docs/GetIntercomProfileReply.md
 koyeb/api_async/docs/GetMetricsReply.md
 koyeb/api_async/docs/GetMetricsReplyMetric.md
@@ -249,6 +254,11 @@ koyeb/api_async/docs/Instance.md
 koyeb/api_async/docs/InstanceAvailability.md
 koyeb/api_async/docs/InstanceEvent.md
 koyeb/api_async/docs/InstanceListItem.md
+koyeb/api_async/docs/InstanceSnapshot.md
+koyeb/api_async/docs/InstanceSnapshotEvent.md
+koyeb/api_async/docs/InstanceSnapshotStatus.md
+koyeb/api_async/docs/InstanceSnapshotType.md
+koyeb/api_async/docs/InstanceSnapshotsApi.md
 koyeb/api_async/docs/InstanceStatus.md
 koyeb/api_async/docs/InstanceUsage.md
 koyeb/api_async/docs/InstancesApi.md
@@ -284,6 +294,8 @@ koyeb/api_async/docs/ListDeploymentEventsReply.md
 koyeb/api_async/docs/ListDeploymentsReply.md
 koyeb/api_async/docs/ListDomainsReply.md
 koyeb/api_async/docs/ListInstanceEventsReply.md
+koyeb/api_async/docs/ListInstanceSnapshotEventsReply.md
+koyeb/api_async/docs/ListInstanceSnapshotsReply.md
 koyeb/api_async/docs/ListInstancesReply.md
 koyeb/api_async/docs/ListOrganizationInvitationsReply.md
 koyeb/api_async/docs/ListOrganizationMembersReply.md
@@ -523,6 +535,8 @@ koyeb/api_async/models/create_credential.py
 koyeb/api_async/models/create_credential_reply.py
 koyeb/api_async/models/create_domain.py
 koyeb/api_async/models/create_domain_reply.py
+koyeb/api_async/models/create_instance_snapshot_reply.py
+koyeb/api_async/models/create_instance_snapshot_request.py
 koyeb/api_async/models/create_organization_invitation_reply.py
 koyeb/api_async/models/create_organization_invitation_request.py
 koyeb/api_async/models/create_organization_reply.py
@@ -552,6 +566,7 @@ koyeb/api_async/models/deactivate_organization_request.py
 koyeb/api_async/models/declare_stage_progress_request.py
 koyeb/api_async/models/declare_step_progress_request.py
 koyeb/api_async/models/decline_organization_invitation_reply.py
+koyeb/api_async/models/delete_instance_snapshot_reply.py
 koyeb/api_async/models/delete_organization_reply.py
 koyeb/api_async/models/delete_persistent_volume_reply.py
 koyeb/api_async/models/delete_snapshot_reply.py
@@ -626,6 +641,7 @@ koyeb/api_async/models/get_domain_reply.py
 koyeb/api_async/models/get_github_installation_reply.py
 koyeb/api_async/models/get_idenfy_token_reply.py
 koyeb/api_async/models/get_instance_reply.py
+koyeb/api_async/models/get_instance_snapshot_reply.py
 koyeb/api_async/models/get_intercom_profile_reply.py
 koyeb/api_async/models/get_metrics_reply.py
 koyeb/api_async/models/get_metrics_reply_metric.py
@@ -665,6 +681,10 @@ koyeb/api_async/models/instance.py
 koyeb/api_async/models/instance_availability.py
 koyeb/api_async/models/instance_event.py
 koyeb/api_async/models/instance_list_item.py
+koyeb/api_async/models/instance_snapshot.py
+koyeb/api_async/models/instance_snapshot_event.py
+koyeb/api_async/models/instance_snapshot_status.py
+koyeb/api_async/models/instance_snapshot_type.py
 koyeb/api_async/models/instance_status.py
 koyeb/api_async/models/instance_usage.py
 koyeb/api_async/models/instances_summary.py
@@ -697,6 +717,8 @@ koyeb/api_async/models/list_deployment_events_reply.py
 koyeb/api_async/models/list_deployments_reply.py
 koyeb/api_async/models/list_domains_reply.py
 koyeb/api_async/models/list_instance_events_reply.py
+koyeb/api_async/models/list_instance_snapshot_events_reply.py
+koyeb/api_async/models/list_instance_snapshots_reply.py
 koyeb/api_async/models/list_instances_reply.py
 koyeb/api_async/models/list_organization_invitations_reply.py
 koyeb/api_async/models/list_organization_members_reply.py
@@ -864,4 +886,15 @@ koyeb/api_async/models/verify_docker_image_reply.py
 koyeb/api_async/models/verify_docker_image_reply_err_code.py
 koyeb/api_async/rest.py
 koyeb/api_async/test/__init__.py
+koyeb/api_async/test/test_create_instance_snapshot_reply.py
+koyeb/api_async/test/test_create_instance_snapshot_request.py
+koyeb/api_async/test/test_delete_instance_snapshot_reply.py
+koyeb/api_async/test/test_get_instance_snapshot_reply.py
+koyeb/api_async/test/test_instance_snapshot.py
+koyeb/api_async/test/test_instance_snapshot_event.py
+koyeb/api_async/test/test_instance_snapshot_status.py
+koyeb/api_async/test/test_instance_snapshot_type.py
+koyeb/api_async/test/test_instance_snapshots_api.py
+koyeb/api_async/test/test_list_instance_snapshot_events_reply.py
+koyeb/api_async/test/test_list_instance_snapshots_reply.py
 koyeb/api_async_README.md

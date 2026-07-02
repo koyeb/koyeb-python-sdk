@@ -51,9 +51,10 @@ class DeploymentListItem(BaseModel):
     messages: Optional[List[StrictStr]] = None
     provisioning_info: Optional[DeploymentProvisioningInfo] = None
     database_info: Optional[DeploymentDatabaseInfo] = None
+    instance_snapshot_id: Optional[StrictStr] = None
     version: Optional[StrictStr] = None
     deployment_group: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "allocated_at", "started_at", "succeeded_at", "terminated_at", "organization_id", "app_id", "service_id", "parent_id", "child_id", "status", "metadata", "definition", "messages", "provisioning_info", "database_info", "version", "deployment_group"]
+    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "allocated_at", "started_at", "succeeded_at", "terminated_at", "organization_id", "app_id", "service_id", "parent_id", "child_id", "status", "metadata", "definition", "messages", "provisioning_info", "database_info", "instance_snapshot_id", "version", "deployment_group"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -136,6 +137,7 @@ class DeploymentListItem(BaseModel):
             "messages": obj.get("messages"),
             "provisioning_info": DeploymentProvisioningInfo.from_dict(obj["provisioning_info"]) if obj.get("provisioning_info") is not None else None,
             "database_info": DeploymentDatabaseInfo.from_dict(obj["database_info"]) if obj.get("database_info") is not None else None,
+            "instance_snapshot_id": obj.get("instance_snapshot_id"),
             "version": obj.get("version"),
             "deployment_group": obj.get("deployment_group")
         })

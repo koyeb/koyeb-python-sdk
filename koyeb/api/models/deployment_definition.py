@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api.models.archive_source import ArchiveSource
 from koyeb.api.models.config_file import ConfigFile
@@ -43,7 +43,7 @@ class DeploymentDefinition(BaseModel):
     """
     DeploymentDefinition
     """ # noqa: E501
-    name: Optional[StrictStr] = None
+    name: Optional[StrictStr] = Field(default=None, description="Service name. Deprecated, set it directly in the Service when creating it.")
     type: Optional[DeploymentDefinitionType] = DeploymentDefinitionType.INVALID
     strategy: Optional[DeploymentStrategy] = None
     routes: Optional[List[DeploymentRoute]] = None

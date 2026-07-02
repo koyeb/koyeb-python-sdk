@@ -98,13 +98,7 @@ class ApiClient:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if self.rest_client is not None and hasattr(self.rest_client, 'pool_manager'):
-            self.rest_client.pool_manager.clear()
-
-    async def close(self):
-        """Close the underlying HTTP connection pool."""
-        if self.rest_client is not None and hasattr(self.rest_client, 'pool_manager'):
-            self.rest_client.pool_manager.clear()
+        pass
 
     @property
     def user_agent(self):
@@ -377,24 +371,28 @@ class ApiClient:
             return obj.isoformat()
         elif isinstance(obj, decimal.Decimal):
             return str(obj)
+
         elif isinstance(obj, dict):
-            return {
-                key: self.sanitize_for_serialization(val)
-                for key, val in obj.items()
-            }
-
-        # Convert model obj to dict except
-        # attributes `openapi_types`, `attribute_map`
-        # and attributes which value is not None.
-        # Convert attribute name to json key in
-        # model definition for request.
-        if hasattr(obj, 'to_dict') and callable(getattr(obj, 'to_dict')):
-            obj_dict = obj.to_dict()
+            obj_dict = obj
         else:
-            obj_dict = obj.__dict__
+            # Convert model obj to dict except
+            # attributes `openapi_types`, `attribute_map`
+            # and attributes which value is not None.
+            # Convert attribute name to json key in
+            # model definition for request.
+            if hasattr(obj, 'to_dict') and callable(getattr(obj, 'to_dict')):
+                obj_dict = obj.to_dict()
+            else:
+                obj_dict = obj.__dict__
 
-        return self.sanitize_for_serialization(obj_dict)
+        if isinstance(obj_dict, list):
+            # here we handle instances that can either be a list or something else, and only became a real list by calling to_dict()
+            return self.sanitize_for_serialization(obj_dict)
 
+        return {
+            key: self.sanitize_for_serialization(val)
+            for key, val in obj_dict.items()
+        }
 
     def deserialize(self, response_text: str, response_type: str, content_type: Optional[str]):
         """Deserializes response into an object.

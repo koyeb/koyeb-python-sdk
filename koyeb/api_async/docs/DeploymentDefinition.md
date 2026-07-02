@@ -5,7 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**name** | **str** |  | [optional] 
+**name** | **str** | Service name. Deprecated, set it directly in the Service when creating it. | [optional] 
 **type** | [**DeploymentDefinitionType**](DeploymentDefinitionType.md) |  | [optional] [default to DeploymentDefinitionType.INVALID]
 **strategy** | [**DeploymentStrategy**](DeploymentStrategy.md) |  | [optional] 
 **routes** | [**List[DeploymentRoute]**](DeploymentRoute.md) |  | [optional] 
