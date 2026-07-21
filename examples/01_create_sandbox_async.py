@@ -12,9 +12,9 @@ from koyeb import AsyncSandbox
 
 
 async def main():
-    api_token = os.getenv("KOYEB_API_TOKEN")
+    api_token = os.getenv("MISTRAL_API_TOKEN") or os.getenv("KOYEB_API_TOKEN")
     if not api_token:
-        print("Error: KOYEB_API_TOKEN not set")
+        print("Error: MISTRAL_API_TOKEN or KOYEB_API_TOKEN not set")
         return 1
 
     sandbox = None

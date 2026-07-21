@@ -13,7 +13,7 @@ from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from .sandbox import Sandbox
-from .utils import SandboxError, get_api_clients
+from .utils import SandboxError, get_api_clients, get_api_token
 
 
 class SnapshotType(Enum):
@@ -77,7 +77,7 @@ class Snapshot:
 
         Args:
             snapshot_id: The ID of the snapshot to retrieve
-            api_token: Koyeb API token (falls back to KOYEB_API_TOKEN env var)
+            api_token: Koyeb API token (falls back to MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
             host: Koyeb API host
 
         Returns:
@@ -86,12 +86,10 @@ class Snapshot:
         Raises:
             SandboxError: If snapshot cannot be retrieved
         """
-        import os
-
         if not api_token:
-            api_token = os.getenv("KOYEB_API_TOKEN")
+            api_token = get_api_token()
         if not api_token:
-            raise SandboxError("API token is required. Set KOYEB_API_TOKEN environment variable.")
+            raise SandboxError("API token is required. Set MISTRAL_API_TOKEN or KOYEB_API_TOKEN environment variable.")
 
         try:
             clients = get_api_clients(api_token, host)
@@ -128,18 +126,16 @@ class Snapshot:
             status: Filter by snapshot status
             limit: Maximum number of snapshots to return
             offset: Offset for pagination
-            api_token: Koyeb API token
+            api_token: Koyeb API token (falls back to MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
             host: Koyeb API host
 
         Returns:
             List of Snapshot objects
         """
-        import os
-
         if not api_token:
-            api_token = os.getenv("KOYEB_API_TOKEN")
+            api_token = get_api_token()
         if not api_token:
-            raise SandboxError("API token is required. Set KOYEB_API_TOKEN environment variable.")
+            raise SandboxError("API token is required. Set MISTRAL_API_TOKEN or KOYEB_API_TOKEN environment variable.")
 
         try:
             from koyeb.api.models.instance_snapshot_type import InstanceSnapshotType
@@ -381,12 +377,10 @@ class DeclarativeSnapshot:
             host: Koyeb API host
             delete_builder: Whether to delete the builder sandbox after creating the snapshot (default: True)
         """
-        import os
-
         if not api_token:
-            api_token = os.getenv("KOYEB_API_TOKEN")
+            api_token = get_api_token()
         if not api_token:
-            raise SandboxError("API token is required. Set KOYEB_API_TOKEN environment variable.")
+            raise SandboxError("API token is required. Set MISTRAL_API_TOKEN or KOYEB_API_TOKEN environment variable.")
 
         self._name = name
         self._image = image

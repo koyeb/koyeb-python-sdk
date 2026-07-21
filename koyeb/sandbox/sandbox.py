@@ -38,6 +38,7 @@ from .utils import (
     create_koyeb_sandbox_routes,
     create_sandbox_client,
     get_api_clients,
+    get_api_token,
     logger,
     validate_port,
 )
@@ -165,8 +166,8 @@ class Sandbox:
                     file paths to file contents. Values can be plain strings (default permissions 0644)
                     or ``ConfigFile`` instances for custom permissions
                     (e.g., {"/etc/myapp/config.yaml": "key: value", "/etc/myapp/cert.pem": ConfigFile(content="...", permissions="0600")})
-                region: Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
-                api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+                region: Region to deploy to. Defaults to MISTRAL_REGION or KOYEB_REGION env var, or "na" if not set.
+                api_token: Koyeb API token (if None, will try to get from MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
                 idle_timeout: Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
                     - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep=3900)
@@ -188,7 +189,7 @@ class Sandbox:
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
-                host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+                host: Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
                 block_network: If True, block all outbound network access from the sandbox
                 outbound_allowlist: List of IPs/CIDRs allowed as outbound destinations;
                     all other outbound traffic is blocked. Bare IPs are normalized to
@@ -234,10 +235,10 @@ class Sandbox:
             ... )
         """
         if api_token is None:
-            api_token = os.getenv("KOYEB_API_TOKEN")
+            api_token = get_api_token()
             if not api_token:
                 raise ValueError(
-                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
+                    "API token is required. Set MISTRAL_API_TOKEN or KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
 
         # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
@@ -502,8 +503,8 @@ class Sandbox:
 
         Args:
             id: Service ID of the sandbox
-            api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
-            host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+            api_token: Koyeb API token (if None, will try to get from MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
+            host: Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 
         Returns:
             Sandbox: The Sandbox instance
@@ -513,10 +514,10 @@ class Sandbox:
             SandboxError: If sandbox is not found or retrieval fails
         """
         if api_token is None:
-            api_token = os.getenv("KOYEB_API_TOKEN")
+            api_token = get_api_token()
             if not api_token:
                 raise ValueError(
-                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
+                    "API token is required. Set MISTRAL_API_TOKEN or KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
 
         if not id:
@@ -1538,8 +1539,8 @@ class AsyncSandbox(Sandbox):
 
         Args:
             id: Service ID of the sandbox
-            api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
-            host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+            api_token: Koyeb API token (if None, will try to get from MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
+            host: Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 
         Returns:
             AsyncSandbox: The AsyncSandbox instance
@@ -1549,10 +1550,10 @@ class AsyncSandbox(Sandbox):
             SandboxError: If sandbox is not found or retrieval fails
         """
         if api_token is None:
-            api_token = os.getenv("KOYEB_API_TOKEN")
+            api_token = get_api_token()
             if not api_token:
                 raise ValueError(
-                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
+                    "API token is required. Set MISTRAL_API_TOKEN or KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
 
         if not id:
@@ -1675,8 +1676,8 @@ class AsyncSandbox(Sandbox):
                     file paths to file contents. Values can be plain strings (default permissions 0644)
                     or ``ConfigFile`` instances for custom permissions
                     (e.g., {"/etc/myapp/config.yaml": "key: value", "/etc/myapp/cert.pem": ConfigFile(content="...", permissions="0600")})
-                region: Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
-                api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+                region: Region to deploy to. Defaults to MISTRAL_REGION or KOYEB_REGION env var, or "na" if not set.
+                api_token: Koyeb API token (if None, will try to get from MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
                 timeout: Timeout for sandbox creation in seconds
                 idle_timeout: Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
                     - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep uses _experimental_deep_sleep_value)
@@ -1700,7 +1701,7 @@ class AsyncSandbox(Sandbox):
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
-                host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+                host: Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
                 block_network: If True, block all outbound network access from the sandbox
                 outbound_allowlist: List of IPs/CIDRs allowed as outbound destinations;
                     all other outbound traffic is blocked. Bare IPs are normalized to
@@ -1720,10 +1721,10 @@ class AsyncSandbox(Sandbox):
                     or an allowlist entry is not a valid IP address or CIDR
         """
         if api_token is None:
-            api_token = os.getenv("KOYEB_API_TOKEN")
+            api_token = get_api_token()
             if not api_token:
                 raise ValueError(
-                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
+                    "API token is required. Set MISTRAL_API_TOKEN or KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
 
         # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
