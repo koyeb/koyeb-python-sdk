@@ -13,6 +13,7 @@ Name | Type | Description | Notes
 **succeeded_at** | **datetime** |  | [optional] 
 **terminated_at** | **datetime** |  | [optional] 
 **organization_id** | **str** |  | [optional] 
+**project_id** | **str** |  | [optional] 
 **app_id** | **str** |  | [optional] 
 **service_id** | **str** |  | [optional] 
 **parent_id** | **str** |  | [optional] 
@@ -23,6 +24,7 @@ Name | Type | Description | Notes
 **messages** | **List[str]** |  | [optional] 
 **provisioning_info** | [**DeploymentProvisioningInfo**](DeploymentProvisioningInfo.md) |  | [optional] 
 **database_info** | [**DeploymentDatabaseInfo**](DeploymentDatabaseInfo.md) |  | [optional] 
+**instance_snapshot_id** | **str** |  | [optional] 
 **version** | **str** |  | [optional] 
 **deployment_group** | **str** |  | [optional] 
 

@@ -81,6 +81,7 @@ class SandboxExecutor:
         timeout: int = 30,
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
+        stream: bool = True,
     ) -> CommandResult:
         """
         Execute a command in a shell synchronously. Supports streaming output via callbacks.
@@ -111,10 +112,10 @@ class SandboxExecutor:
         """
         start_time = time.time()
 
-        # Use streaming if callbacks are provided
-        if on_stdout or on_stderr:
-            stdout_buffer = []
-            stderr_buffer = []
+        if stream:
+            buffer = not on_stdout and not on_stderr
+            stdout_buffer: List[str] = []
+            stderr_buffer: List[str] = []
             exit_code = 0
 
             client = self._get_client()
@@ -126,17 +127,18 @@ class SandboxExecutor:
                     data = event["data"]
 
                     if stream_type == "stdout":
-                        stdout_buffer.append(data)
                         if on_stdout:
                             on_stdout(data)
+                        elif buffer:
+                            stdout_buffer.append(data)
                     elif stream_type == "stderr":
-                        stderr_buffer.append(data)
                         if on_stderr:
                             on_stderr(data)
+                        elif buffer:
+                            stderr_buffer.append(data)
                 elif "code" in event:
                     exit_code = event["code"]
                 elif "error" in event and isinstance(event["error"], str):
-                    # Error starting command
                     return CommandResult(
                         stdout="",
                         stderr=event["error"],
@@ -200,6 +202,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
         timeout: int = 30,
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
+        stream: bool = True,
     ) -> CommandResult:
         """
         Execute a command in a shell asynchronously. Supports streaming output via callbacks.
@@ -230,8 +233,8 @@ class AsyncSandboxExecutor(SandboxExecutor):
         """
         start_time = time.time()
 
-        # Use streaming if callbacks are provided
-        if on_stdout or on_stderr:
+        if stream:
+            buffer = not on_stdout and not on_stderr
             stdout_buffer: List[str] = []
             stderr_buffer: List[str] = []
             exit_code = 0
@@ -246,13 +249,15 @@ class AsyncSandboxExecutor(SandboxExecutor):
                     data = event["data"]
 
                     if stream_type == "stdout":
-                        stdout_buffer.append(data)
                         if on_stdout:
                             on_stdout(data)
+                        elif buffer:
+                            stdout_buffer.append(data)
                     elif stream_type == "stderr":
-                        stderr_buffer.append(data)
                         if on_stderr:
                             on_stderr(data)
+                        elif buffer:
+                            stderr_buffer.append(data)
                 elif "code" in event:
                     exit_code = event["code"]
                 elif "error" in event and isinstance(event["error"], str):

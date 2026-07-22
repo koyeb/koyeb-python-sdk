@@ -346,7 +346,9 @@ class SandboxFilesystem:
         with open(local_path, "rb") as f:
             content_bytes = f.read()
 
-        SandboxFilesystem.write_file(self, remote_path, content_bytes, encoding=encoding)
+        SandboxFilesystem.write_file(
+            self, remote_path, content_bytes, encoding=encoding
+        )
 
     def download_file(
         self, remote_path: str, local_path: str, encoding: str = "utf-8"

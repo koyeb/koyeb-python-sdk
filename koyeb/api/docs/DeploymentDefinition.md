@@ -5,7 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**name** | **str** |  | [optional] 
+**name** | **str** | Service name. Deprecated, set it directly in the Service when creating it. | [optional] 
 **type** | [**DeploymentDefinitionType**](DeploymentDefinitionType.md) |  | [optional] [default to DeploymentDefinitionType.INVALID]
 **strategy** | [**DeploymentStrategy**](DeploymentStrategy.md) |  | [optional] 
 **routes** | [**List[DeploymentRoute]**](DeploymentRoute.md) |  | [optional] 
@@ -20,6 +20,7 @@ Name | Type | Description | Notes
 **config_files** | [**List[ConfigFile]**](ConfigFile.md) |  | [optional] 
 **skip_cache** | **bool** |  | [optional] 
 **mesh** | [**DeploymentMesh**](DeploymentMesh.md) |  | [optional] [default to DeploymentMesh.DEPLOYMENT_MESH_AUTO]
+**network_policy** | [**NetworkPolicy**](NetworkPolicy.md) |  | [optional] 
 **docker** | [**DockerSource**](DockerSource.md) |  | [optional] 
 **git** | [**GitSource**](GitSource.md) |  | [optional] 
 **database** | [**DatabaseSource**](DatabaseSource.md) |  | [optional] 

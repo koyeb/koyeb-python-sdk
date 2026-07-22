@@ -1,0 +1,84 @@
+diff --git a/koyeb/api/configuration.py b/koyeb/api/configuration.py
+index 2e5c58b..ff94daa 100644
+--- a/koyeb/api/configuration.py
++++ b/koyeb/api/configuration.py
+@@ -17,6 +17,8 @@ from logging import FileHandler
+ import multiprocessing
+ import sys
+ from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
++from urllib.parse import urlparse
++from urllib.request import getproxies_environment, proxy_bypass_environment
+ from typing_extensions import NotRequired, Self
+ 
+ import urllib3
+@@ -329,7 +331,7 @@ conf = koyeb.api.Configuration(
+            per pool. None in the constructor is coerced to cpu_count * 5.
+         """
+ 
+-        self.proxy = proxy
++        self.proxy = proxy if proxy is not None else self._get_proxy_from_env()
+         """Proxy URL
+         """
+         self.proxy_headers = proxy_headers
+@@ -356,6 +358,19 @@ conf = koyeb.api.Configuration(
+         """date format
+         """
+ 
++    def _get_proxy_from_env(self) -> Optional[str]:
++        proxies = getproxies_environment()
++        if not proxies:
++            return None
++
++        parsed = urlparse(self._base_path)
++        host = parsed.hostname or ''
++
++        if proxy_bypass_environment(host):
++            return None
++
++        return proxies.get(parsed.scheme) or proxies.get('all') or None
++
+     def __deepcopy__(self, memo:  Dict[int, Any]) -> Self:
+         cls = self.__class__
+         result = cls.__new__(cls)
+diff --git a/koyeb/api_async/configuration.py b/koyeb/api_async/configuration.py
+index 8cd0513..e3f22ad 100644
+--- a/koyeb/api_async/configuration.py
++++ b/koyeb/api_async/configuration.py
+@@ -17,6 +17,8 @@ import logging
+ from logging import FileHandler
+ import sys
+ from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
++from urllib.parse import urlparse
++from urllib.request import getproxies_environment, proxy_bypass_environment
+ from typing_extensions import NotRequired, Self
+ 
+ 
+@@ -327,7 +329,7 @@ conf = koyeb.api_async.Configuration(
+            None in the constructor is coerced to default 100.
+         """
+ 
+-        self.proxy = proxy
++        self.proxy = proxy if proxy is not None else self._get_proxy_from_env()
+         """Proxy URL
+         """
+         self.proxy_headers = proxy_headers
+@@ -354,6 +356,19 @@ conf = koyeb.api_async.Configuration(
+         """date format
+         """
+ 
++    def _get_proxy_from_env(self) -> Optional[str]:
++        proxies = getproxies_environment()
++        if not proxies:
++            return None
++
++        parsed = urlparse(self._base_path)
++        host = parsed.hostname or ''
++
++        if proxy_bypass_environment(host):
++            return None
++
++        return proxies.get(parsed.scheme) or proxies.get('all') or None
++
+     def __deepcopy__(self, memo:  Dict[int, Any]) -> Self:
+         cls = self.__class__
+         result = cls.__new__(cls)

@@ -20,6 +20,7 @@ Name | Type | Description | Notes
 **config_files** | [**List[ConfigFile]**](ConfigFile.md) |  | [optional] 
 **skip_cache** | **bool** |  | [optional] 
 **mesh** | [**RegionalDeploymentMesh**](RegionalDeploymentMesh.md) |  | [optional] [default to RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO]
+**network_policy** | [**NetworkPolicy**](NetworkPolicy.md) |  | [optional] 
 **docker** | [**DockerSource**](DockerSource.md) |  | [optional] 
 **git** | [**GitSource**](GitSource.md) |  | [optional] 
 **archive** | [**ArchiveSource**](ArchiveSource.md) |  | [optional] 

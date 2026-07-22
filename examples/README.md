@@ -29,6 +29,17 @@ uv run python examples/01_create_sandbox.py
 - **13_background_processes.py** - Background process management (launch, list, kill)
 - **14_expose_port.py** - Port exposure via TCP proxy with HTTP verification
 - **15_get_sandbox.py** - Create a sandbox and then retrieve it by ID
+- **16_create_sandbox_with_auto_delete_simple.py** - Create a sandbox with auto-delete lifecycle setting
+- **17_create_sandbox_with_auto_delete.py** - Create sandboxes with auto-delete lifecycle settings
+- **18_create_sandbox_with_existing_app.py** - Create a sandbox in an existing app
+- **19_entrypoint_and_command.py** - Create sandboxes with custom entrypoint and command
+- **20_config_files.py** - Config files with secrets and interpolation
+- **21_egress_policy.py** - Block outbound network access or restrict it to an allowlist
+- **22_websockets.py** - WebSocket connections
+- **23_snapshot_and_spawn.py** - Create a sandbox, take a snapshot, and spawn from it
+- **24_declarative_snapshot_builder.py** - Declarative snapshot building
+- **25_full_snapshot_and_spawn.py** - Full snapshots with process state preservation
+- **26_snapshot_boot_benchmark.py** - Benchmark snapshot boot times (sync)
 
 ## Basic Usage
 

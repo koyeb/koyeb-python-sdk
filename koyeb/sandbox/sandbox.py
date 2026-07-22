@@ -18,6 +18,9 @@ from koyeb.api.exceptions import ApiException, NotFoundException
 from koyeb.api.models.create_app import AppLifeCycle, CreateApp
 from koyeb.api.models.create_service import CreateService, ServiceLifeCycle
 from koyeb.api.models.deployment_status import DeploymentStatus
+from koyeb.api.models.egress_policy import EgressPolicy
+from koyeb.api.models.egress_policy_mode import EgressPolicyMode
+from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.update_service import UpdateService
 
 from .executor_client import ConnectionInfo
@@ -30,6 +33,7 @@ from .utils import (
     SandboxError,
     SandboxTimeoutError,
     build_config_files,
+    build_network_policy,
     build_env_vars,
     create_deployment_definition,
     create_docker_source,
@@ -43,6 +47,7 @@ if TYPE_CHECKING:
     from .exec import AsyncSandboxExecutor, SandboxExecutor
     from .executor_client import AsyncSandboxClient, SandboxClient
     from .filesystem import AsyncSandboxFilesystem, SandboxFilesystem
+    from .snapshot import SnapshotType
 
 
 @dataclass
@@ -55,9 +60,9 @@ class ProcessInfo:
     pid: Optional[int] = None  # OS process ID (if running)
     exit_code: Optional[int] = None  # Exit code (if completed)
     started_at: Optional[str] = None  # ISO 8601 timestamp when process started
-    completed_at: Optional[str] = (
-        None  # ISO 8601 timestamp when process completed (if applicable)
-    )
+    completed_at: Optional[
+        str
+    ] = None  # ISO 8601 timestamp when process completed (if applicable)
 
 
 @dataclass
@@ -87,6 +92,7 @@ class Sandbox:
         sandbox_secret: Optional[str] = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         host: Optional[str] = None,
+        snapshot_id: Optional[str] = None,
     ):
         self.sandbox_id = sandbox_id
         self.app_id = app_id
@@ -96,6 +102,7 @@ class Sandbox:
         self.sandbox_secret = sandbox_secret
         self.poll_interval = poll_interval
         self.host = host
+        self.snapshot_id = snapshot_id
         self._created_at = time.time()
         self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
         self._domain: Optional[str] = None
@@ -139,6 +146,10 @@ class Sandbox:
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
         host: Optional[str] = None,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
+        snapshot: Optional[Union[str, "Snapshot"]] = None,
+        sandbox_secret: Optional[str] = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -185,6 +196,14 @@ class Sandbox:
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
                 host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+                block_network: If True, block all outbound network access from the sandbox
+                outbound_allowlist: List of IPs/CIDRs allowed as outbound destinations;
+                    all other outbound traffic is blocked. Bare IPs are normalized to
+                    /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
+                snapshot: Optional. A Snapshot object or snapshot name/ID string to create the sandbox from.
+                    If provided, the sandbox will be initialized from this snapshot.
+                    Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
+                sandbox_secret: Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -192,6 +211,8 @@ class Sandbox:
         Raises:
                 ValueError: If API token is not provided
                 SandboxTimeoutError: If wait_ready is True and sandbox does not become ready within timeout
+                EgressPolicyError: If both block_network and outbound_allowlist are passed,
+                    or an allowlist entry is not a valid IP address or CIDR
 
         Example:
             >>> # Public image (default)
@@ -202,6 +223,7 @@ class Sandbox:
             ...     image="ghcr.io/myorg/myimage:latest",
             ...     registry_secret="my-ghcr-secret"
             ... )
+<<<<<<< HEAD
 
             >>> # Protect the exposed port with an API key
             >>> sandbox = Sandbox.create(exposed_port_security_policy=ApiKey("my-secret-key"))
@@ -209,6 +231,23 @@ class Sandbox:
             >>> # Protect the exposed port with Basic Auth
             >>> sandbox = Sandbox.create(
             ...     exposed_port_security_policy=BasicAuth(username="admin", password="s3cr3t")
+=======
+            
+            >>> # Create from a Snapshot object
+            >>> from koyeb.sandbox import Snapshot
+            >>> snapshot = Snapshot.get("my-snapshot-id")
+            >>> sandbox = Sandbox.create(snapshot=snapshot)
+            
+            >>> # Create from a snapshot ID string
+            >>> sandbox = Sandbox.create(snapshot="my-snapshot-id")
+            
+            >>> # Create from a snapshot with custom parameters
+            >>> sandbox = Sandbox.create(
+            ...     snapshot="my-snapshot-id",
+            ...     image="python:3.12",
+            ...     instance_type="nano",
+            ...     env={"MY_VAR": "value"}
+>>>>>>> origin/main
             ... )
         """
         if api_token is None:
@@ -218,6 +257,44 @@ class Sandbox:
                     "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
 
+        # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
+        actual_snapshot_id = None
+        actual_snapshot_type = None
+        
+        if snapshot is not None:
+            if isinstance(snapshot, str):
+                # snapshot is a snapshot ID or name string
+                from .snapshot import Snapshot, SnapshotType
+                
+                # Try to get snapshot by ID first (fast path for UUIDs)
+                try:
+                    snapshot_obj = Snapshot.get(snapshot, api_token=api_token, host=host)
+                    actual_snapshot_id = snapshot_obj.id
+                    actual_snapshot_type = snapshot_obj.snapshot_type
+                except SandboxError:
+                    # If that fails, try to find by name
+                    try:
+                        snapshots = Snapshot.list(
+                            api_token=api_token, host=host, limit=100
+                        )
+                        for s in snapshots:
+                            if s.name == snapshot:
+                                actual_snapshot_id = s.id
+                                actual_snapshot_type = s.snapshot_type
+                                break
+                    except SandboxError:
+                        pass
+                    
+                    # If we couldn't resolve it, use the string as-is
+                    # Default to FILESYSTEM type if we couldn't determine it
+                    if actual_snapshot_id is None:
+                        actual_snapshot_id = snapshot
+                        actual_snapshot_type = SnapshotType.FILESYSTEM
+            else:
+                # snapshot is a Snapshot object
+                actual_snapshot_id = snapshot.id
+                actual_snapshot_type = snapshot.snapshot_type
+        
         sandbox = cls._create_sync(
             name=name,
             image=image,
@@ -244,6 +321,11 @@ class Sandbox:
             command=command,
             args=args,
             host=host,
+            block_network=block_network,
+            outbound_allowlist=outbound_allowlist,
+            snapshot_id=actual_snapshot_id,
+            snapshot_type=actual_snapshot_type,
+            sandbox_secret=sandbox_secret,
         )
 
         if wait_ready:
@@ -285,18 +367,33 @@ class Sandbox:
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
         host: Optional[str] = None,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
+        snapshot_id: Optional[str] = None,
+        snapshot_type: Optional["SnapshotType"] = None,
+        sandbox_secret: Optional[str] = None,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
         Subclasses can override to return their own type.
         """
+        network_policy = build_network_policy(block_network, outbound_allowlist)
 
         clients = get_api_clients(api_token, host)
         apps_api = clients.apps
         services_api = clients.services
 
+<<<<<<< HEAD
         # Generate secure sandbox secret
         sandbox_secret = secrets.token_urlsafe(32)
+=======
+        # Always create routes (ports are always exposed, default to "http")
+        routes = create_koyeb_sandbox_routes()
+
+        # Generate secure sandbox secret if not provided
+        if sandbox_secret is None:
+            sandbox_secret = secrets.token_urlsafe(32)
+>>>>>>> origin/main
 
         # Add SANDBOX_SECRET to environment variables
         if env is None:
@@ -316,8 +413,12 @@ class Sandbox:
         env_vars = build_env_vars(env)
         config_file_objects = build_config_files(config_files)
         docker_source = create_docker_source(
-            image, privileged=privileged, image_registry_secret=registry_secret,
-            entrypoint=entrypoint, command=command, args=args,
+            image,
+            privileged=privileged,
+            image_registry_secret=registry_secret,
+            entrypoint=entrypoint,
+            command=command,
+            args=args,
         )
 
         deployment_definition = create_deployment_definition(
@@ -334,17 +435,70 @@ class Sandbox:
             _experimental_deep_sleep_value=_experimental_deep_sleep_value,
             enable_mesh=enable_mesh,
             config_files=config_file_objects if config_file_objects else None,
+            network_policy=network_policy,
         )
 
         service_life_cycle = ServiceLifeCycle(
             delete_after_create=delete_after_delay,
             delete_after_sleep=delete_after_inactivity_delay,
         )
-        create_service = CreateService(
-            app_id=app_id,
-            definition=deployment_definition,
-            life_cycle=service_life_cycle,
+        
+        # Build deployment definition - used for both snapshot and non-snapshot cases
+        env_vars = build_env_vars(env)
+        config_file_objects = build_config_files(config_files)
+        docker_source = create_docker_source(
+            image, privileged=privileged, image_registry_secret=registry_secret,
+            entrypoint=entrypoint, command=command, args=args,
         )
+        deployment_definition = create_deployment_definition(
+            name=name,
+            docker_source=docker_source,
+            env_vars=env_vars,
+            instance_type=instance_type,
+            exposed_port_protocol=exposed_port_protocol,
+            region=region,
+            routes=routes,
+            idle_timeout=idle_timeout,
+            enable_tcp_proxy=enable_tcp_proxy,
+            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+            _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+            enable_mesh=enable_mesh,
+            config_files=config_file_objects if config_file_objects else None,
+            network_policy=network_policy,
+        )
+        
+        # Handle snapshot creation based on snapshot type
+        # For FULL snapshots, don't provide definition (API will infer it)
+        # For FILESYSTEM snapshots, always provide definition with snapshot_id
+        if snapshot_id:
+            # Import here to avoid circular import
+            from .snapshot import SnapshotType as ST
+            
+            # For FULL snapshots, create service without definition
+            if snapshot_type == ST.FULL:
+                create_service = CreateService(
+                    app_id=app_id,
+                    life_cycle=service_life_cycle,
+                    instance_snapshot_id=snapshot_id,
+                    name=name,
+                )
+            else:
+                # For FILESYSTEM snapshots (or unknown), provide definition
+                create_service = CreateService(
+                    app_id=app_id,
+                    definition=deployment_definition,
+                    life_cycle=service_life_cycle,
+                    instance_snapshot_id=snapshot_id,
+                    name=name,
+                )
+        else:
+            # No snapshot, create normally with definition
+            create_service = CreateService(
+                app_id=app_id,
+                definition=deployment_definition,
+                life_cycle=service_life_cycle,
+                name=name,
+            )
         service_response = services_api.create_service(service=create_service)
         service_id = service_response.service.id
 
@@ -357,6 +511,7 @@ class Sandbox:
             sandbox_secret=sandbox_secret,
             poll_interval=poll_interval,
             host=host,
+            snapshot_id=snapshot_id,
         )
 
     @classmethod
@@ -461,6 +616,188 @@ class Sandbox:
                 pass
 
         return sandbox
+
+    def snapshot(
+        self,
+        name: str,
+        snapshot_type: "SnapshotType" = None,
+        wait_available: bool = True,
+        timeout: int = 600,
+    ) -> "Snapshot":
+        """
+        Create a snapshot of this sandbox.
+
+        Captures the current state of the sandbox's filesystem (and optionally
+        running processes for FULL type) so it can be restored later.
+
+        Args:
+            name: Name for the snapshot
+            snapshot_type: Type of snapshot to create (FILESYSTEM or FULL).
+                Defaults to FILESYSTEM.
+            wait_available: Whether to wait for snapshot to become available
+            timeout: Timeout in seconds for waiting
+
+        Returns:
+            Snapshot: The created snapshot object
+
+        Raises:
+            SandboxError: If snapshot creation fails
+        """
+        from .snapshot import Snapshot, SnapshotType
+
+        if snapshot_type is None:
+            snapshot_type = SnapshotType.FILESYSTEM
+
+        try:
+            from koyeb.api.models.instance_snapshot_type import InstanceSnapshotType
+            from koyeb.api.models.create_instance_snapshot_request import CreateInstanceSnapshotRequest
+            from .snapshot import SnapshotStatus
+
+            # Get API clients
+            clients = get_api_clients(self.api_token, self.host)
+            
+            from koyeb.api.models.instance_status import InstanceStatus
+            
+            # Get the first running instance for this service
+            instances_reply = clients.instances.list_instances(
+                service_id=self.service_id,
+                statuses=[InstanceStatus.HEALTHY, InstanceStatus.STARTING, InstanceStatus.ALLOCATING],
+                limit="1",
+            )
+            
+            if not instances_reply.instances or len(instances_reply.instances) == 0:
+                raise SandboxError(f"No running instances found for service {self.service_id}")
+            
+            instance = instances_reply.instances[0]
+            instance_id = instance.id
+            
+            # Map SnapshotType to InstanceSnapshotType
+            if snapshot_type == SnapshotType.FILESYSTEM:
+                instance_snapshot_type = InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_FILESYSTEM
+            else:
+                instance_snapshot_type = InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_FULL
+            
+            # Create the snapshot via API
+            create_request = CreateInstanceSnapshotRequest(
+                instance_id=instance_id,
+                name=name,
+                type=instance_snapshot_type,
+            )
+            
+            reply = clients.instance_snapshots.create_instance_snapshot(create_request)
+            
+            if not reply.instance_snapshot:
+                raise SandboxError("Failed to create snapshot: no snapshot returned from API")
+            
+            api_snapshot = reply.instance_snapshot
+            
+            # Convert API snapshot to our Snapshot object
+            # Include the sandbox_secret so spawned sandboxes can use the same executor
+            snapshot = Snapshot._from_instance_api_snapshot(
+                api_snapshot, self.api_token, self.host, sandbox_secret=self.sandbox_secret
+            )
+            
+            # Wait for snapshot to become available if requested
+            if wait_available:
+                start_time = time.time()
+                while time.time() - start_time < timeout:
+                    snapshot.refresh()
+                    if snapshot.status == SnapshotStatus.AVAILABLE:
+                        break
+                    if snapshot.status == SnapshotStatus.FAILED:
+                        raise SandboxError(f"Snapshot creation failed: {snapshot.messages}")
+                    time.sleep(self.poll_interval)
+                else:
+                    raise SandboxTimeoutError(
+                        f"Snapshot did not become available within {timeout} seconds"
+                    )
+            
+            return snapshot
+
+        except Exception as e:
+            raise SandboxError(f"Failed to create snapshot: {e}") from e
+
+    @classmethod
+    def create_from_snapshot(
+        cls,
+        snapshot: Union["Snapshot", str],
+        name: Optional[str] = None,
+        wait_ready: bool = True,
+        timeout: int = 300,
+        **create_kwargs,
+    ) -> "Sandbox":
+        """
+        Create a new sandbox from a snapshot.
+
+        Args:
+            snapshot: Snapshot object or snapshot ID string
+            name: Name for the new sandbox
+            wait_ready: Whether to wait for sandbox to be ready
+            timeout: Timeout in seconds
+            **create_kwargs: Additional arguments to pass to create()
+
+        Returns:
+            Sandbox: A new sandbox instance
+        """
+        create_params = {
+            "snapshot": snapshot,
+            "wait_ready": wait_ready,
+            "timeout": timeout,
+        }
+        if name:
+            create_params["name"] = name
+
+        create_params.update(create_kwargs)
+        return cls.create(**create_params)
+
+    @classmethod
+    def template(
+        cls,
+        name: str,
+        image: str,
+        workdir: Optional[str] = None,
+        api_token: Optional[str] = None,
+        host: Optional[str] = None,
+        delete_builder: bool = True,
+    ) -> "DeclarativeSnapshot":
+        """
+        Create a declarative snapshot builder.
+
+        Use this to build a reusable snapshot by declaratively defining
+        the sandbox environment (files, packages, etc.) and then building
+        a snapshot that can be used to spawn pre-configured sandboxes.
+
+        Args:
+            name: Name for the template
+            image: Docker image to use
+            workdir: Working directory in the sandbox
+            api_token: Koyeb API token
+            host: Koyeb API host
+            delete_builder: Whether to delete the builder sandbox after creating the snapshot (default: True)
+
+        Returns:
+            DeclarativeSnapshot: Fluent builder for creating snapshots
+
+        Example:
+            snapshot = (
+                Sandbox.template("python-ci", image="python:3.12", workdir="/workspace")
+                .file("requirements.txt", "pytest\\nrequests")
+                .run("pip install -r requirements.txt")
+                .build(snapshot_name="python-ci-env")
+            )
+            
+            sbx = snapshot.spawn(name="test-runner")
+        """
+        from .snapshot import DeclarativeSnapshot
+
+        return DeclarativeSnapshot(
+            name=name,
+            image=image,
+            workdir=workdir,
+            api_token=api_token,
+            host=host,
+            delete_builder=delete_builder,
+        )
 
     _DEPLOYMENT_ERROR_STATUSES = {
         DeploymentStatus.ERROR,
@@ -1116,6 +1453,68 @@ class Sandbox:
                 raise
             raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
 
+    def update_network_policy(
+        self,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Update the sandbox's network policy.
+
+        Warning: applying a new network policy triggers a redeployment of the
+        sandbox service. The sandbox is restarted and any in-memory or
+        non-persisted state is lost. This method does not wait for the
+        redeployment to finish.
+
+        Args:
+            block_network: If True, block all outbound network access from the sandbox
+            outbound_allowlist: List of IPs/CIDRs allowed as outbound destinations;
+                all other outbound traffic is blocked. Bare IPs are normalized to
+                /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
+
+        With both arguments unset, the network policy is reset to the
+        platform default (unrestricted outbound access).
+
+        Raises:
+            EgressPolicyError: If both block_network and outbound_allowlist are
+                passed, or an allowlist entry is not a valid IP address or CIDR
+            SandboxError: If updating the network policy fails
+
+        Example:
+            >>> sandbox.update_network_policy(block_network=True)
+            >>> sandbox.update_network_policy(outbound_allowlist=["10.0.0.0/8", "1.2.3.4"])
+            >>> sandbox.update_network_policy()  # reset to unrestricted
+        """
+        network_policy = build_network_policy(block_network, outbound_allowlist)
+        if network_policy is None:
+            network_policy = NetworkPolicy(
+                egress=EgressPolicy(mode=EgressPolicyMode.EGRESS_POLICY_MODE_DEFAULT)
+            )
+        try:
+            clients = get_api_clients(self.api_token)
+            services_api = clients.services
+            deployments_api = clients.deployments
+            service_response = services_api.get_service(self.service_id)
+            service = service_response.service
+
+            if not service:
+                raise SandboxError("Sandbox service not found")
+
+            deployment_response = deployments_api.get_deployment(
+                service.latest_deployment_id
+            )
+            definition = deployment_response.deployment.definition
+            definition.network_policy = network_policy
+
+            services_api.update_service(
+                id=self.service_id,
+                service=UpdateService(definition=definition),
+            )
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to update network policy: {str(e)}")
+
     def __enter__(self) -> "Sandbox":
         """Context manager entry - returns self."""
         return self
@@ -1280,6 +1679,10 @@ class AsyncSandbox(Sandbox):
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
         host: Optional[str] = None,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
+        snapshot: Optional[Union[str, "Snapshot"]] = None,
+        sandbox_secret: Optional[str] = None,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1328,6 +1731,14 @@ class AsyncSandbox(Sandbox):
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
                 host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+                block_network: If True, block all outbound network access from the sandbox
+                outbound_allowlist: List of IPs/CIDRs allowed as outbound destinations;
+                    all other outbound traffic is blocked. Bare IPs are normalized to
+                    /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
+                snapshot: Optional. A Snapshot object or snapshot name/ID string to create the sandbox from.
+                    If provided, the sandbox will be initialized from this snapshot.
+                    Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
+                sandbox_secret: Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -1335,6 +1746,8 @@ class AsyncSandbox(Sandbox):
         Raises:
                 ValueError: If API token is not provided
                 SandboxTimeoutError: If wait_ready is True and sandbox does not become ready within timeout
+                EgressPolicyError: If both block_network and outbound_allowlist are passed,
+                    or an allowlist entry is not a valid IP address or CIDR
         """
         if api_token is None:
             api_token = os.getenv("KOYEB_API_TOKEN")
@@ -1343,16 +1756,67 @@ class AsyncSandbox(Sandbox):
                     "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
 
-        from .utils import get_async_api_clients
+        # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
+        actual_snapshot_id = None
+        actual_snapshot_type = None
+        
+        if snapshot is not None:
+            if isinstance(snapshot, str):
+                # snapshot is a snapshot ID or name string
+                from .snapshot import Snapshot, SnapshotType
+                
+                # Try to get snapshot by ID first (fast path for UUIDs)
+                try:
+                    snapshot_obj = Snapshot.get(snapshot, api_token=api_token, host=host)
+                    actual_snapshot_id = snapshot_obj.id
+                    actual_snapshot_type = snapshot_obj.snapshot_type
+                except SandboxError:
+                    # If that fails, try to find by name
+                    try:
+                        snapshots = Snapshot.list(
+                            api_token=api_token, host=host, limit=100
+                        )
+                        for s in snapshots:
+                            if s.name == snapshot:
+                                actual_snapshot_id = s.id
+                                actual_snapshot_type = s.snapshot_type
+                                break
+                    except SandboxError:
+                        pass
+                    
+                    # If we couldn't resolve it, use the string as-is
+                    # Default to FILESYSTEM type if we couldn't determine it
+                    if actual_snapshot_id is None:
+                        actual_snapshot_id = snapshot
+                        actual_snapshot_type = SnapshotType.FILESYSTEM
+            else:
+                # snapshot is a Snapshot object
+                actual_snapshot_id = snapshot.id
+                actual_snapshot_type = snapshot.snapshot_type
+
+        from .utils import get_async_api_clients, build_network_policy
         from koyeb.api_async.models.create_app import CreateApp as AsyncCreateApp
         from koyeb.api_async.models.create_app import AppLifeCycle as AsyncAppLifeCycle
         from koyeb.api_async.models.create_service import CreateService as AsyncCreateService
         from koyeb.api_async.models.create_service import ServiceLifeCycle as AsyncServiceLifeCycle
 
+        # Build the network policy from the provided parameters. Validate before
+        # any API call so invalid input fails fast without orphaning an app.
+        network_policy = build_network_policy(block_network, outbound_allowlist)
+
         clients = get_async_api_clients(api_token, host)
 
+<<<<<<< HEAD
         # Generate secure sandbox secret
         sandbox_secret = secrets.token_urlsafe(32)
+=======
+        # Always create routes
+        routes = create_koyeb_sandbox_routes()
+
+        # Generate secure sandbox secret if not provided
+        if sandbox_secret is None:
+            sandbox_secret = secrets.token_urlsafe(32)
+>>>>>>> origin/main
 
         # Add SANDBOX_SECRET to environment variables
         if env is None:
@@ -1390,6 +1854,7 @@ class AsyncSandbox(Sandbox):
             _experimental_deep_sleep_value=_experimental_deep_sleep_value,
             enable_mesh=enable_mesh,
             config_files=config_file_objects if config_file_objects else None,
+            network_policy=network_policy,
         )
 
         service_life_cycle = AsyncServiceLifeCycle(
@@ -1398,11 +1863,83 @@ class AsyncSandbox(Sandbox):
         )
         # Convert sync DeploymentDefinition to dict so the async Pydantic model
         # (which expects koyeb.api_async.models.DeploymentDefinition) can coerce it.
-        create_service = AsyncCreateService(
-            app_id=app_id,
-            definition=deployment_definition.to_dict(),
-            life_cycle=service_life_cycle,
-        )
+        
+        # Handle snapshot creation based on snapshot type
+        # For FULL snapshots, don't provide definition (API will infer it)
+        # For FILESYSTEM snapshots, always provide definition with snapshot_id
+        if actual_snapshot_id:
+            # Import here to avoid circular import
+            from .snapshot import SnapshotType as ST
+            
+            # For FULL snapshots, create service without definition
+            if actual_snapshot_type == ST.FULL:
+                create_service = AsyncCreateService(
+                    app_id=app_id,
+                    life_cycle=service_life_cycle,
+                    instance_snapshot_id=actual_snapshot_id,
+                    name=name,
+                )
+            else:
+                # For FILESYSTEM snapshots (or unknown), provide definition
+                env_vars = build_env_vars(env)
+                config_file_objects = build_config_files(config_files)
+                docker_source = create_docker_source(
+                    image, privileged=privileged, image_registry_secret=registry_secret,
+                    entrypoint=entrypoint, command=command, args=args,
+                )
+                deployment_definition = create_deployment_definition(
+                    name=name,
+                    docker_source=docker_source,
+                    env_vars=env_vars,
+                    instance_type=instance_type,
+                    exposed_port_protocol=exposed_port_protocol,
+                    region=region,
+                    routes=routes,
+                    idle_timeout=idle_timeout,
+                    enable_tcp_proxy=enable_tcp_proxy,
+                    _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+                    _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+                    enable_mesh=enable_mesh,
+                    config_files=config_file_objects if config_file_objects else None,
+                    network_policy=network_policy,
+                )
+                create_service = AsyncCreateService(
+                    app_id=app_id,
+                    definition=deployment_definition.to_dict(),
+                    life_cycle=service_life_cycle,
+                    instance_snapshot_id=actual_snapshot_id,
+                    name=name,
+                )
+        else:
+            # No snapshot, create normally with definition
+            env_vars = build_env_vars(env)
+            config_file_objects = build_config_files(config_files)
+            docker_source = create_docker_source(
+                image, privileged=privileged, image_registry_secret=registry_secret,
+                entrypoint=entrypoint, command=command, args=args,
+            )
+            deployment_definition = create_deployment_definition(
+                name=name,
+                docker_source=docker_source,
+                env_vars=env_vars,
+                instance_type=instance_type,
+                exposed_port_protocol=exposed_port_protocol,
+                region=region,
+                routes=routes,
+                idle_timeout=idle_timeout,
+                enable_tcp_proxy=enable_tcp_proxy,
+                _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+                _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+                enable_mesh=enable_mesh,
+                config_files=config_file_objects if config_file_objects else None,
+                network_policy=network_policy,
+            )
+            create_service = AsyncCreateService(
+                app_id=app_id,
+                definition=deployment_definition.to_dict(),
+                life_cycle=service_life_cycle,
+                name=name,
+            )
         service_response = await clients.services.create_service(service=create_service)
         service_id = service_response.service.id
 
@@ -1415,6 +1952,7 @@ class AsyncSandbox(Sandbox):
             sandbox_secret=sandbox_secret,
             poll_interval=poll_interval,
             host=host,
+            snapshot_id=actual_snapshot_id,
         )
 
         if wait_ready:
@@ -1584,6 +2122,140 @@ class AsyncSandbox(Sandbox):
         clients = get_async_api_clients(self.api_token, self.host)
         await clients.apps.delete_app(self.app_id)
 
+    async def snapshot(
+        self,
+        name: str,
+        snapshot_type: "SnapshotType" = None,
+        wait_available: bool = True,
+        timeout: int = 600,
+    ) -> "Snapshot":
+        """
+        Create a snapshot of this sandbox asynchronously.
+
+        Captures the current state of the sandbox's filesystem (and optionally
+        running processes for FULL type) so it can be restored later.
+
+        Args:
+            name: Name for the snapshot
+            snapshot_type: Type of snapshot to create (FILESYSTEM or FULL).
+                Defaults to FILESYSTEM.
+            wait_available: Whether to wait for snapshot to become available
+            timeout: Timeout in seconds for waiting
+
+        Returns:
+            Snapshot: The created snapshot object
+
+        Raises:
+            SandboxError: If snapshot creation fails
+        """
+        from .snapshot import Snapshot, SnapshotType
+
+        if snapshot_type is None:
+            snapshot_type = SnapshotType.FILESYSTEM
+
+        try:
+            from koyeb.api_async.models.instance_snapshot_type import InstanceSnapshotType
+            from koyeb.api_async.models.create_instance_snapshot_request import CreateInstanceSnapshotRequest
+            from .utils import get_async_api_clients
+            from .snapshot import SnapshotStatus
+
+            # Get async API clients
+            clients = get_async_api_clients(self.api_token, self.host)
+            
+            from koyeb.api.models.instance_status import InstanceStatus
+            
+            # Get the first running instance for this service
+            instances_reply = await clients.instances.list_instances(
+                service_id=self.service_id,
+                statuses=[InstanceStatus.HEALTHY, InstanceStatus.STARTING, InstanceStatus.ALLOCATING],
+                limit="1",
+            )
+            
+            if not instances_reply.instances or len(instances_reply.instances) == 0:
+                raise SandboxError(f"No running instances found for service {self.service_id}")
+            
+            instance = instances_reply.instances[0]
+            instance_id = instance.id
+            
+            # Map SnapshotType to InstanceSnapshotType
+            if snapshot_type == SnapshotType.FILESYSTEM:
+                instance_snapshot_type = InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_FILESYSTEM
+            else:
+                instance_snapshot_type = InstanceSnapshotType.INSTANCE_SNAPSHOT_TYPE_FULL
+            
+            # Create the snapshot via API
+            create_request = CreateInstanceSnapshotRequest(
+                instance_id=instance_id,
+                name=name,
+                type=instance_snapshot_type,
+            )
+            
+            reply = await clients.instance_snapshots.create_instance_snapshot(create_request)
+            
+            if not reply.instance_snapshot:
+                raise SandboxError("Failed to create snapshot: no snapshot returned from API")
+            
+            api_snapshot = reply.instance_snapshot
+            
+            # Convert API snapshot to our Snapshot object
+            # Include the sandbox_secret so spawned sandboxes can use the same executor
+            snapshot = Snapshot._from_instance_api_snapshot(
+                api_snapshot, self.api_token, self.host, sandbox_secret=self.sandbox_secret
+            )
+            
+            # Wait for snapshot to become available if requested
+            if wait_available:
+                start_time = time.time()
+                while time.time() - start_time < timeout:
+                    snapshot.refresh()
+                    if snapshot.status == SnapshotStatus.AVAILABLE:
+                        break
+                    if snapshot.status == SnapshotStatus.FAILED:
+                        raise SandboxError(f"Snapshot creation failed: {snapshot.messages}")
+                    await asyncio.sleep(self.poll_interval)
+                else:
+                    raise SandboxTimeoutError(
+                        f"Snapshot did not become available within {timeout} seconds"
+                    )
+            
+            return snapshot
+
+        except Exception as e:
+            raise SandboxError(f"Failed to create snapshot: {e}") from e
+
+    @classmethod
+    async def create_from_snapshot(
+        cls,
+        snapshot: Union["Snapshot", str],
+        name: Optional[str] = None,
+        wait_ready: bool = True,
+        timeout: int = 300,
+        **create_kwargs,
+    ) -> "AsyncSandbox":
+        """
+        Create a new async sandbox from a snapshot.
+
+        Args:
+            snapshot: Snapshot object or snapshot ID string
+            name: Name for the new sandbox
+            wait_ready: Whether to wait for sandbox to be ready
+            timeout: Timeout in seconds
+            **create_kwargs: Additional arguments to pass to create()
+
+        Returns:
+            AsyncSandbox: A new async sandbox instance
+        """
+        create_params = {
+            "snapshot": snapshot,
+            "wait_ready": wait_ready,
+            "timeout": timeout,
+        }
+        if name:
+            create_params["name"] = name
+
+        create_params.update(create_kwargs)
+        return await cls.create(**create_params)
+
     async def is_healthy(self) -> bool:
         """Check if sandbox is healthy and ready for operations asynchronously."""
         if not await self._async_is_deployment_healthy():
@@ -1740,6 +2412,66 @@ class AsyncSandbox(Sandbox):
             if isinstance(e, SandboxError):
                 raise
             raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
+
+    async def update_network_policy(
+        self,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
+    ) -> None:
+        """Update the sandbox's network policy asynchronously.
+
+        Warning: applying a new network policy triggers a redeployment of the
+        sandbox service. The sandbox is restarted and any in-memory or
+        non-persisted state is lost. This method does not wait for the
+        redeployment to finish.
+
+        See Sandbox.update_network_policy for full documentation.
+
+        Raises:
+            EgressPolicyError: If both block_network and outbound_allowlist are
+                passed, or an allowlist entry is not a valid IP address or CIDR
+            SandboxError: If updating the network policy fails
+        """
+        from .utils import get_async_api_clients, build_network_policy
+        from koyeb.api_async.models.network_policy import NetworkPolicy as AsyncNetworkPolicy
+        from koyeb.api_async.models.egress_policy import EgressPolicy as AsyncEgressPolicy
+        from koyeb.api_async.models.egress_policy_mode import (
+            EgressPolicyMode as AsyncEgressPolicyMode,
+        )
+        from koyeb.api_async.models.update_service import UpdateService as AsyncUpdateService
+
+        sync_policy = build_network_policy(block_network, outbound_allowlist)
+        if sync_policy is None:
+            network_policy = AsyncNetworkPolicy(
+                egress=AsyncEgressPolicy(
+                    mode=AsyncEgressPolicyMode.EGRESS_POLICY_MODE_DEFAULT
+                )
+            )
+        else:
+            network_policy = AsyncNetworkPolicy.from_dict(sync_policy.to_dict())
+
+        try:
+            clients = get_async_api_clients(self.api_token, self.host)
+            service_response = await clients.services.get_service(self.service_id)
+            service = service_response.service
+
+            if not service:
+                raise SandboxError("Sandbox service not found")
+
+            deployment_response = await clients.deployments.get_deployment(
+                service.latest_deployment_id
+            )
+            definition = deployment_response.deployment.definition
+            definition.network_policy = network_policy
+
+            await clients.services.update_service(
+                id=self.service_id,
+                service=AsyncUpdateService(definition=definition),
+            )
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to update network policy: {str(e)}") from e
 
     async def __aenter__(self) -> "AsyncSandbox":
         """Async context manager entry - returns self."""

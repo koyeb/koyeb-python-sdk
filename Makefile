@@ -3,12 +3,14 @@ TEST_OPTS=-v -test.timeout 300s
 GIT_USER_ID?=koyeb
 GIT_REPO_ID?=koyeb-api-client-python
 OPENAPI_GENERATOR_VERSION?=latest
-PACKAGE_VERSION?=1.5.1
+PACKAGE_VERSION?=1.5.2
 DOCKER ?= docker
 
 
 .PHONY: gen-api-client
 gen-api-client: fetch-spec gen-api-client-sync gen-api-client-async
+	# Apply manual patches after code generation
+	./scripts/apply_patches.sh
 
 .PHONY: gen-api-client-sync
 gen-api-client-sync:

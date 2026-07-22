@@ -9,6 +9,8 @@ Name | Type | Description | Notes
 **definition** | [**DeploymentDefinition**](DeploymentDefinition.md) |  | [optional] 
 **life_cycle** | [**ServiceLifeCycle**](ServiceLifeCycle.md) |  | [optional] 
 **project_id** | **str** |  | [optional] 
+**instance_snapshot_id** | **str** |  | [optional] 
+**name** | **str** |  | [optional] 
 
 ## Example
 

@@ -27,6 +27,7 @@ Name | Type | Description | Notes
 **archive_max_size_mb** | **str** |  | [optional] 
 **lifecycle** | [**LifecycleQuotas**](LifecycleQuotas.md) |  | [optional] 
 **max_projects** | **str** |  | [optional] 
+**instance_snapshots** | [**InstanceSnapshotQuotas**](InstanceSnapshotQuotas.md) |  | [optional] 
 
 ## Example
 

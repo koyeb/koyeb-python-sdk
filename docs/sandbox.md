@@ -18,6 +18,50 @@ class TestCreateDockerSource(unittest.TestCase)
 
 Tests for create_docker_source entrypoint, command, and args support.
 
+<a id="koyeb/sandbox.test_utils.TestBuildEgressPolicy"></a>
+
+## TestBuildEgressPolicy Objects
+
+```python
+class TestBuildEgressPolicy(unittest.TestCase)
+```
+
+Tests for build_network_policy validation and normalization.
+
+<a id="koyeb/sandbox.test_egress_policy"></a>
+
+# koyeb/sandbox.test\_egress\_policy
+
+<a id="koyeb/sandbox.test_egress_policy.TestCreateEgressWiring"></a>
+
+## TestCreateEgressWiring Objects
+
+```python
+class TestCreateEgressWiring(unittest.TestCase)
+```
+
+Tests that Sandbox.create wires egress kwargs into the deployment definition.
+
+<a id="koyeb/sandbox.test_egress_policy.TestUpdateNetworkPolicy"></a>
+
+## TestUpdateNetworkPolicy Objects
+
+```python
+class TestUpdateNetworkPolicy(unittest.TestCase)
+```
+
+Tests for Sandbox.update_network_policy.
+
+<a id="koyeb/sandbox.test_egress_policy.TestAsyncUpdateNetworkPolicy"></a>
+
+## TestAsyncUpdateNetworkPolicy Objects
+
+```python
+class TestAsyncUpdateNetworkPolicy(unittest.TestCase)
+```
+
+Tests for AsyncSandbox.update_network_policy.
+
 <a id="koyeb/sandbox.exec"></a>
 
 # koyeb/sandbox.exec
@@ -96,13 +140,13 @@ For async usage, use AsyncSandboxExecutor instead.
 #### \_\_call\_\_
 
 ```python
-def __call__(
-        command: str,
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        timeout: int = 30,
-        on_stdout: Optional[Callable[[str], None]] = None,
-        on_stderr: Optional[Callable[[str], None]] = None) -> CommandResult
+def __call__(command: str,
+             cwd: Optional[str] = None,
+             env: Optional[Dict[str, str]] = None,
+             timeout: int = 30,
+             on_stdout: Optional[Callable[[str], None]] = None,
+             on_stderr: Optional[Callable[[str], None]] = None,
+             stream: bool = True) -> CommandResult
 ```
 
 Execute a command in a shell synchronously. Supports streaming output via callbacks.
@@ -155,13 +199,13 @@ using native async I/O via AsyncSandboxClient.
 #### \_\_call\_\_
 
 ```python
-async def __call__(
-        command: str,
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        timeout: int = 30,
-        on_stdout: Optional[Callable[[str], None]] = None,
-        on_stderr: Optional[Callable[[str], None]] = None) -> CommandResult
+async def __call__(command: str,
+                   cwd: Optional[str] = None,
+                   env: Optional[Dict[str, str]] = None,
+                   timeout: int = 30,
+                   on_stdout: Optional[Callable[[str], None]] = None,
+                   on_stderr: Optional[Callable[[str], None]] = None,
+                   stream: bool = True) -> CommandResult
 ```
 
 Execute a command in a shell asynchronously. Supports streaming output via callbacks.
@@ -958,6 +1002,12 @@ Exit code (if completed)
 
 ISO 8601 timestamp when process started
 
+<a id="koyeb/sandbox.sandbox.ProcessInfo.completed_at"></a>
+
+#### completed\_at
+
+ISO 8601 timestamp when process completed (if applicable)
+
 <a id="koyeb/sandbox.sandbox.ExposedPort"></a>
 
 ## ExposedPort Objects
@@ -1022,7 +1072,9 @@ def create(cls,
            entrypoint: Optional[List[str]] = None,
            command: Optional[str] = None,
            args: Optional[List[str]] = None,
-           host: Optional[str] = None) -> Sandbox
+           host: Optional[str] = None,
+           block_network: bool = False,
+           outbound_allowlist: Optional[List[str]] = None) -> Sandbox
 ```
 
 Create a new sandbox instance.
@@ -1065,6 +1117,10 @@ Create a new sandbox instance.
 - `entrypoint` - Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
 - `command` - Override the default command of the Docker image (e.g., "python app.py")
 - `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+- `block_network` - If True, block all outbound network access from the sandbox
+- `outbound_allowlist` - List of IPs/CIDRs allowed as outbound destinations;
+  all other outbound traffic is blocked. Bare IPs are normalized to
+  /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
   
 
 **Returns**:
@@ -1076,6 +1132,8 @@ Create a new sandbox instance.
 
 - `ValueError` - If API token is not provided
 - `SandboxTimeoutError` - If wait_ready is True and sandbox does not become ready within timeout
+- `EgressPolicyError` - If both block_network and outbound_allowlist are passed,
+  or an allowlist entry is not a valid IP address or CIDR
   
 
 **Example**:
@@ -1476,6 +1534,47 @@ Update the sandbox's life cycle settings.
 
   >>> sandbox.update_life_cycle(delete_after_delay=600, delete_after_inactivity=300)
 
+<a id="koyeb/sandbox.sandbox.Sandbox.update_network_policy"></a>
+
+#### update\_network\_policy
+
+```python
+def update_network_policy(
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None) -> None
+```
+
+Update the sandbox's network policy.
+
+Warning: applying a new network policy triggers a redeployment of the
+sandbox service. The sandbox is restarted and any in-memory or
+non-persisted state is lost. This method does not wait for the
+redeployment to finish.
+
+**Arguments**:
+
+- `block_network` - If True, block all outbound network access from the sandbox
+- `outbound_allowlist` - List of IPs/CIDRs allowed as outbound destinations;
+  all other outbound traffic is blocked. Bare IPs are normalized to
+  /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
+  
+  With both arguments unset, the network policy is reset to the
+  platform default (unrestricted outbound access).
+  
+
+**Raises**:
+
+- `EgressPolicyError` - If both block_network and outbound_allowlist are
+  passed, or an allowlist entry is not a valid IP address or CIDR
+- `SandboxError` - If updating the network policy fails
+  
+
+**Example**:
+
+  >>> sandbox.update_network_policy(block_network=True)
+  >>> sandbox.update_network_policy(outbound_allowlist=["10.0.0.0/8", "1.2.3.4"])
+  >>> sandbox.update_network_policy()  # reset to unrestricted
+
 <a id="koyeb/sandbox.sandbox.Sandbox.__enter__"></a>
 
 #### \_\_enter\_\_
@@ -1544,32 +1643,35 @@ Get a sandbox by service ID asynchronously.
 
 ```python
 @classmethod
-async def create(cls,
-                 image: str = "koyeb/sandbox",
-                 name: str = "quick-sandbox",
-                 wait_ready: bool = True,
-                 instance_type: str = "micro",
-                 exposed_port_protocol: Optional[str] = None,
-                 env: Optional[Dict[str, Any]] = None,
-                 config_files: Optional[Dict[str, Any]] = None,
-                 region: Optional[str] = None,
-                 api_token: Optional[str] = None,
-                 timeout: int = 300,
-                 idle_timeout: int = 0,
-                 enable_tcp_proxy: bool = False,
-                 privileged: bool = False,
-                 registry_secret: Optional[str] = None,
-                 _experimental_enable_light_sleep: bool = False,
-                 _experimental_deep_sleep_value: int = 3900,
-                 delete_after_delay: int = 0,
-                 delete_after_inactivity_delay: int = 0,
-                 app_id: Optional[str] = None,
-                 enable_mesh: bool = False,
-                 poll_interval: float = DEFAULT_POLL_INTERVAL,
-                 entrypoint: Optional[List[str]] = None,
-                 command: Optional[str] = None,
-                 args: Optional[List[str]] = None,
-                 host: Optional[str] = None) -> AsyncSandbox
+async def create(
+        cls,
+        image: str = "koyeb/sandbox",
+        name: str = "quick-sandbox",
+        wait_ready: bool = True,
+        instance_type: str = "micro",
+        exposed_port_protocol: Optional[str] = None,
+        env: Optional[Dict[str, Any]] = None,
+        config_files: Optional[Dict[str, Any]] = None,
+        region: Optional[str] = None,
+        api_token: Optional[str] = None,
+        timeout: int = 300,
+        idle_timeout: int = 0,
+        enable_tcp_proxy: bool = False,
+        privileged: bool = False,
+        registry_secret: Optional[str] = None,
+        _experimental_enable_light_sleep: bool = False,
+        _experimental_deep_sleep_value: int = 3900,
+        delete_after_delay: int = 0,
+        delete_after_inactivity_delay: int = 0,
+        app_id: Optional[str] = None,
+        enable_mesh: bool = False,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
+        entrypoint: Optional[List[str]] = None,
+        command: Optional[str] = None,
+        args: Optional[List[str]] = None,
+        host: Optional[str] = None,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None) -> AsyncSandbox
 ```
 
 Create a new sandbox instance with async support.
@@ -1614,6 +1716,10 @@ Create a new sandbox instance with async support.
 - `entrypoint` - Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
 - `command` - Override the default command of the Docker image (e.g., "python app.py")
 - `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+- `block_network` - If True, block all outbound network access from the sandbox
+- `outbound_allowlist` - List of IPs/CIDRs allowed as outbound destinations;
+  all other outbound traffic is blocked. Bare IPs are normalized to
+  /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
   
 
 **Returns**:
@@ -1625,6 +1731,8 @@ Create a new sandbox instance with async support.
 
 - `ValueError` - If API token is not provided
 - `SandboxTimeoutError` - If wait_ready is True and sandbox does not become ready within timeout
+- `EgressPolicyError` - If both block_network and outbound_allowlist are passed,
+  or an allowlist entry is not a valid IP address or CIDR
 
 <a id="koyeb/sandbox.sandbox.AsyncSandbox.wait_ready"></a>
 
@@ -1791,6 +1899,31 @@ async def update_lifecycle(
 ```
 
 Update the sandbox's life cycle settings asynchronously.
+
+<a id="koyeb/sandbox.sandbox.AsyncSandbox.update_network_policy"></a>
+
+#### update\_network\_policy
+
+```python
+async def update_network_policy(
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None) -> None
+```
+
+Update the sandbox's network policy asynchronously.
+
+Warning: applying a new network policy triggers a redeployment of the
+sandbox service. The sandbox is restarted and any in-memory or
+non-persisted state is lost. This method does not wait for the
+redeployment to finish.
+
+See Sandbox.update_network_policy for full documentation.
+
+**Raises**:
+
+- `EgressPolicyError` - If both block_network and outbound_allowlist are
+  passed, or an allowlist entry is not a valid IP address or CIDR
+- `SandboxError` - If updating the network policy fails
 
 <a id="koyeb/sandbox.sandbox.AsyncSandbox.__aenter__"></a>
 
@@ -2071,7 +2204,8 @@ def create_deployment_definition(
         _experimental_enable_light_sleep: bool = False,
         _experimental_deep_sleep_value: int = 3900,
         enable_mesh: bool = None,
-        config_files: Optional[List[ConfigFile]] = None
+        config_files: Optional[List[ConfigFile]] = None,
+        network_policy: Optional[NetworkPolicy] = None
 ) -> DeploymentDefinition
 ```
 
@@ -2095,11 +2229,45 @@ Create deployment definition for a sandbox service.
 - `_experimental_deep_sleep_value` - Number of seconds for deep sleep when light sleep is enabled (default: 3900).
   Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
 - `enable_mesh` - Enable or disable mesh for this sandbox. Disabled by default
+- `network_policy` - Optional network policy restricting egress traffic
   
 
 **Returns**:
 
   DeploymentDefinition object
+
+<a id="koyeb/sandbox.utils.build_network_policy"></a>
+
+#### build\_network\_policy
+
+```python
+def build_network_policy(
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None
+) -> Optional[NetworkPolicy]
+```
+
+Build a NetworkPolicy from sandbox network policy arguments.
+
+**Arguments**:
+
+- `block_network` - If True, block all outbound network access
+- `outbound_allowlist` - List of IPs/CIDRs allowed as outbound
+  destinations; all other outbound traffic is blocked. Bare IPs
+  are normalized to /32 (IPv4) or /128 (IPv6). An empty list
+  blocks all outbound traffic.
+  
+
+**Returns**:
+
+  NetworkPolicy, or None when both arguments are unset
+  (block_network=False and outbound_allowlist=None)
+  
+
+**Raises**:
+
+- `EgressPolicyError` - If both arguments are passed, or an allowlist
+  entry is not a valid IP address or CIDR
 
 <a id="koyeb/sandbox.utils.escape_shell_arg"></a>
 
@@ -2165,7 +2333,7 @@ Uses case-insensitive matching against known error patterns.
 #### create\_sandbox\_client
 
 ```python
-def create_sandbox_client(conn_info: Optional['ConnectionInfo'],
+def create_sandbox_client(conn_info: Optional["ConnectionInfo"],
                           existing_client: Optional[Any] = None) -> Any
 ```
 
@@ -2247,6 +2415,26 @@ class SandboxDeploymentError(SandboxError)
 ```
 
 Raised when a sandbox deployment reaches an error state
+
+<a id="koyeb/sandbox.utils.SandboxServiceError"></a>
+
+## SandboxServiceError Objects
+
+```python
+class SandboxServiceError(SandboxError)
+```
+
+Raised when the sandbox executor returns an HTTP 5xx error
+
+<a id="koyeb/sandbox.utils.EgressPolicyError"></a>
+
+## EgressPolicyError Objects
+
+```python
+class EgressPolicyError(SandboxError)
+```
+
+Raised when egress policy arguments are invalid or conflicting
 
 <a id="koyeb/sandbox.executor_client"></a>
 
