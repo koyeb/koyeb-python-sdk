@@ -19,15 +19,11 @@ from .exec import (
 )
 from .filesystem import FileInfo, SandboxFilesystem
 from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
-<<<<<<< HEAD
+from .snapshot import DeclarativeSnapshot, Snapshot, SnapshotStatus, SnapshotType
 from .utils import (
     ApiKey,
     BasicAuth,
-=======
-from .snapshot import DeclarativeSnapshot, Snapshot, SnapshotStatus, SnapshotType
-from .utils import (
     EgressPolicyError,
->>>>>>> origin/main
     SandboxDeploymentError,
     SandboxError,
     SandboxServiceError,
