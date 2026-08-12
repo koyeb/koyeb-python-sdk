@@ -23,15 +23,7 @@ def main():
             name=f"basic-commands-{suffix}",
             wait_ready=True,
             api_token=api_token,
-            use_direct_url=True,
         )
-
-        # Confirm the sandbox is reached through its direct URL.
-        sandbox_url = sandbox._get_sandbox_url()[0]
-        assert (
-            sandbox_url and ".direct.koyeb.app" in sandbox_url
-        ), f"Expected a direct URL, got: {sandbox_url}"
-        print(f"Using direct URL: {sandbox_url}")
 
         # Simple command
         result = sandbox.exec("echo 'Hello World'")
