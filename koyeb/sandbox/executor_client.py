@@ -25,9 +25,13 @@ class ConnectionInfo:
     public_url: str
     routing_key: Optional[str]
     secret: Optional[str]
+    # When set, redirect the TCP connection to this host (bypassing the
+    # Cloudflare-fronted app URL) while keeping TLS/SNI, cert verification and the
+    # Host header pointed at the app domain. See _DirectRoutingTransport.
+    direct_host: Optional[str] = None
 
     def __str__(self) -> str:
-        return f"ConnectionInfo(public_url={self.public_url}, routing_key={self.routing_key}, secret={'********' if self.secret else 'None'})"
+        return f"ConnectionInfo(public_url={self.public_url}, routing_key={self.routing_key}, secret={'********' if self.secret else 'None'}, direct_host={self.direct_host})"
 
     def validate(self) -> None:
         if not self.public_url:
@@ -45,6 +49,43 @@ def _build_headers(conn_info: ConnectionInfo) -> Dict[str, str]:
     if conn_info.routing_key:
         headers["X-Routing-Key"] = conn_info.routing_key
     return headers
+
+
+class _DirectRoutingTransport(httpx.HTTPTransport):
+    """Sync transport that fronts requests through a direct GLB endpoint.
+
+    The underlying TCP connection is redirected to ``direct_host``, but the TLS SNI
+    and the HTTP ``Host`` header keep the app domain, because the Envoy GLB routes on
+    SNI. The endpoint serves an ``*.infra.prod.koyeb.com`` certificate that matches
+    neither the direct host nor the app domain, so TLS certificate verification must
+    be disabled for this path (pass ``verify=False``).
+    """
+
+    def __init__(self, direct_host: str, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._direct_host = direct_host
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        app_host = request.url.host
+        request.headers["Host"] = app_host
+        request.extensions = {**request.extensions, "sni_hostname": app_host}
+        request.url = request.url.copy_with(host=self._direct_host)
+        return super().handle_request(request)
+
+
+class _AsyncDirectRoutingTransport(httpx.AsyncHTTPTransport):
+    """Async counterpart of :class:`_DirectRoutingTransport`."""
+
+    def __init__(self, direct_host: str, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._direct_host = direct_host
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        app_host = request.url.host
+        request.headers["Host"] = app_host
+        request.extensions = {**request.extensions, "sni_hostname": app_host}
+        request.url = request.url.copy_with(host=self._direct_host)
+        return await super().handle_async_request(request)
 
 
 def _parse_sse_line(line: str) -> Optional[Dict[str, Any]]:
@@ -75,7 +116,17 @@ class SandboxClient:
         self.secret = conn_info.secret
         self.timeout = timeout
         self.headers = _build_headers(conn_info)
-        self._client = httpx.Client(headers=self.headers, trust_env=True)
+        transport = None
+        if conn_info.direct_host:
+            logger.warning(
+                "Sandbox direct routing enabled via %s; TLS certificate "
+                "verification is disabled for executor calls.",
+                conn_info.direct_host,
+            )
+            transport = _DirectRoutingTransport(conn_info.direct_host, verify=False)
+        self._client = httpx.Client(
+            headers=self.headers, trust_env=True, transport=transport
+        )
         self._closed = False
 
     def close(self) -> None:
@@ -556,7 +607,19 @@ class AsyncSandboxClient:
         self.secret = conn_info.secret
         self.timeout = timeout
         self.headers = _build_headers(conn_info)
-        self._client = httpx.AsyncClient(headers=self.headers, trust_env=True)
+        transport = None
+        if conn_info.direct_host:
+            logger.warning(
+                "Sandbox direct routing enabled via %s; TLS certificate "
+                "verification is disabled for executor calls.",
+                conn_info.direct_host,
+            )
+            transport = _AsyncDirectRoutingTransport(
+                conn_info.direct_host, verify=False
+            )
+        self._client = httpx.AsyncClient(
+            headers=self.headers, trust_env=True, transport=transport
+        )
         self._closed = False
 
     async def close(self) -> None:

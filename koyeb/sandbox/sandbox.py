@@ -39,6 +39,7 @@ from .utils import (
     create_sandbox_client,
     get_api_clients,
     logger,
+    resolve_direct_routing,
     validate_port,
 )
 
@@ -92,6 +93,8 @@ class Sandbox:
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         host: Optional[str] = None,
         snapshot_id: Optional[str] = None,
+        use_direct_routing: Optional[bool] = None,
+        direct_host: Optional[str] = None,
     ):
         self.sandbox_id = sandbox_id
         self.app_id = app_id
@@ -102,6 +105,11 @@ class Sandbox:
         self.poll_interval = poll_interval
         self.host = host
         self.snapshot_id = snapshot_id
+        # Direct-routing workaround for executor calls (not the control-plane API).
+        # Defaults come from KOYEB_SANDBOX_DIRECT / KOYEB_SANDBOX_DIRECT_HOST.
+        self.use_direct_routing, self.direct_host = resolve_direct_routing(
+            use_direct_routing, direct_host
+        )
         self._created_at = time.time()
         self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
         self._domain: Optional[str] = None
@@ -148,6 +156,8 @@ class Sandbox:
         outbound_allowlist: Optional[List[str]] = None,
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
+        use_direct_routing: Optional[bool] = None,
+        direct_host: Optional[str] = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -197,6 +207,12 @@ class Sandbox:
                     If provided, the sandbox will be initialized from this snapshot.
                     Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
                 sandbox_secret: Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
+                use_direct_routing: Route executor calls (exec/run/filesystem) via the direct
+                    endpoint instead of the Cloudflare-fronted app URL, carrying the app domain
+                    in the Host header. Does not affect sandbox creation, which uses the
+                    control-plane API. Defaults to the KOYEB_SANDBOX_DIRECT env var.
+                direct_host: Host to use when use_direct_routing is enabled. Defaults to the
+                    KOYEB_SANDBOX_DIRECT_HOST env var or "prod-glb-all-regions-direct.koyeb.app".
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -308,6 +324,8 @@ class Sandbox:
             snapshot_id=actual_snapshot_id,
             snapshot_type=actual_snapshot_type,
             sandbox_secret=sandbox_secret,
+            use_direct_routing=use_direct_routing,
+            direct_host=direct_host,
         )
 
         if wait_ready:
@@ -353,6 +371,8 @@ class Sandbox:
         snapshot_id: Optional[str] = None,
         snapshot_type: Optional["SnapshotType"] = None,
         sandbox_secret: Optional[str] = None,
+        use_direct_routing: Optional[bool] = None,
+        direct_host: Optional[str] = None,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
@@ -488,6 +508,8 @@ class Sandbox:
             poll_interval=poll_interval,
             host=host,
             snapshot_id=snapshot_id,
+            use_direct_routing=use_direct_routing,
+            direct_host=direct_host,
         )
 
     @classmethod
@@ -1073,6 +1095,10 @@ class Sandbox:
                 self._sandbox_url = (f"https://{domain}/koyeb-sandbox", None)
         return self._sandbox_url
 
+    def _effective_direct_host(self) -> Optional[str]:
+        """Return the direct-routing host to use for executor calls, or None if disabled."""
+        return self.direct_host if self.use_direct_routing else None
+
     def _get_conn_info(self) -> Optional[ConnectionInfo]:
         """
         Internal method to get the parameters needed to connect to the sandbox.
@@ -1083,7 +1109,12 @@ class Sandbox:
         """
         sandbox_url, routing_key = self._get_sandbox_url()
         if sandbox_url:
-            return ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
+            return ConnectionInfo(
+                sandbox_url,
+                routing_key,
+                self.sandbox_secret,
+                direct_host=self._effective_direct_host(),
+            )
 
         return None
 
@@ -1099,7 +1130,12 @@ class Sandbox:
         """
         if self._client is None:
             sandbox_url, routing_key = self._get_sandbox_url()
-            conn_info = ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
+            conn_info = ConnectionInfo(
+                sandbox_url,
+                routing_key,
+                self.sandbox_secret,
+                direct_host=self._effective_direct_host(),
+            )
             self._client = create_sandbox_client(conn_info)
         return self._client
 
@@ -1522,7 +1558,12 @@ class AsyncSandbox(Sandbox):
             from .utils import create_async_sandbox_client
 
             sandbox_url, routing_key = self._get_sandbox_url()
-            conn_info = ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
+            conn_info = ConnectionInfo(
+                sandbox_url,
+                routing_key,
+                self.sandbox_secret,
+                direct_host=self._effective_direct_host(),
+            )
             self._async_client = create_async_sandbox_client(conn_info)
         return self._async_client
 
@@ -1658,6 +1699,8 @@ class AsyncSandbox(Sandbox):
         outbound_allowlist: Optional[List[str]] = None,
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
+        use_direct_routing: Optional[bool] = None,
+        direct_host: Optional[str] = None,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1709,6 +1752,12 @@ class AsyncSandbox(Sandbox):
                     If provided, the sandbox will be initialized from this snapshot.
                     Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
                 sandbox_secret: Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
+                use_direct_routing: Route executor calls (exec/run/filesystem) via the direct
+                    endpoint instead of the Cloudflare-fronted app URL, carrying the app domain
+                    in the Host header. Does not affect sandbox creation, which uses the
+                    control-plane API. Defaults to the KOYEB_SANDBOX_DIRECT env var.
+                direct_host: Host to use when use_direct_routing is enabled. Defaults to the
+                    KOYEB_SANDBOX_DIRECT_HOST env var or "prod-glb-all-regions-direct.koyeb.app".
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -1918,6 +1967,8 @@ class AsyncSandbox(Sandbox):
             poll_interval=poll_interval,
             host=host,
             snapshot_id=actual_snapshot_id,
+            use_direct_routing=use_direct_routing,
+            direct_host=direct_host,
         )
 
         if wait_ready:

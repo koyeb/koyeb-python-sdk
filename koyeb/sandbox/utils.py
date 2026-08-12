@@ -55,6 +55,38 @@ DEFAULT_POLL_INTERVAL = 0.5  # seconds
 DEFAULT_COMMAND_TIMEOUT = 30  # seconds
 DEFAULT_HTTP_TIMEOUT = 30  # seconds for HTTP requests
 
+# Direct-routing workaround: connect to this endpoint instead of the
+# Cloudflare-fronted app URL, carrying the app domain in the Host header.
+DEFAULT_DIRECT_HOST = "prod-glb-all-regions-direct.koyeb.app"
+ENV_SANDBOX_DIRECT = "KOYEB_SANDBOX_DIRECT"
+ENV_SANDBOX_DIRECT_HOST = "KOYEB_SANDBOX_DIRECT_HOST"
+_TRUTHY_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+def resolve_direct_routing(
+    use_direct_routing: Optional[bool] = None,
+    direct_host: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """Resolve the direct-routing settings, falling back to environment variables.
+
+    Direct routing only affects sandbox executor HTTP calls (run, exec, filesystem,
+    health). It never applies to the Koyeb control-plane REST API used by create().
+
+    Args:
+        use_direct_routing: Explicit toggle. If None, reads ``KOYEB_SANDBOX_DIRECT``.
+        direct_host: Explicit endpoint host. If falsy, reads ``KOYEB_SANDBOX_DIRECT_HOST``
+            and defaults to ``DEFAULT_DIRECT_HOST``.
+
+    Returns:
+        Tuple of (enabled, host).
+    """
+    if use_direct_routing is None:
+        env_val = os.getenv(ENV_SANDBOX_DIRECT, "").strip().lower()
+        use_direct_routing = env_val in _TRUTHY_VALUES
+    if not direct_host:
+        direct_host = os.getenv(ENV_SANDBOX_DIRECT_HOST) or DEFAULT_DIRECT_HOST
+    return bool(use_direct_routing), direct_host
+
 # Error messages
 ERROR_MESSAGES = {
     "NO_SUCH_FILE": ["No such file", "not found", "No such file or directory"],
