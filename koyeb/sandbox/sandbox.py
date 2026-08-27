@@ -792,6 +792,31 @@ class Sandbox:
             self._deployment_id = deployment_id
         return deployment_id
 
+    def _reset_connection_state(self, deployment_id: Optional[str] = None) -> None:
+        """
+        Drop cached deployment, URL, and client state after a redeployment.
+
+        When known, the new deployment id is pinned so that health checks
+        target the replacement rather than the still-active old deployment,
+        which _resolve_deployment_id would otherwise prefer via
+        service.active_deployment_id.
+
+        Args:
+            deployment_id: The new deployment id to pin, or None to force a
+                fresh resolution on the next call.
+        """
+        self._deployment_id = deployment_id
+        self._sandbox_url = None
+        self._url = None
+        self._domain = None
+        self._executor = None
+        if self._client is not None:
+            try:
+                self._client.close()
+            except Exception:
+                pass
+            self._client = None
+
     def _is_deployment_healthy(self) -> bool:
         """
         Check if the sandbox deployment status is HEALTHY via the API.
@@ -1403,13 +1428,13 @@ class Sandbox:
             service_response = services_api.get_service(self.service_id)
             service = service_response.service
 
+            if not service:
+                raise SandboxError("Sandbox service not found")
+
             deployment_response = deployments_api.get_deployment(
                 service.latest_deployment_id
             )
             deployment = deployment_response.deployment
-
-            if not service:
-                raise SandboxError("Sandbox service not found")
 
             # Update life cycle settings
             life_cycle = service.life_cycle or ServiceLifeCycle()
@@ -1442,7 +1467,10 @@ class Sandbox:
         Warning: applying a new network policy triggers a redeployment of the
         sandbox service. The sandbox is restarted and any in-memory or
         non-persisted state is lost. This method does not wait for the
-        redeployment to finish.
+        redeployment to finish; it repoints the sandbox at the new deployment
+        and clears cached connection state, so call wait_ready() afterwards to
+        block until the replacement deployment is healthy before issuing further
+        operations.
 
         Args:
             block_network: If True, block all outbound network access from the sandbox
@@ -1484,10 +1512,28 @@ class Sandbox:
             definition = deployment_response.deployment.definition
             definition.network_policy = network_policy
 
-            services_api.update_service(
+            update_response = services_api.update_service(
                 id=self.service_id,
                 service=UpdateService(definition=definition),
             )
+
+            # Pin the sandbox to the new deployment so wait_ready() polls the
+            # replacement, not the still-active old deployment. The policy is
+            # already applied at this point, so a failed id lookup must not
+            # surface as an update failure.
+            new_deployment_id = None
+            try:
+                if update_response and update_response.service:
+                    new_deployment_id = update_response.service.latest_deployment_id
+                if not new_deployment_id:
+                    refreshed = services_api.get_service(self.service_id)
+                    if refreshed and refreshed.service:
+                        new_deployment_id = refreshed.service.latest_deployment_id
+            except Exception as e:
+                logger.debug(
+                    f"Could not resolve new deployment id for service {self.service_id}: {e}"
+                )
+            self._reset_connection_state(new_deployment_id)
         except Exception as e:
             if isinstance(e, SandboxError):
                 raise
@@ -2392,7 +2438,10 @@ class AsyncSandbox(Sandbox):
         Warning: applying a new network policy triggers a redeployment of the
         sandbox service. The sandbox is restarted and any in-memory or
         non-persisted state is lost. This method does not wait for the
-        redeployment to finish.
+        redeployment to finish; it repoints the sandbox at the new deployment
+        and clears cached connection state, so call wait_ready() afterwards to
+        block until the replacement deployment is healthy before issuing further
+        operations.
 
         See Sandbox.update_network_policy for full documentation.
 
@@ -2433,10 +2482,34 @@ class AsyncSandbox(Sandbox):
             definition = deployment_response.deployment.definition
             definition.network_policy = network_policy
 
-            await clients.services.update_service(
+            update_response = await clients.services.update_service(
                 id=self.service_id,
                 service=AsyncUpdateService(definition=definition),
             )
+
+            # Pin the sandbox to the new deployment so wait_ready() polls the
+            # replacement, not the still-active old deployment. The policy is
+            # already applied at this point, so a failed id lookup must not
+            # surface as an update failure.
+            new_deployment_id = None
+            try:
+                if update_response and update_response.service:
+                    new_deployment_id = update_response.service.latest_deployment_id
+                if not new_deployment_id:
+                    refreshed = await clients.services.get_service(self.service_id)
+                    if refreshed and refreshed.service:
+                        new_deployment_id = refreshed.service.latest_deployment_id
+            except Exception as e:
+                logger.debug(
+                    f"Could not resolve new deployment id for service {self.service_id}: {e}"
+                )
+            if self._async_client is not None:
+                try:
+                    await self._async_client.close()
+                except Exception:
+                    pass
+                self._async_client = None
+            self._reset_connection_state(new_deployment_id)
         except Exception as e:
             if isinstance(e, SandboxError):
                 raise

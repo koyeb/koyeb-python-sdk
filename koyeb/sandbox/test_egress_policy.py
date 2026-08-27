@@ -156,6 +156,70 @@ class TestUpdateNetworkPolicy(unittest.TestCase):
         with self.assertRaises(SandboxError):
             _make_sandbox().update_network_policy(block_network=True)
 
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_pins_new_deployment_and_resets_cached_state(self, mock_get_clients):
+        clients = _make_clients()
+        clients.services.update_service.return_value.service.latest_deployment_id = (
+            "new-dep"
+        )
+        mock_get_clients.return_value = clients
+
+        sandbox = _make_sandbox()
+        stale_client = MagicMock()
+        sandbox._deployment_id = "old-dep"
+        sandbox._sandbox_url = ("https://old/koyeb-sandbox", "old-key")
+        sandbox._url = "https://old"
+        sandbox._domain = "old"
+        sandbox._client = stale_client
+
+        sandbox.update_network_policy(block_network=True)
+
+        self.assertEqual(sandbox._deployment_id, "new-dep")
+        self.assertIsNone(sandbox._sandbox_url)
+        self.assertIsNone(sandbox._url)
+        self.assertIsNone(sandbox._domain)
+        self.assertIsNone(sandbox._client)
+        stale_client.close.assert_called_once()
+
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_falls_back_to_get_service_when_reply_lacks_deployment_id(
+        self, mock_get_clients
+    ):
+        clients = _make_clients()
+        clients.services.update_service.return_value.service.latest_deployment_id = None
+        clients.services.get_service.return_value.service.latest_deployment_id = (
+            "refetched-dep"
+        )
+        mock_get_clients.return_value = clients
+
+        sandbox = _make_sandbox()
+        sandbox.update_network_policy(block_network=True)
+
+        self.assertEqual(sandbox._deployment_id, "refetched-dep")
+
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_resets_state_even_when_new_deployment_id_lookup_fails(
+        self, mock_get_clients
+    ):
+        clients = _make_clients()
+        clients.services.update_service.return_value.service.latest_deployment_id = None
+        # First get_service call is the initial fetch; the fallback lookup after
+        # the successful update fails.
+        clients.services.get_service.side_effect = [
+            clients.services.get_service.return_value,
+            RuntimeError("api down"),
+        ]
+        mock_get_clients.return_value = clients
+
+        sandbox = _make_sandbox()
+        sandbox._deployment_id = "old-dep"
+        sandbox._sandbox_url = ("https://old/koyeb-sandbox", "old-key")
+
+        sandbox.update_network_policy(block_network=True)
+
+        self.assertIsNone(sandbox._deployment_id)
+        self.assertIsNone(sandbox._sandbox_url)
+
 
 def _make_async_clients():
     clients = MagicMock()
@@ -183,3 +247,26 @@ class TestAsyncUpdateNetworkPolicy(unittest.TestCase):
             update.definition.network_policy.egress.mode,
             EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL,
         )
+
+    @patch("koyeb.sandbox.utils.get_async_api_clients")
+    def test_async_pins_new_deployment_and_resets_cached_state(self, mock_get_clients):
+        clients = _make_async_clients()
+        clients.services.update_service.return_value.service.latest_deployment_id = (
+            "new-dep"
+        )
+        mock_get_clients.return_value = clients
+
+        sandbox = _make_sandbox(AsyncSandbox)
+        stale_async_client = AsyncMock()
+        sandbox._deployment_id = "old-dep"
+        sandbox._sandbox_url = ("https://old/koyeb-sandbox", "old-key")
+        sandbox._url = "https://old"
+        sandbox._async_client = stale_async_client
+
+        asyncio.run(sandbox.update_network_policy(block_network=True))
+
+        self.assertEqual(sandbox._deployment_id, "new-dep")
+        self.assertIsNone(sandbox._sandbox_url)
+        self.assertIsNone(sandbox._url)
+        self.assertIsNone(sandbox._async_client)
+        stale_async_client.close.assert_awaited_once()
