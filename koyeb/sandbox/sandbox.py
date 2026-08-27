@@ -1073,19 +1073,23 @@ class Sandbox:
                 self._sandbox_url = (f"https://{domain}/koyeb-sandbox", None)
         return self._sandbox_url
 
-    def _get_conn_info(self) -> Optional[ConnectionInfo]:
+    def _get_conn_info(self) -> ConnectionInfo:
         """
         Internal method to get the parameters needed to connect to the sandbox.
-        Caches the info after first retrieval.
 
         Returns:
-            Optional[ConnectionInfo]: the information needed to connect to the sandbox
-        """
-        sandbox_url, routing_key = self._get_sandbox_url()
-        if sandbox_url:
-            return ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
+            ConnectionInfo: the information needed to connect to the sandbox
 
-        return None
+        Raises:
+            SandboxError: If the sandbox URL is not available.
+        """
+        url = self._get_sandbox_url()
+        if url is None:
+            raise SandboxError(
+                "Sandbox URL is not available (the sandbox may no longer exist)"
+            )
+        sandbox_url, routing_key = url
+        return ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
 
     def _get_client(self) -> "SandboxClient":  # type: ignore[name-defined]
         """
@@ -1098,9 +1102,7 @@ class Sandbox:
             SandboxError: If sandbox URL or secret is not available
         """
         if self._client is None:
-            sandbox_url, routing_key = self._get_sandbox_url()
-            conn_info = ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
-            self._client = create_sandbox_client(conn_info)
+            self._client = create_sandbox_client(self._get_conn_info())
         return self._client
 
     def _check_response_error(self, response: Dict, operation: str) -> None:
@@ -1517,13 +1519,15 @@ class AsyncSandbox(Sandbox):
         self._async_client = None
 
     def _get_async_client(self) -> "AsyncSandboxClient":
-        """Get or create AsyncSandboxClient instance."""
+        """Get or create AsyncSandboxClient instance.
+
+        Raises:
+            SandboxError: If the sandbox URL is not available.
+        """
         if self._async_client is None:
             from .utils import create_async_sandbox_client
 
-            sandbox_url, routing_key = self._get_sandbox_url()
-            conn_info = ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
-            self._async_client = create_async_sandbox_client(conn_info)
+            self._async_client = create_async_sandbox_client(self._get_conn_info())
         return self._async_client
 
     @classmethod
