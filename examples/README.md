@@ -5,7 +5,9 @@ A collection of examples demonstrating the Koyeb Sandbox SDK capabilities.
 ## Quick Start
 
 ```bash
-# Set your API token
+# Set your API token (MISTRAL_API_TOKEN takes precedence over KOYEB_API_TOKEN)
+export MISTRAL_API_TOKEN=your_api_token_here
+# or
 export KOYEB_API_TOKEN=your_api_token_here
 
 # Run individual examples

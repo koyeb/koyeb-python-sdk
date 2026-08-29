@@ -1093,8 +1093,8 @@ Create a new sandbox instance.
   file paths to file contents. Values can be plain strings (default permissions 0644)
   or ``ConfigFile`` instances for custom permissions
   (e.g., {"/etc/myapp/config.yaml": "key: value", "/etc/myapp/cert.pem": ConfigFile(content="...", permissions="0600")})
-- `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
-- `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+- `region` - Region to deploy to. Defaults to MISTRAL_REGION or MISTRAL_REGION or KOYEB_REGION env var, or "na" if not set.
+- `api_token` - Koyeb API token (if None, will try to get from MISTRAL_API_TOKEN or MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
 - `idle_timeout` - Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
   - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep=3900)
@@ -1116,7 +1116,7 @@ Create a new sandbox instance.
 - `poll_interval` - Time between health checks in seconds when wait_ready is True (default: 0.5)
 - `entrypoint` - Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
 - `command` - Override the default command of the Docker image (e.g., "python app.py")
-- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+- `host` - Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 - `block_network` - If True, block all outbound network access from the sandbox
 - `outbound_allowlist` - List of IPs/CIDRs allowed as outbound destinations;
   all other outbound traffic is blocked. Bare IPs are normalized to
@@ -1164,8 +1164,8 @@ Get a sandbox by service ID.
 **Arguments**:
 
 - `id` - Service ID of the sandbox
-- `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
-- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+- `api_token` - Koyeb API token (if None, will try to get from MISTRAL_API_TOKEN or MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
+- `host` - Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
   
 
 **Returns**:
@@ -1623,8 +1623,8 @@ Get a sandbox by service ID asynchronously.
 **Arguments**:
 
 - `id` - Service ID of the sandbox
-- `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
-- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+- `api_token` - Koyeb API token (if None, will try to get from MISTRAL_API_TOKEN or MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
+- `host` - Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
   
 
 **Returns**:
@@ -1690,8 +1690,8 @@ Create a new sandbox instance with async support.
   file paths to file contents. Values can be plain strings (default permissions 0644)
   or ``ConfigFile`` instances for custom permissions
   (e.g., {"/etc/myapp/config.yaml": "key: value", "/etc/myapp/cert.pem": ConfigFile(content="...", permissions="0600")})
-- `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
-- `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+- `region` - Region to deploy to. Defaults to MISTRAL_REGION or MISTRAL_REGION or KOYEB_REGION env var, or "na" if not set.
+- `api_token` - Koyeb API token (if None, will try to get from MISTRAL_API_TOKEN or MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var)
 - `timeout` - Timeout for sandbox creation in seconds
 - `idle_timeout` - Sleep timeout in seconds. Behavior depends on _experimental_enable_light_sleep:
   - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep uses _experimental_deep_sleep_value)
@@ -1715,7 +1715,7 @@ Create a new sandbox instance with async support.
 - `poll_interval` - Time between health checks in seconds when wait_ready is True (default: 0.5)
 - `entrypoint` - Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
 - `command` - Override the default command of the Docker image (e.g., "python app.py")
-- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+- `host` - Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 - `block_network` - If True, block all outbound network access from the sandbox
 - `outbound_allowlist` - List of IPs/CIDRs allowed as outbound destinations;
   all other outbound traffic is blocked. Bare IPs are normalized to
@@ -2001,8 +2001,8 @@ Caches clients by (token, host) to reuse the underlying HTTP connection pool.
 
 **Arguments**:
 
-- `api_token` - Koyeb API token. If not provided, will try to get from KOYEB_API_TOKEN env var
-- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+- `api_token` - Koyeb API token. If not provided, will try to get from MISTRAL_API_TOKEN or MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var
+- `host` - Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
   
 
 **Returns**:
@@ -2040,8 +2040,8 @@ Caches clients by (token, host) to reuse the underlying HTTP connection pool.
 
 **Arguments**:
 
-- `api_token` - Koyeb API token. If not provided, will try to get from KOYEB_API_TOKEN env var
-- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var
+- `api_token` - Koyeb API token. If not provided, will try to get from MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var
+- `host` - Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or KOYEB_API_HOST env var
   
 
 **Returns**:
@@ -2220,7 +2220,7 @@ Create deployment definition for a sandbox service.
 - `exposed_port_protocol` - Protocol to expose ports with ("http" or "http2").
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
-- `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
+- `region` - Region to deploy to. Defaults to MISTRAL_REGION or MISTRAL_REGION or KOYEB_REGION env var, or "na" if not set.
 - `routes` - List of routes for public access
 - `idle_timeout` - Number of seconds to wait before sleeping the instance if it receives no traffic
 - `enable_tcp_proxy` - If True, enables TCP proxy for direct TCP access to port 3031

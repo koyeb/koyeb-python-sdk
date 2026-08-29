@@ -62,6 +62,61 @@ ERROR_MESSAGES = {
     "DIR_NOT_EMPTY": ["not empty", "Directory not empty"],
 }
 
+
+# Environment variable helpers
+# Support both KOYEB_ and MISTRAL_ environment variables
+# MISTRAL_ variables take precedence over KOYEB_ variables
+
+def get_env_var_mistral_fallback(koeb_var: str, mistral_var: str, default: Optional[str] = None) -> Optional[str]:
+    """
+    Get environment variable with MISTRAL_ fallback to KOYEB_.
+    
+    Args:
+        koeb_var: The KOYEB_ environment variable name (e.g., "KOYEB_API_TOKEN")
+        mistral_var: The MISTRAL_ environment variable name (e.g., "MISTRAL_API_TOKEN")
+        default: Default value if neither variable is set
+        
+    Returns:
+        The value of MISTRAL_ var if set, otherwise KOYEB_ var, otherwise default
+    """
+    return os.getenv(mistral_var) or os.getenv(koeb_var) or default
+
+
+def get_api_token() -> Optional[str]:
+    """
+    Get API token from environment, checking MISTRAL_API_TOKEN first, then KOYEB_API_TOKEN.
+    
+    Returns:
+        API token string or None if not set
+    """
+    return get_env_var_mistral_fallback("KOYEB_API_TOKEN", "MISTRAL_API_TOKEN")
+
+
+def get_api_host(default: Optional[str] = None) -> Optional[str]:
+    """
+    Get API host from environment, checking MISTRAL_API_HOST first, then KOYEB_API_HOST.
+    
+    Args:
+        default: Default value if neither variable is set
+        
+    Returns:
+        API host URL or default
+    """
+    return get_env_var_mistral_fallback("KOYEB_API_HOST", "MISTRAL_API_HOST", default)
+
+
+def get_region(default: Optional[str] = None) -> Optional[str]:
+    """
+    Get region from environment, checking MISTRAL_REGION first, then KOYEB_REGION.
+    
+    Args:
+        default: Default value if neither variable is set
+        
+    Returns:
+        Region string or default
+    """
+    return get_env_var_mistral_fallback("KOYEB_REGION", "MISTRAL_REGION", default)
+
 # Valid protocols for DeploymentPort (from OpenAPI spec: http, http2, tcp)
 # For sandboxes, we only support http and http2
 VALID_DEPLOYMENT_PORT_PROTOCOLS = ("http", "http2")
@@ -123,8 +178,8 @@ def get_api_clients(
     Caches clients by (token, host) to reuse the underlying HTTP connection pool.
 
     Args:
-        api_token: Koyeb API token. If not provided, will try to get from KOYEB_API_TOKEN env var
-        host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+        api_token: Koyeb API token. If not provided, will try to get from MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var
+        host: Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
 
     Returns:
         ApiClients with apps, services, instances, catalog_instances, deployments, and secrets attributes
@@ -132,13 +187,13 @@ def get_api_clients(
     Raises:
         ValueError: If API token is not provided
     """
-    token = api_token or os.getenv("KOYEB_API_TOKEN")
+    token = api_token or get_api_token()
     if not token:
         raise ValueError(
-            "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
+            "API token is required. Set MISTRAL_API_TOKEN or KOYEB_API_TOKEN environment variable or pass api_token parameter"
         )
 
-    api_host = os.getenv("KOYEB_API_HOST", host)
+    api_host = get_api_host(host)
     if not api_host:
         api_host = "https://app.koyeb.com"
     cache_key = (token, api_host)
@@ -204,8 +259,8 @@ def get_async_api_clients(
     Caches clients by (token, host) to reuse the underlying HTTP connection pool.
 
     Args:
-        api_token: Koyeb API token. If not provided, will try to get from KOYEB_API_TOKEN env var
-        host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var
+        api_token: Koyeb API token. If not provided, will try to get from MISTRAL_API_TOKEN or KOYEB_API_TOKEN env var
+        host: Koyeb API host URL. If not provided, will try to get from MISTRAL_API_HOST or KOYEB_API_HOST env var
 
     Returns:
         AsyncApiClients with async API client instances
@@ -213,13 +268,13 @@ def get_async_api_clients(
     Raises:
         ValueError: If API token is not provided
     """
-    token = api_token or os.getenv("KOYEB_API_TOKEN")
+    token = api_token or get_api_token()
     if not token:
         raise ValueError(
-            "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
+            "API token is required. Set MISTRAL_API_TOKEN or KOYEB_API_TOKEN environment variable or pass api_token parameter"
         )
 
-    api_host = os.getenv("KOYEB_API_HOST", host)
+    api_host = get_api_host(host)
     if not api_host:
         api_host = "https://app.koyeb.com"
     cache_key = (token, api_host)
@@ -432,7 +487,7 @@ def create_deployment_definition(
         exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
             If None, defaults to "http".
             If provided, must be one of "http" or "http2".
-        region: Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
+        region: Region to deploy to. Defaults to MISTRAL_REGION or KOYEB_REGION env var, or "na" if not set.
         routes: List of routes for public access
         idle_timeout: Number of seconds to wait before sleeping the instance if it receives no traffic
         enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
@@ -447,7 +502,7 @@ def create_deployment_definition(
         DeploymentDefinition object
     """
     if region is None:
-        region = os.getenv("KOYEB_REGION", "na")
+        region = get_region("na")
 
     # Convert single region string to list for API
     regions_list = [region]
