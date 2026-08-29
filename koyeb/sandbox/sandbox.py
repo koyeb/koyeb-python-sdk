@@ -16,8 +16,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
 from koyeb.api.models.create_app import AppLifeCycle, CreateApp
+from koyeb.api.models.create_domain import CreateDomain
 from koyeb.api.models.create_service import CreateService, ServiceLifeCycle
 from koyeb.api.models.deployment_status import DeploymentStatus
+from koyeb.api.models.domain_load_balancer_koyeb import DomainLoadBalancerKoyeb
+from koyeb.api.models.domain_type import DomainType
 from koyeb.api.models.egress_policy import EgressPolicy
 from koyeb.api.models.egress_policy_mode import EgressPolicyMode
 from koyeb.api.models.network_policy import NetworkPolicy
@@ -37,7 +40,10 @@ from .utils import (
     create_docker_source,
     create_koyeb_sandbox_routes,
     create_sandbox_client,
+    direct_domain_name_from_base,
+    direct_url_enabled,
     get_api_clients,
+    is_direct_domain,
     logger,
     validate_port,
 )
@@ -92,6 +98,7 @@ class Sandbox:
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         host: Optional[str] = None,
         snapshot_id: Optional[str] = None,
+        use_direct_url: bool = False,
     ):
         self.sandbox_id = sandbox_id
         self.app_id = app_id
@@ -102,7 +109,9 @@ class Sandbox:
         self.poll_interval = poll_interval
         self.host = host
         self.snapshot_id = snapshot_id
+        self.use_direct_url = use_direct_url
         self._created_at = time.time()
+        self._direct_domain: Optional[str] = None
         self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
         self._domain: Optional[str] = None
         self._url: Optional[str] = None
@@ -148,6 +157,7 @@ class Sandbox:
         outbound_allowlist: Optional[List[str]] = None,
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
+        use_direct_url: Optional[bool] = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -197,6 +207,10 @@ class Sandbox:
                     If provided, the sandbox will be initialized from this snapshot.
                     Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
                 sandbox_secret: Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
+                use_direct_url: Route all sandbox traffic through the per-app direct
+                    (Koyeb load balancer) ``*.direct.koyeb.app`` domain, creating it
+                    after the service is created. If None (default), falls back to the
+                    KOYEB_SANDBOX_DIRECT_URL env var; pass True/False to override it.
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -308,6 +322,7 @@ class Sandbox:
             snapshot_id=actual_snapshot_id,
             snapshot_type=actual_snapshot_type,
             sandbox_secret=sandbox_secret,
+            use_direct_url=use_direct_url,
         )
 
         if wait_ready:
@@ -353,11 +368,13 @@ class Sandbox:
         snapshot_id: Optional[str] = None,
         snapshot_type: Optional["SnapshotType"] = None,
         sandbox_secret: Optional[str] = None,
+        use_direct_url: Optional[bool] = None,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
         Subclasses can override to return their own type.
         """
+        use_direct = direct_url_enabled(use_direct_url)
         network_policy = build_network_policy(block_network, outbound_allowlist)
 
         clients = get_api_clients(api_token, host)
@@ -478,7 +495,7 @@ class Sandbox:
         service_response = services_api.create_service(service=create_service)
         service_id = service_response.service.id
 
-        return cls(
+        sandbox = cls(
             sandbox_id=name,
             app_id=app_id,
             service_id=service_id,
@@ -488,7 +505,17 @@ class Sandbox:
             poll_interval=poll_interval,
             host=host,
             snapshot_id=snapshot_id,
+            use_direct_url=use_direct,
         )
+
+        # Create the per-app direct domain now and pin the sandbox URL to it so
+        # every subsequent call (wait_ready, exec, filesystem, ...) uses it.
+        if use_direct:
+            direct = sandbox._ensure_direct_domain()
+            if direct:
+                sandbox._sandbox_url = (f"https://{direct}/koyeb-sandbox", None)
+
+        return sandbox
 
     @classmethod
     def get_from_id(
@@ -496,6 +523,7 @@ class Sandbox:
         id: str,
         api_token: Optional[str] = None,
         host: Optional[str] = None,
+        use_direct_url: Optional[bool] = None,
     ) -> "Sandbox":
         """
         Get a sandbox by service ID.
@@ -504,6 +532,10 @@ class Sandbox:
             id: Service ID of the sandbox
             api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
             host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+            use_direct_url: Route sandbox traffic through the per-app direct
+                (Koyeb load balancer) ``*.direct.koyeb.app`` domain, creating it
+                if the app does not have one yet. If None (default), falls back to
+                the KOYEB_SANDBOX_DIRECT_URL env var; pass True/False to override it.
 
         Returns:
             Sandbox: The Sandbox instance
@@ -522,6 +554,7 @@ class Sandbox:
         if not id:
             raise ValueError("id is required")
 
+        use_direct = direct_url_enabled(use_direct_url)
         clients = get_api_clients(api_token, host)
         services_api = clients.services
         deployments_api = clients.deployments
@@ -568,12 +601,17 @@ class Sandbox:
             api_token=api_token,
             sandbox_secret=sandbox_secret,
             host=host,
+            use_direct_url=use_direct,
         )
         if deployment_id:
             sandbox._deployment_id = deployment_id
 
-        # Pre-cache sandbox URL from deployment metadata or app domain
-        if sandbox_metadata and sandbox_metadata.sandbox:
+        # Pre-cache sandbox URL: prefer the per-app direct domain when enabled,
+        # otherwise fall back to deployment metadata or the base app domain.
+        direct = sandbox._ensure_direct_domain() if use_direct else None
+        if direct:
+            sandbox._sandbox_url = (f"https://{direct}/koyeb-sandbox", None)
+        elif sandbox_metadata and sandbox_metadata.sandbox:
             sandbox._sandbox_url = (
                 f"{sandbox_metadata.sandbox.public_url}/koyeb-sandbox",
                 sandbox_metadata.sandbox.routing_key,
@@ -584,8 +622,16 @@ class Sandbox:
                 app_response = clients.apps.get_app(service.app_id)
                 app = app_response.app
                 if hasattr(app, "domains") and app.domains:
+                    base = next(
+                        (
+                            d.name
+                            for d in app.domains
+                            if d.name and not is_direct_domain(d.name)
+                        ),
+                        app.domains[0].name,
+                    )
                     sandbox._sandbox_url = (
-                        f"https://{app.domains[0].name}/koyeb-sandbox",
+                        f"https://{base}/koyeb-sandbox",
                         None,
                     )
             except Exception:
@@ -818,8 +864,10 @@ class Sandbox:
                     f"The sandbox will not become ready."
                 )
             is_healthy = status == DeploymentStatus.HEALTHY
-            # Cache sandbox URL from metadata when deployment is healthy
-            if is_healthy and self._sandbox_url is None:
+            # Cache sandbox URL from metadata when deployment is healthy.
+            # When the direct URL is in use, leave resolution to
+            # _get_sandbox_url() so the metadata URL does not clobber it.
+            if is_healthy and self._sandbox_url is None and not self.use_direct_url:
                 metadata = deployment.metadata
                 if metadata and metadata.sandbox:
                     self._sandbox_url = (
@@ -960,10 +1008,67 @@ class Sandbox:
             app_response = clients.apps.get_app(self.app_id)
             app = app_response.app
             if hasattr(app, "domains") and app.domains:
-                # Use the first public domain
+                # Prefer the base (non-direct) domain so that adding a direct
+                # domain does not change default resolution.
+                for domain in app.domains:
+                    if domain.name and not is_direct_domain(domain.name):
+                        return domain.name
                 return app.domains[0].name
             return None
         except (NotFoundException, ApiException, Exception):
+            return None
+
+    def _ensure_direct_domain(self) -> Optional[str]:
+        """
+        Resolve (and, if necessary, create) the app's direct domain.
+
+        Looks for an existing ``*.direct.koyeb.app`` domain on the app; if none
+        exists, derives it from the base autoassigned domain and creates it via
+        the domains API. The result is cached on the instance. Idempotent: safe
+        to call from both create() and get_from_id().
+
+        Returns:
+            Optional[str]: The direct domain name, or None if it could not be
+            resolved (e.g. the app has no autoassigned base domain yet).
+        """
+        if self._direct_domain:
+            return self._direct_domain
+        if not self.app_id:
+            return None
+        try:
+            clients = get_api_clients(self.api_token, self.host)
+            app = clients.apps.get_app(self.app_id).app
+            domains = list(app.domains) if getattr(app, "domains", None) else []
+
+            # Reuse an existing direct domain if the app already has one.
+            for domain in domains:
+                if domain.name and is_direct_domain(domain.name):
+                    self._direct_domain = domain.name
+                    return self._direct_domain
+
+            # Otherwise derive it from the base autoassigned domain and create it.
+            base = next(
+                (d.name for d in domains if d.name and not is_direct_domain(d.name)),
+                None,
+            )
+            if not base:
+                logger.debug(
+                    f"App {self.app_id} has no base domain to derive a direct domain from"
+                )
+                return None
+            direct_name = direct_domain_name_from_base(base)
+            clients.domains.create_domain(
+                domain=CreateDomain(
+                    name=direct_name,
+                    type=DomainType.AUTOASSIGNED,
+                    app_id=self.app_id,
+                    koyeb=DomainLoadBalancerKoyeb(),
+                )
+            )
+            self._direct_domain = direct_name
+            return self._direct_domain
+        except Exception as e:
+            logger.debug(f"Could not ensure direct domain for app {self.app_id}: {e}")
             return None
 
     def _get_url(self) -> Optional[str]:
@@ -1063,6 +1168,14 @@ class Sandbox:
             Optional[str]: the routing key to use to reach the sandbox, if needed
         """
         if self._sandbox_url is None:
+            # When the direct URL is enabled, route through the per-app direct
+            # domain (creating it if needed) and skip metadata/base resolution.
+            if self.use_direct_url:
+                direct = self._ensure_direct_domain()
+                if direct:
+                    self._sandbox_url = (f"https://{direct}/koyeb-sandbox", None)
+                    return self._sandbox_url
+
             url_data = self._get_url_and_header_from_metadata()
             if url_data:
                 self._sandbox_url = (f"{url_data[0]}/koyeb-sandbox", url_data[1])
@@ -1530,12 +1643,68 @@ class AsyncSandbox(Sandbox):
             self._async_client = create_async_sandbox_client(self._get_conn_info())
         return self._async_client
 
+    async def _async_ensure_direct_domain(self) -> Optional[str]:
+        """
+        Async counterpart of _ensure_direct_domain: resolve (and create if
+        needed) the app's ``*.direct.koyeb.app`` domain using async clients so
+        the event loop is not blocked. Result is cached on the instance.
+        """
+        if self._direct_domain:
+            return self._direct_domain
+        if not self.app_id:
+            return None
+        try:
+            from .utils import get_async_api_clients
+            from koyeb.api_async.models.create_domain import (
+                CreateDomain as AsyncCreateDomain,
+            )
+            from koyeb.api_async.models.domain_type import (
+                DomainType as AsyncDomainType,
+            )
+            from koyeb.api_async.models.domain_load_balancer_koyeb import (
+                DomainLoadBalancerKoyeb as AsyncDomainLoadBalancerKoyeb,
+            )
+
+            clients = get_async_api_clients(self.api_token, self.host)
+            app = (await clients.apps.get_app(self.app_id)).app
+            domains = list(app.domains) if getattr(app, "domains", None) else []
+
+            for domain in domains:
+                if domain.name and is_direct_domain(domain.name):
+                    self._direct_domain = domain.name
+                    return self._direct_domain
+
+            base = next(
+                (d.name for d in domains if d.name and not is_direct_domain(d.name)),
+                None,
+            )
+            if not base:
+                logger.debug(
+                    f"App {self.app_id} has no base domain to derive a direct domain from"
+                )
+                return None
+            direct_name = direct_domain_name_from_base(base)
+            await clients.domains.create_domain(
+                domain=AsyncCreateDomain(
+                    name=direct_name,
+                    type=AsyncDomainType.AUTOASSIGNED,
+                    app_id=self.app_id,
+                    koyeb=AsyncDomainLoadBalancerKoyeb(),
+                )
+            )
+            self._direct_domain = direct_name
+            return self._direct_domain
+        except Exception as e:
+            logger.debug(f"Could not ensure direct domain for app {self.app_id}: {e}")
+            return None
+
     @classmethod
     async def get_from_id(
         cls,
         id: str,
         api_token: Optional[str] = None,
         host: Optional[str] = None,
+        use_direct_url: Optional[bool] = None,
     ) -> "AsyncSandbox":
         """
         Get a sandbox by service ID asynchronously.
@@ -1544,6 +1713,10 @@ class AsyncSandbox(Sandbox):
             id: Service ID of the sandbox
             api_token: Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
             host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+            use_direct_url: Route sandbox traffic through the per-app direct
+                (Koyeb load balancer) ``*.direct.koyeb.app`` domain, creating it
+                if the app does not have one yet. If None (default), falls back to
+                the KOYEB_SANDBOX_DIRECT_URL env var; pass True/False to override it.
 
         Returns:
             AsyncSandbox: The AsyncSandbox instance
@@ -1561,6 +1734,8 @@ class AsyncSandbox(Sandbox):
 
         if not id:
             raise ValueError("id is required")
+
+        use_direct = direct_url_enabled(use_direct_url)
 
         from .utils import get_async_api_clients
         from koyeb.api_async.exceptions import ApiException as AsyncApiException
@@ -1607,11 +1782,17 @@ class AsyncSandbox(Sandbox):
             api_token=api_token,
             sandbox_secret=sandbox_secret,
             host=host,
+            use_direct_url=use_direct,
         )
         if deployment_id:
             sandbox._deployment_id = deployment_id
 
-        if sandbox_metadata and sandbox_metadata.sandbox:
+        # Pre-cache sandbox URL: prefer the per-app direct domain when enabled,
+        # otherwise fall back to deployment metadata or the base app domain.
+        direct = await sandbox._async_ensure_direct_domain() if use_direct else None
+        if direct:
+            sandbox._sandbox_url = (f"https://{direct}/koyeb-sandbox", None)
+        elif sandbox_metadata and sandbox_metadata.sandbox:
             sandbox._sandbox_url = (
                 f"{sandbox_metadata.sandbox.public_url}/koyeb-sandbox",
                 sandbox_metadata.sandbox.routing_key,
@@ -1621,8 +1802,16 @@ class AsyncSandbox(Sandbox):
                 app_response = await clients.apps.get_app(service.app_id)
                 app = app_response.app
                 if hasattr(app, "domains") and app.domains:
+                    base = next(
+                        (
+                            d.name
+                            for d in app.domains
+                            if d.name and not is_direct_domain(d.name)
+                        ),
+                        app.domains[0].name,
+                    )
                     sandbox._sandbox_url = (
-                        f"https://{app.domains[0].name}/koyeb-sandbox",
+                        f"https://{base}/koyeb-sandbox",
                         None,
                     )
             except Exception:
@@ -1662,6 +1851,7 @@ class AsyncSandbox(Sandbox):
         outbound_allowlist: Optional[List[str]] = None,
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
+        use_direct_url: Optional[bool] = None,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1713,6 +1903,10 @@ class AsyncSandbox(Sandbox):
                     If provided, the sandbox will be initialized from this snapshot.
                     Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
                 sandbox_secret: Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
+                use_direct_url: Route all sandbox traffic through the per-app direct
+                    (Koyeb load balancer) ``*.direct.koyeb.app`` domain, creating it
+                    after the service is created. If None (default), falls back to the
+                    KOYEB_SANDBOX_DIRECT_URL env var; pass True/False to override it.
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -1912,6 +2106,7 @@ class AsyncSandbox(Sandbox):
         service_response = await clients.services.create_service(service=create_service)
         service_id = service_response.service.id
 
+        use_direct = direct_url_enabled(use_direct_url)
         sandbox = cls(
             sandbox_id=name,
             app_id=app_id,
@@ -1922,7 +2117,15 @@ class AsyncSandbox(Sandbox):
             poll_interval=poll_interval,
             host=host,
             snapshot_id=actual_snapshot_id,
+            use_direct_url=use_direct,
         )
+
+        # Create the per-app direct domain now and pin the sandbox URL to it so
+        # every subsequent call (wait_ready, exec, filesystem, ...) uses it.
+        if use_direct:
+            direct = await sandbox._async_ensure_direct_domain()
+            if direct:
+                sandbox._sandbox_url = (f"https://{direct}/koyeb-sandbox", None)
 
         if wait_ready:
             is_ready = await sandbox.wait_ready(timeout=timeout)
@@ -1962,7 +2165,7 @@ class AsyncSandbox(Sandbox):
                     f"The sandbox will not become ready."
                 )
             is_healthy = status == DeploymentStatus.HEALTHY
-            if is_healthy and self._sandbox_url is None:
+            if is_healthy and self._sandbox_url is None and not self.use_direct_url:
                 metadata = deployment.metadata
                 if metadata and metadata.sandbox:
                     self._sandbox_url = (
