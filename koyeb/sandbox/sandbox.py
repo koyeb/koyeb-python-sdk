@@ -25,6 +25,8 @@ from koyeb.api.models.update_service import UpdateService
 
 from .executor_client import ConnectionInfo
 from .utils import (
+    ApiKey,
+    BasicAuth,
     DEFAULT_INSTANCE_WAIT_TIMEOUT,
     DEFAULT_POLL_INTERVAL,
     SandboxDeploymentError,
@@ -35,7 +37,6 @@ from .utils import (
     build_env_vars,
     create_deployment_definition,
     create_docker_source,
-    create_koyeb_sandbox_routes,
     create_sandbox_client,
     get_api_clients,
     logger,
@@ -124,6 +125,7 @@ class Sandbox:
         wait_ready: bool = True,
         instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
+        exposed_port_security_policy: Optional[Union[ApiKey, BasicAuth]] = None,
         env: Optional[Dict[str, Any]] = None,
         config_files: Optional[Dict[str, Any]] = None,
         region: Optional[str] = None,
@@ -160,6 +162,11 @@ class Sandbox:
                 exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
+                exposed_port_security_policy: Optional access control for the user-facing port (3031).
+                    Pass ``ApiKey("my-key")`` to require an API key via
+                    ``x-api-key: <key>``, or
+                    ``BasicAuth(username="u", password="p")`` to require HTTP Basic Auth.
+                    If None, the port is publicly accessible (default).
                 env: Environment variables
                 config_files: Config files to create in the sandbox, as a dictionary mapping
                     file paths to file contents. Values can be plain strings (default permissions 0644)
@@ -216,15 +223,23 @@ class Sandbox:
             ...     image="ghcr.io/myorg/myimage:latest",
             ...     registry_secret="my-ghcr-secret"
             ... )
-            
+
+            >>> # Protect the exposed port with an API key
+            >>> sandbox = Sandbox.create(exposed_port_security_policy=ApiKey("my-secret-key"))
+
+            >>> # Protect the exposed port with Basic Auth
+            >>> sandbox = Sandbox.create(
+            ...     exposed_port_security_policy=BasicAuth(username="admin", ******)
+            ... )
+
             >>> # Create from a Snapshot object
             >>> from koyeb.sandbox import Snapshot
             >>> snapshot = Snapshot.get("my-snapshot-id")
             >>> sandbox = Sandbox.create(snapshot=snapshot)
-            
+
             >>> # Create from a snapshot ID string
             >>> sandbox = Sandbox.create(snapshot="my-snapshot-id")
-            
+
             >>> # Create from a snapshot with custom parameters
             >>> sandbox = Sandbox.create(
             ...     snapshot="my-snapshot-id",
@@ -283,6 +298,7 @@ class Sandbox:
             image=image,
             instance_type=instance_type,
             exposed_port_protocol=exposed_port_protocol,
+            exposed_port_security_policy=exposed_port_security_policy,
             env=env,
             config_files=config_files,
             region=region,
@@ -328,6 +344,7 @@ class Sandbox:
         image: str = "koyeb/sandbox",
         instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
+        exposed_port_security_policy: Optional[Union[ApiKey, BasicAuth]] = None,
         env: Optional[Dict[str, Any]] = None,
         config_files: Optional[Dict[str, Any]] = None,
         region: Optional[str] = None,
@@ -363,9 +380,6 @@ class Sandbox:
         clients = get_api_clients(api_token, host)
         apps_api = clients.apps
         services_api = clients.services
-
-        # Always create routes (ports are always exposed, default to "http")
-        routes = create_koyeb_sandbox_routes()
 
         # Generate secure sandbox secret if not provided
         if sandbox_secret is None:
@@ -403,8 +417,8 @@ class Sandbox:
             env_vars=env_vars,
             instance_type=instance_type,
             exposed_port_protocol=exposed_port_protocol,
+            exposed_port_security_policy=exposed_port_security_policy,
             region=region,
-            routes=routes,
             idle_timeout=idle_timeout,
             enable_tcp_proxy=enable_tcp_proxy,
             _experimental_enable_light_sleep=_experimental_enable_light_sleep,
@@ -418,31 +432,7 @@ class Sandbox:
             delete_after_create=delete_after_delay,
             delete_after_sleep=delete_after_inactivity_delay,
         )
-        
-        # Build deployment definition - used for both snapshot and non-snapshot cases
-        env_vars = build_env_vars(env)
-        config_file_objects = build_config_files(config_files)
-        docker_source = create_docker_source(
-            image, privileged=privileged, image_registry_secret=registry_secret,
-            entrypoint=entrypoint, command=command, args=args,
-        )
-        deployment_definition = create_deployment_definition(
-            name=name,
-            docker_source=docker_source,
-            env_vars=env_vars,
-            instance_type=instance_type,
-            exposed_port_protocol=exposed_port_protocol,
-            region=region,
-            routes=routes,
-            idle_timeout=idle_timeout,
-            enable_tcp_proxy=enable_tcp_proxy,
-            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-            _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-            enable_mesh=enable_mesh,
-            config_files=config_file_objects if config_file_objects else None,
-            network_policy=network_policy,
-        )
-        
+
         # Handle snapshot creation based on snapshot type
         # For FULL snapshots, don't provide definition (API will infer it)
         # For FILESYSTEM snapshots, always provide definition with snapshot_id
@@ -1638,6 +1628,7 @@ class AsyncSandbox(Sandbox):
         wait_ready: bool = True,
         instance_type: str = "micro",
         exposed_port_protocol: Optional[str] = None,
+        exposed_port_security_policy: Optional[Union[ApiKey, BasicAuth]] = None,
         env: Optional[Dict[str, Any]] = None,
         config_files: Optional[Dict[str, Any]] = None,
         region: Optional[str] = None,
@@ -1674,6 +1665,11 @@ class AsyncSandbox(Sandbox):
                 exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
                     If None, defaults to "http".
                     If provided, must be one of "http" or "http2".
+                exposed_port_security_policy: Optional access control for the user-facing port.
+                    Pass ``ApiKey("my-key")`` to require an API key via
+                    ``x-api-key: <key>``, or
+                    ``BasicAuth(username="u", password="p")`` to require HTTP Basic Auth.
+                    If None, the port is publicly accessible (default).
                 env: Environment variables
                 config_files: Config files to create in the sandbox, as a dictionary mapping
                     file paths to file contents. Values can be plain strings (default permissions 0644)
@@ -1780,9 +1776,6 @@ class AsyncSandbox(Sandbox):
 
         clients = get_async_api_clients(api_token, host)
 
-        # Always create routes
-        routes = create_koyeb_sandbox_routes()
-
         # Generate secure sandbox secret if not provided
         if sandbox_secret is None:
             sandbox_secret = secrets.token_urlsafe(32)
@@ -1809,30 +1802,11 @@ class AsyncSandbox(Sandbox):
             entrypoint=entrypoint, command=command, args=args,
         )
 
-        deployment_definition = create_deployment_definition(
-            name=name,
-            docker_source=docker_source,
-            env_vars=env_vars,
-            instance_type=instance_type,
-            exposed_port_protocol=exposed_port_protocol,
-            region=region,
-            routes=routes,
-            idle_timeout=idle_timeout,
-            enable_tcp_proxy=enable_tcp_proxy,
-            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-            _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-            enable_mesh=enable_mesh,
-            config_files=config_file_objects if config_file_objects else None,
-            network_policy=network_policy,
-        )
-
         service_life_cycle = AsyncServiceLifeCycle(
             delete_after_create=delete_after_delay,
             delete_after_sleep=delete_after_inactivity_delay,
         )
-        # Convert sync DeploymentDefinition to dict so the async Pydantic model
-        # (which expects koyeb.api_async.models.DeploymentDefinition) can coerce it.
-        
+
         # Handle snapshot creation based on snapshot type
         # For FULL snapshots, don't provide definition (API will infer it)
         # For FILESYSTEM snapshots, always provide definition with snapshot_id
@@ -1850,20 +1824,14 @@ class AsyncSandbox(Sandbox):
                 )
             else:
                 # For FILESYSTEM snapshots (or unknown), provide definition
-                env_vars = build_env_vars(env)
-                config_file_objects = build_config_files(config_files)
-                docker_source = create_docker_source(
-                    image, privileged=privileged, image_registry_secret=registry_secret,
-                    entrypoint=entrypoint, command=command, args=args,
-                )
                 deployment_definition = create_deployment_definition(
                     name=name,
                     docker_source=docker_source,
                     env_vars=env_vars,
                     instance_type=instance_type,
                     exposed_port_protocol=exposed_port_protocol,
+                    exposed_port_security_policy=exposed_port_security_policy,
                     region=region,
-                    routes=routes,
                     idle_timeout=idle_timeout,
                     enable_tcp_proxy=enable_tcp_proxy,
                     _experimental_enable_light_sleep=_experimental_enable_light_sleep,
@@ -1881,20 +1849,14 @@ class AsyncSandbox(Sandbox):
                 )
         else:
             # No snapshot, create normally with definition
-            env_vars = build_env_vars(env)
-            config_file_objects = build_config_files(config_files)
-            docker_source = create_docker_source(
-                image, privileged=privileged, image_registry_secret=registry_secret,
-                entrypoint=entrypoint, command=command, args=args,
-            )
             deployment_definition = create_deployment_definition(
                 name=name,
                 docker_source=docker_source,
                 env_vars=env_vars,
                 instance_type=instance_type,
                 exposed_port_protocol=exposed_port_protocol,
+                exposed_port_security_policy=exposed_port_security_policy,
                 region=region,
-                routes=routes,
                 idle_timeout=idle_timeout,
                 enable_tcp_proxy=enable_tcp_proxy,
                 _experimental_enable_light_sleep=_experimental_enable_light_sleep,
