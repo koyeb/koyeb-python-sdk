@@ -13,7 +13,12 @@ from typing import Any, AsyncIterator, Dict, Iterator, Optional
 
 import httpx
 
-from .utils import DEFAULT_HTTP_TIMEOUT, SandboxServiceError, SandboxTimeoutError
+from .utils import (
+    DEFAULT_HTTP_TIMEOUT,
+    SandboxError,
+    SandboxServiceError,
+    SandboxTimeoutError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -300,6 +305,9 @@ class SandboxClient:
             raise SandboxTimeoutError(
                 f"Request timed out after {request_timeout}s"
             ) from e
+        except httpx.RequestError as e:
+            # E.g. the instance is torn down mid-stream during a redeployment.
+            raise SandboxError(f"Connection to sandbox lost: {e}") from e
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """
@@ -776,6 +784,9 @@ class AsyncSandboxClient:
             raise SandboxTimeoutError(
                 f"Request timed out after {request_timeout}s"
             ) from e
+        except httpx.RequestError as e:
+            # E.g. the instance is torn down mid-stream during a redeployment.
+            raise SandboxError(f"Connection to sandbox lost: {e}") from e
 
     async def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """

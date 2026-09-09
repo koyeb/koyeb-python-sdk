@@ -52,6 +52,12 @@ dev = [
   "tqdm>=4.67.1",
 ]
 
+[tool.pyright]
+# Resolve imports against the project virtualenv (.venv) instead of the
+# system interpreter, so editors using pyright find installed dependencies.
+venvPath = "."
+venv = ".venv"
+
 [tool.pylint.'MESSAGES CONTROL']
 extension-pkg-whitelist = "pydantic"
 
