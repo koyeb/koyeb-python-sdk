@@ -45,6 +45,24 @@ class TestCreateEgressWiring(unittest.TestCase):
         )
 
     @patch("koyeb.sandbox.sandbox.get_api_clients")
+    def test_project_id_scopes_created_app_and_service(self, mock_get_clients):
+        clients = MagicMock()
+        clients.apps.create_app.return_value.app.id = "mock-app-id"
+        mock_get_clients.return_value = clients
+
+        Sandbox.create(
+            name="t",
+            api_token="tok",
+            project_id="project-id",
+            wait_ready=False,
+        )
+
+        app = clients.apps.create_app.call_args.kwargs["app"]
+        service = clients.services.create_service.call_args.kwargs["service"]
+        self.assertEqual(app.project_id, "project-id")
+        self.assertEqual(service.project_id, "project-id")
+
+    @patch("koyeb.sandbox.sandbox.get_api_clients")
     def test_mutually_exclusive_fails_before_any_api_call(self, mock_get_clients):
         with self.assertRaises(EgressPolicyError):
             Sandbox.create(
@@ -71,6 +89,28 @@ class TestCreateEgressWiring(unittest.TestCase):
         service = clients.services.create_service.call_args.kwargs["service"]
         egress = service.definition.network_policy.egress
         self.assertEqual(egress.mode, EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL)
+
+    @patch("koyeb.sandbox.utils.get_async_api_clients")
+    def test_async_project_id_scopes_created_app_and_service(self, mock_get_clients):
+        clients = MagicMock()
+        clients.apps.create_app = AsyncMock()
+        clients.apps.create_app.return_value.app.id = "mock-app-id"
+        clients.services.create_service = AsyncMock()
+        mock_get_clients.return_value = clients
+
+        asyncio.run(
+            AsyncSandbox.create(
+                name="t",
+                api_token="tok",
+                project_id="project-id",
+                wait_ready=False,
+            )
+        )
+
+        app = clients.apps.create_app.call_args.kwargs["app"]
+        service = clients.services.create_service.call_args.kwargs["service"]
+        self.assertEqual(app.project_id, "project-id")
+        self.assertEqual(service.project_id, "project-id")
 
     @patch("koyeb.sandbox.utils.get_async_api_clients")
     def test_async_mutually_exclusive_fails_before_any_api_call(self, mock_get_clients):

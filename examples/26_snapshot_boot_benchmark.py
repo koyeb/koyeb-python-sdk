@@ -28,6 +28,9 @@ from koyeb import Sandbox
 from koyeb.sandbox import Snapshot, SnapshotType
 
 
+INSTANCE_TYPE = os.getenv("KOYEB_SNAPSHOT_BENCHMARK_INSTANCE_TYPE", "xlarge")
+
+
 @dataclass
 class BootTiming:
     """Record of a single boot timing measurement."""
@@ -279,7 +282,7 @@ def benchmark_boot_from_snapshot(
             sbx = Sandbox.create(
                 name=boot_name,
                 snapshot=snapshot,
-                instance_type="xlarge",
+                instance_type=INSTANCE_TYPE,
                 wait_ready=True,
                 timeout=1200,  # 20 minutes timeout for boot
                 api_token=api_token,
@@ -379,7 +382,7 @@ def run_filesystem_benchmarks(
             print("  → Creating builder sandbox...")
             builder = Sandbox.create(
                 name=f"bench-builder-fs-{size_mb}mb-{suffix}".lower(),
-                instance_type="xlarge",
+                instance_type=INSTANCE_TYPE,
                 wait_ready=True,
                 timeout=600,
                 api_token=api_token,
@@ -448,7 +451,7 @@ def run_full_benchmarks(
             builder = Sandbox.create(
                 name=f"bench-builder-full-{size_mb}mb-{suffix}".lower(),
                 image="koyeb/sandbox",  # Standard sandbox image
-                instance_type="xlarge",
+                instance_type=INSTANCE_TYPE,
                 wait_ready=True,
                 timeout=600,
                 api_token=api_token,
@@ -546,7 +549,7 @@ def main():
     print(f"  Filesystem sizes: {fs_sizes}")
     print(f"  Full snapshot sizes: {full_sizes}")
     print(f"  Boots per snapshot: {args.boots}")
-    print(f"  Instance type: xlarge")
+    print(f"  Instance type: {INSTANCE_TYPE}")
     print(f"  Output: {args.csv}")
     
     all_timings: List[BootTiming] = []
@@ -576,6 +579,8 @@ def main():
         # Write results
         write_csv_results(all_timings, args.csv)
         print_summary(all_results)
+        assert all_results, "No benchmark results were produced"
+        assert all(len(result.boot_times) == args.boots for result in all_results)
         
         print("\n✓ Benchmark completed successfully!")
         return 0
