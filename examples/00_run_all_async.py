@@ -105,7 +105,7 @@ async def run_example(example_file, timeout):
                 "name": example_name,
                 "status": "TIMEOUT",
                 "time": elapsed_time,
-                "error": "Script exceeded 60 second timeout"
+                "error": f"Script exceeded {timeout} second timeout"
             }
 
         elapsed_time = time.time() - start_time
@@ -183,7 +183,7 @@ async def main():
 
     if not example_files:
         print("No async example files match the specified flows")
-        return 0
+        return 1
 
     # Build flow timeout mapping
     flow_timeouts = build_flow_timeouts(args.flow_timeout)

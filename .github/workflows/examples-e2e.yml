@@ -1,0 +1,71 @@
+name: Sandbox examples E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: sandbox-examples-e2e
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - name: synchronous-core
+            runner: 00_run_all.py
+            flows: 01_,02_,03_,04_,05_,06_,07_,08_,09_,10_,11_,12_,13_,14_,15_,20_,21_,22_
+            timeout: 900
+          - name: asynchronous
+            runner: 00_run_all_async.py
+            flows: all
+            timeout: 1800
+          - name: lifecycle
+            runner: 00_run_all.py
+            flows: 16_,17_,18_,19_
+            timeout: 900
+          - name: snapshots
+            runner: 00_run_all.py
+            flows: 23_,24_,25_
+            timeout: 1800
+    name: ${{ matrix.name }}
+    env:
+      KOYEB_API_TOKEN: ${{ secrets.KOYEB_API_TOKEN }}
+      KOYEB_API_HOST: ${{ vars.KOYEB_API_HOST || 'https://app.koyeb.com' }}
+      KOYEB_PROJECT_ID: ${{ vars.KOYEB_PROJECT_ID }}
+      KOYEB_REGION: ${{ vars.KOYEB_REGION || 'na' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade uv
+      - run: uv sync --frozen
+      - run: uv run python examples/${{ matrix.runner }} --flows "${{ matrix.flows }}" --timeout "${{ matrix.timeout }}"
+
+  snapshot-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      KOYEB_API_TOKEN: ${{ secrets.KOYEB_API_TOKEN }}
+      KOYEB_API_HOST: ${{ vars.KOYEB_API_HOST || 'https://app.koyeb.com' }}
+      KOYEB_PROJECT_ID: ${{ vars.KOYEB_PROJECT_ID }}
+      KOYEB_REGION: ${{ vars.KOYEB_REGION || 'na' }}
+      KOYEB_SNAPSHOT_BENCHMARK_INSTANCE_TYPE: micro
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade uv
+      - run: uv sync --frozen
+      - run: uv run python examples/26_snapshot_boot_benchmark.py --fs-sizes 1 --full-sizes 1 --boots 1 --csv /tmp/snapshot-boot.csv
