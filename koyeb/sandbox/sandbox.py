@@ -252,6 +252,7 @@ class Sandbox:
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         enable_mesh: Optional[bool] = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         entrypoint: Optional[List[str]] = None,
@@ -298,6 +299,7 @@ class Sandbox:
                 delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
+                project_id: Project for new sandbox apps and services. Defaults to KOYEB_PROJECT_ID.
                 enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
@@ -352,6 +354,9 @@ class Sandbox:
             if not api_token:
                 raise MissingApiTokenError()
 
+        if project_id is None:
+            project_id = os.getenv("KOYEB_PROJECT_ID") or None
+
         snapshot_id, snapshot_type = _resolve_snapshot_reference(
             snapshot, api_token, host
         )
@@ -371,6 +376,7 @@ class Sandbox:
             deep_sleep_value=_experimental_deep_sleep_value,
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
+            project_id=project_id,
             enable_mesh=enable_mesh,
             entrypoint=entrypoint,
             command=command,
@@ -442,7 +448,7 @@ class Sandbox:
 
         created_app = False
         if app_id is None:
-            app_id = cp.create_app(spec.app_payload())
+            app_id = cp.create_app(spec.app_payload(), project_id=spec.project_id)
             created_app = True
 
         def _delete_created_app() -> None:
@@ -457,7 +463,9 @@ class Sandbox:
                 )
 
         try:
-            service_id = cp.create_service(spec.create_service_payload(app_id))
+            service_id = cp.create_service(
+                spec.create_service_payload(app_id), project_id=spec.project_id
+            )
         except ApiException as e:
             _delete_created_app()
             raise SandboxError(f"Failed to create sandbox '{spec.name}': {e}") from e
@@ -1660,6 +1668,7 @@ class AsyncSandbox(Sandbox):
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         enable_mesh: Optional[bool] = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         entrypoint: Optional[List[str]] = None,
@@ -1708,6 +1717,7 @@ class AsyncSandbox(Sandbox):
                 delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
+                project_id: Project for new sandbox apps and services. Defaults to KOYEB_PROJECT_ID.
                 enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
@@ -1736,6 +1746,9 @@ class AsyncSandbox(Sandbox):
             if not api_token:
                 raise MissingApiTokenError()
 
+        if project_id is None:
+            project_id = os.getenv("KOYEB_PROJECT_ID") or None
+
         snapshot_id, snapshot_type = _resolve_snapshot_reference(
             snapshot, api_token, host
         )
@@ -1755,6 +1768,7 @@ class AsyncSandbox(Sandbox):
             deep_sleep_value=_experimental_deep_sleep_value,
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
+            project_id=project_id,
             enable_mesh=enable_mesh,
             entrypoint=entrypoint,
             command=command,
@@ -1773,7 +1787,9 @@ class AsyncSandbox(Sandbox):
         # Use provided app_id or create a new app
         created_app = False
         if app_id is None:
-            app_id = await cp.create_app(spec.app_payload())
+            app_id = await cp.create_app(
+                spec.app_payload(), project_id=spec.project_id
+            )
             created_app = True
 
         async def _delete_created_app() -> None:
@@ -1788,7 +1804,9 @@ class AsyncSandbox(Sandbox):
                 )
 
         try:
-            service_id = await cp.create_service(spec.create_service_payload(app_id))
+            service_id = await cp.create_service(
+                spec.create_service_payload(app_id), project_id=spec.project_id
+            )
         except AsyncApiException as e:
             await _delete_created_app()
             raise SandboxError(f"Failed to create sandbox '{name}': {e}") from e
