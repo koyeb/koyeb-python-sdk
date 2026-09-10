@@ -81,7 +81,7 @@ def main():
             elapsed = time.time() - start
             print(f"  ... still waiting ({elapsed:.0f}s elapsed)")
         else:
-            print(f"✗ Timeout waiting for sandbox to be deleted")
+            raise AssertionError("Timeout waiting for sandbox to be deleted")
 
         return 0
 

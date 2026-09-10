@@ -159,6 +159,7 @@ def main():
         assert sandbox1.is_healthy(), "Sandbox 1 should be healthy"
         result = sandbox1.exec("echo 'Sandbox 1 ready'")
         print(f"    ✓ {result.stdout.strip()}")
+        assert result.exit_code == 0, result.stderr
         print()
 
         # =====================================================================
@@ -202,6 +203,7 @@ def main():
         assert sandbox2.is_healthy(), "Sandbox 2 should be healthy"
         result = sandbox2.exec("echo 'Sandbox 2 ready'")
         print(f"    ✓ {result.stdout.strip()}")
+        assert result.exit_code == 0, result.stderr
         print()
 
         # =====================================================================
@@ -262,6 +264,9 @@ def main():
                 print("    - Sandbox 1 was not deleted")
             if not sandbox2_deleted:
                 print("    - Sandbox 2 was not deleted")
+
+        assert sandbox1_deleted, "Sandbox 1 was not auto-deleted"
+        assert sandbox2_deleted, "Sandbox 2 was not auto-deleted"
 
         # Clear sandbox references so finally block doesn't try to delete them
         if sandbox1_deleted:
