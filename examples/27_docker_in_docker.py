@@ -29,8 +29,8 @@ DOCKERD_TIMEOUT = 60
 def wait_for_docker(sandbox, timeout=DOCKERD_TIMEOUT, interval=2):
     """Poll until the Docker daemon inside the sandbox answers.
 
-    dockerd is started as a background process and takes a few seconds to
-    initialize its storage before `docker` commands can talk to it.
+    The daemon is started by the image entrypoint and may still be
+    initializing when the sandbox first accepts commands.
     """
     deadline = time.time() + timeout
     last = "no result"
@@ -66,17 +66,9 @@ def main():
         )
         print(f"Created sandbox: {sandbox.service_id} (took {time.time() - create_start:.1f}s)")
 
-        # If the daemon is not already running (e.g. started by the image
-        # entrypoint), launch it as a background process so it keeps running
-        # while we use it.
-        if sandbox.exec("docker info").exit_code != 0:
-            print("Starting Docker daemon...")
-            daemon_start = time.time()
-            sandbox.launch_process("dockerd > /tmp/dockerd.log 2>&1")
-            wait_for_docker(sandbox)
-            print(f"Docker daemon started in {time.time() - daemon_start:.1f}s")
-        else:
-            print("Docker daemon already running")
+        # The image entrypoint starts the Docker daemon; it can take a few
+        # seconds to accept connections after the sandbox is ready.
+        wait_for_docker(sandbox)
 
         # Build an image entirely offline: `FROM scratch`, with `runc` (a
         # static binary already present in the sandbox image) as the
