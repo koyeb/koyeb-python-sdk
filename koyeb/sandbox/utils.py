@@ -10,7 +10,7 @@ import logging
 import os
 import shlex
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from koyeb.api import ApiClient, Configuration
 from koyeb.api.api import (
@@ -22,6 +22,7 @@ from koyeb.api.api import (
     SecretsApi,
     ServicesApi,
 )
+from koyeb.api.models.basic_auth_policy import BasicAuthPolicy
 from koyeb.api.models.config_file import ConfigFile
 from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
@@ -43,6 +44,7 @@ from koyeb.api.models.egress_policy_mode import EgressPolicyMode
 from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.network_policy_destination import NetworkPolicyDestination
 from koyeb.api.models.proxy_port_protocol import ProxyPortProtocol
+from koyeb.api.models.security_policies import SecurityPolicies
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -65,6 +67,43 @@ ERROR_MESSAGES = {
 # Valid protocols for DeploymentPort (from OpenAPI spec: http, http2, tcp)
 # For sandboxes, we only support http and http2
 VALID_DEPLOYMENT_PORT_PROTOCOLS = ("http", "http2")
+
+
+@dataclass
+class ApiKey:
+    """An API key used to restrict access to the user-facing sandbox port."""
+
+    key: str
+
+
+@dataclass
+class BasicAuth:
+    """HTTP Basic Auth credentials used to restrict access to the user-facing sandbox port."""
+
+    username: str
+    password: str
+
+
+def _build_security_policy(
+    policy,
+) -> Optional[SecurityPolicies]:
+    """
+    Build a SecurityPolicies object from an ApiKey or BasicAuth instance.
+
+    Raises:
+        ValueError: If policy is not an ApiKey or BasicAuth.
+    """
+    if policy is None:
+        return None
+    if isinstance(policy, ApiKey):
+        return SecurityPolicies(api_keys=[policy.key])
+    if isinstance(policy, BasicAuth):
+        return SecurityPolicies(
+            basic_auths=[BasicAuthPolicy(username=policy.username, password=policy.password)]
+        )
+    raise ValueError(
+        "exposed_port_security_policy must be an ApiKey or BasicAuth instance"
+    )
 
 
 def _validate_port_protocol(protocol: str) -> str:
@@ -388,20 +427,25 @@ def create_koyeb_sandbox_proxy_ports() -> List[DeploymentProxyPort]:
     ]
 
 
-def create_koyeb_sandbox_routes() -> List[DeploymentRoute]:
+def create_koyeb_sandbox_routes(
+    security_policy: Optional[SecurityPolicies] = None,
+) -> List[DeploymentRoute]:
     """
     Create route configuration for koyeb/sandbox image to make it publicly accessible.
 
     Creates two routes:
-    - Port 3030 accessible at /koyeb-sandbox/
-    - Port 3031 accessible at /
+    - Port 3030 accessible at /koyeb-sandbox/ (control plane, no security policy)
+    - Port 3031 accessible at / (user-facing, optional security policy)
+
+    Args:
+        security_policy: Optional security policy to apply to the user-facing port 3031 route.
 
     Returns:
         List of DeploymentRoute objects configured for koyeb/sandbox
     """
     return [
         DeploymentRoute(port=3030, path="/koyeb-sandbox/"),
-        DeploymentRoute(port=3031, path="/"),
+        DeploymentRoute(port=3031, path="/", security_policies=security_policy),
     ]
 
 
@@ -411,6 +455,7 @@ def create_deployment_definition(
     env_vars: List[DeploymentEnv],
     instance_type: str,
     exposed_port_protocol: Optional[str] = None,
+    exposed_port_security_policy: Optional[Union[ApiKey, BasicAuth]] = None,
     region: Optional[str] = None,
     routes: Optional[List[DeploymentRoute]] = None,
     idle_timeout: int = 300,
@@ -432,6 +477,8 @@ def create_deployment_definition(
         exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
             If None, defaults to "http".
             If provided, must be one of "http" or "http2".
+        exposed_port_security_policy: Optional security policy for the user-facing port 3031 route.
+            Pass ApiKey("my-key") or BasicAuth(username="u", password="p").
         region: Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
         routes: List of routes for public access
         idle_timeout: Number of seconds to wait before sleeping the instance if it receives no traffic
@@ -457,6 +504,10 @@ def create_deployment_definition(
     # Validate protocol using API model structure
     protocol = _validate_port_protocol(protocol)
     ports = create_koyeb_sandbox_ports(protocol)
+
+    if routes is None:
+        security_policy = _build_security_policy(exposed_port_security_policy)
+        routes = create_koyeb_sandbox_routes(security_policy=security_policy)
 
     # Create TCP proxy ports if enabled
     proxy_ports = None
