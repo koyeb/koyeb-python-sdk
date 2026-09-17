@@ -138,6 +138,7 @@ class Sandbox:
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         enable_mesh: bool = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         entrypoint: Optional[List[str]] = None,
@@ -184,6 +185,7 @@ class Sandbox:
                 delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
+                project_id: Project for new sandbox apps and services. Defaults to KOYEB_PROJECT_ID.
                 enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
@@ -239,6 +241,9 @@ class Sandbox:
                 raise ValueError(
                     "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
+
+        if project_id is None:
+            project_id = os.getenv("KOYEB_PROJECT_ID") or None
 
         # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
         actual_snapshot_id = None
@@ -297,6 +302,7 @@ class Sandbox:
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
             app_id=app_id,
+            project_id=project_id,
             enable_mesh=enable_mesh,
             poll_interval=poll_interval,
             entrypoint=entrypoint,
@@ -342,6 +348,7 @@ class Sandbox:
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         enable_mesh: bool = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         entrypoint: Optional[List[str]] = None,
@@ -381,7 +388,9 @@ class Sandbox:
             app_name = f"sandbox-app-{name}-{int(time.time())}"
             app_response = apps_api.create_app(
                 app=CreateApp(
-                    name=app_name, life_cycle=AppLifeCycle(delete_when_empty=True)
+                    name=app_name,
+                    life_cycle=AppLifeCycle(delete_when_empty=True),
+                    project_id=project_id,
                 )
             )
             app_id = app_response.app.id
@@ -457,6 +466,7 @@ class Sandbox:
                     life_cycle=service_life_cycle,
                     instance_snapshot_id=snapshot_id,
                     name=name,
+                    project_id=project_id,
                 )
             else:
                 # For FILESYSTEM snapshots (or unknown), provide definition
@@ -466,6 +476,7 @@ class Sandbox:
                     life_cycle=service_life_cycle,
                     instance_snapshot_id=snapshot_id,
                     name=name,
+                    project_id=project_id,
                 )
         else:
             # No snapshot, create normally with definition
@@ -474,6 +485,7 @@ class Sandbox:
                 definition=deployment_definition,
                 life_cycle=service_life_cycle,
                 name=name,
+                project_id=project_id,
             )
         service_response = services_api.create_service(service=create_service)
         service_id = service_response.service.id
@@ -1698,6 +1710,7 @@ class AsyncSandbox(Sandbox):
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         enable_mesh: bool = False,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         entrypoint: Optional[List[str]] = None,
@@ -1746,6 +1759,7 @@ class AsyncSandbox(Sandbox):
                 delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
+                project_id: Project for new sandbox apps and services. Defaults to KOYEB_PROJECT_ID.
                 enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
@@ -1775,6 +1789,9 @@ class AsyncSandbox(Sandbox):
                 raise ValueError(
                     "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
+
+        if project_id is None:
+            project_id = os.getenv("KOYEB_PROJECT_ID") or None
 
         # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
         actual_snapshot_id = None
@@ -1843,7 +1860,9 @@ class AsyncSandbox(Sandbox):
             app_name = f"sandbox-app-{name}-{int(time.time())}"
             app_response = await clients.apps.create_app(
                 app=AsyncCreateApp(
-                    name=app_name, life_cycle=AsyncAppLifeCycle(delete_when_empty=True)
+                    name=app_name,
+                    life_cycle=AsyncAppLifeCycle(delete_when_empty=True),
+                    project_id=project_id,
                 )
             )
             app_id = app_response.app.id
@@ -1893,6 +1912,7 @@ class AsyncSandbox(Sandbox):
                     life_cycle=service_life_cycle,
                     instance_snapshot_id=actual_snapshot_id,
                     name=name,
+                    project_id=project_id,
                 )
             else:
                 # For FILESYSTEM snapshots (or unknown), provide definition
@@ -1924,6 +1944,7 @@ class AsyncSandbox(Sandbox):
                     life_cycle=service_life_cycle,
                     instance_snapshot_id=actual_snapshot_id,
                     name=name,
+                    project_id=project_id,
                 )
         else:
             # No snapshot, create normally with definition
@@ -1954,6 +1975,7 @@ class AsyncSandbox(Sandbox):
                 definition=deployment_definition.to_dict(),
                 life_cycle=service_life_cycle,
                 name=name,
+                project_id=project_id,
             )
         service_response = await clients.services.create_service(service=create_service)
         service_id = service_response.service.id

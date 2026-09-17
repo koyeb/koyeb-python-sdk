@@ -39,6 +39,7 @@ def main():
             fs.upload_file(local_file, "/tmp/uploaded_file.txt")
             uploaded_info = fs.read_file("/tmp/uploaded_file.txt")
             print(uploaded_info.content)
+            assert uploaded_info.content == "This is a local file\nUploaded to Koyeb Sandbox!"
         finally:
             os.unlink(local_file)
 
@@ -53,7 +54,9 @@ def main():
         try:
             fs.download_file("/tmp/download_source.txt", download_path)
             with open(download_path, "r") as f:
-                print(f.read())
+                downloaded = f.read()
+                print(downloaded)
+            assert downloaded == "Download test content\nMultiple lines"
         finally:
             os.unlink(download_path)
 

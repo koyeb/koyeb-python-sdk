@@ -341,6 +341,8 @@ class Snapshot:
             create_params["api_token"] = self.api_token
         if self.host:
             create_params["host"] = self.host
+        if self.project_id:
+            create_params["project_id"] = self.project_id
         if self.sandbox_secret:
             create_params["sandbox_secret"] = self.sandbox_secret
 

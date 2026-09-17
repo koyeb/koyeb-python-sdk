@@ -66,6 +66,7 @@ def main():
         print("✓ Waiting for spawned sandbox to be ready...")
         is_ready = sbx2.wait_ready(timeout=300)
         print("  ✓ Sandbox is ready")
+        assert is_ready, "Spawned sandbox should be ready"
 
         # Verify filesystem is preserved from snapshot
         print("✓ Verifying filesystem is preserved from snapshot...")

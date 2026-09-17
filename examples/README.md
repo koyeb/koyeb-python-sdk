@@ -7,10 +7,31 @@ A collection of examples demonstrating the Koyeb Sandbox SDK capabilities.
 ```bash
 # Set your API token
 export KOYEB_API_TOKEN=your_api_token_here
+export KOYEB_PROJECT_ID=your_project_id # Optional
+export KOYEB_REGION=na                  # Optional
 
 # Run individual examples
 uv run python examples/01_create_sandbox.py
 ```
+
+Each numbered example checks its result with assertions.
+
+Run all synchronous examples:
+
+```bash
+uv run python examples/00_run_all.py
+```
+
+Run all asynchronous examples:
+
+```bash
+uv run python examples/00_run_all_async.py
+```
+
+The GitHub Actions workflow needs the `KOYEB_API_TOKEN` repository secret.
+It also accepts `KOYEB_API_HOST`, `KOYEB_PROJECT_ID`, and `KOYEB_REGION` repository variables.
+The API token selects the Koyeb organization.
+`KOYEB_PROJECT_ID` selects the project inside that organization.
 
 ## Examples
 

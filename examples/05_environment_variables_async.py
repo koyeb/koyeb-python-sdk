@@ -29,7 +29,11 @@ async def main():
     try:
         # Create a secret
         secret_response = secrets_api.create_secret(
-            secret=CreateSecret(name=secret_name, value=secret_value)
+            secret=CreateSecret(
+                name=secret_name,
+                value=secret_value,
+                project_id=os.getenv("KOYEB_PROJECT_ID") or None,
+            )
         )
         secret_id = secret_response.secret.id
         print(f"Created secret: {secret_name}")
