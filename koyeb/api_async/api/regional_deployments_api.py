@@ -101,6 +101,7 @@ class RegionalDeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -174,6 +175,7 @@ class RegionalDeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -247,6 +249,7 @@ class RegionalDeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -395,6 +398,7 @@ class RegionalDeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -483,6 +487,7 @@ class RegionalDeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -571,6 +576,7 @@ class RegionalDeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -672,6 +678,7 @@ class RegionalDeploymentsApi:
         deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on deployment id")] = None,
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
         offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on regional deployment ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -695,6 +702,8 @@ class RegionalDeploymentsApi:
         :type limit: str
         :param offset: (Optional) The offset in the list of item to return
         :type offset: str
+        :param ids: (Optional) Filter on regional deployment ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -721,6 +730,7 @@ class RegionalDeploymentsApi:
             deployment_id=deployment_id,
             limit=limit,
             offset=offset,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -735,6 +745,7 @@ class RegionalDeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -753,6 +764,7 @@ class RegionalDeploymentsApi:
         deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on deployment id")] = None,
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
         offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on regional deployment ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -776,6 +788,8 @@ class RegionalDeploymentsApi:
         :type limit: str
         :param offset: (Optional) The offset in the list of item to return
         :type offset: str
+        :param ids: (Optional) Filter on regional deployment ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -802,6 +816,7 @@ class RegionalDeploymentsApi:
             deployment_id=deployment_id,
             limit=limit,
             offset=offset,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -816,6 +831,7 @@ class RegionalDeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -834,6 +850,7 @@ class RegionalDeploymentsApi:
         deployment_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on deployment id")] = None,
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
         offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on regional deployment ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -857,6 +874,8 @@ class RegionalDeploymentsApi:
         :type limit: str
         :param offset: (Optional) The offset in the list of item to return
         :type offset: str
+        :param ids: (Optional) Filter on regional deployment ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -883,6 +902,7 @@ class RegionalDeploymentsApi:
             deployment_id=deployment_id,
             limit=limit,
             offset=offset,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -897,6 +917,7 @@ class RegionalDeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -910,6 +931,7 @@ class RegionalDeploymentsApi:
         deployment_id,
         limit,
         offset,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -919,6 +941,7 @@ class RegionalDeploymentsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -943,6 +966,10 @@ class RegionalDeploymentsApi:
         if offset is not None:
             
             _query_params.append(('offset', offset))
+            
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters

@@ -103,6 +103,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -175,6 +176,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -247,6 +249,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -379,6 +382,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -451,6 +455,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -523,6 +528,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -655,6 +661,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -727,6 +734,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -799,6 +807,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -880,7 +889,7 @@ class DomainsApi:
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) A filter for statuses")] = None,
         app_ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) A filter for apps")] = None,
         name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on domain ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -909,8 +918,8 @@ class DomainsApi:
         :type app_ids: List[str]
         :param name: (Optional) A filter for name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on domain ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -940,7 +949,7 @@ class DomainsApi:
             statuses=statuses,
             app_ids=app_ids,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -955,6 +964,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -976,7 +986,7 @@ class DomainsApi:
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) A filter for statuses")] = None,
         app_ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) A filter for apps")] = None,
         name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on domain ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1005,8 +1015,8 @@ class DomainsApi:
         :type app_ids: List[str]
         :param name: (Optional) A filter for name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on domain ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1036,7 +1046,7 @@ class DomainsApi:
             statuses=statuses,
             app_ids=app_ids,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1051,6 +1061,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1072,7 +1083,7 @@ class DomainsApi:
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) A filter for statuses")] = None,
         app_ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) A filter for apps")] = None,
         name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on domain ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1101,8 +1112,8 @@ class DomainsApi:
         :type app_ids: List[str]
         :param name: (Optional) A filter for name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on domain ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1132,7 +1143,7 @@ class DomainsApi:
             statuses=statuses,
             app_ids=app_ids,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1147,6 +1158,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1163,7 +1175,7 @@ class DomainsApi:
         statuses,
         app_ids,
         name,
-        project_id,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -1176,6 +1188,7 @@ class DomainsApi:
             'types': 'multi',
             'statuses': 'multi',
             'app_ids': 'multi',
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1213,9 +1226,9 @@ class DomainsApi:
             
             _query_params.append(('name', name))
             
-        if project_id is not None:
+        if ids is not None:
             
-            _query_params.append(('project_id', project_id))
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters
@@ -1314,6 +1327,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1386,6 +1400,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1458,6 +1473,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1602,6 +1618,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1686,6 +1703,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1770,6 +1788,7 @@ class DomainsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,

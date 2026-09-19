@@ -104,6 +104,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -176,6 +177,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -248,6 +250,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -381,6 +384,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -454,6 +458,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -527,6 +532,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -659,6 +665,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -731,6 +738,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -803,6 +811,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -951,6 +960,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1039,6 +1049,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1127,6 +1138,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1228,7 +1240,7 @@ class AppsApi:
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
         offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
         name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on app ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1251,8 +1263,8 @@ class AppsApi:
         :type offset: str
         :param name: (Optional) A filter for name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on app ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1279,7 +1291,7 @@ class AppsApi:
             limit=limit,
             offset=offset,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1294,6 +1306,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1312,7 +1325,7 @@ class AppsApi:
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
         offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
         name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on app ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1335,8 +1348,8 @@ class AppsApi:
         :type offset: str
         :param name: (Optional) A filter for name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on app ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1363,7 +1376,7 @@ class AppsApi:
             limit=limit,
             offset=offset,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1378,6 +1391,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1396,7 +1410,7 @@ class AppsApi:
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
         offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
         name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on app ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1419,8 +1433,8 @@ class AppsApi:
         :type offset: str
         :param name: (Optional) A filter for name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on app ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1447,7 +1461,7 @@ class AppsApi:
             limit=limit,
             offset=offset,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1462,6 +1476,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1475,7 +1490,7 @@ class AppsApi:
         limit,
         offset,
         name,
-        project_id,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -1485,6 +1500,7 @@ class AppsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1510,9 +1526,9 @@ class AppsApi:
             
             _query_params.append(('name', name))
             
-        if project_id is not None:
+        if ids is not None:
             
-            _query_params.append(('project_id', project_id))
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters
@@ -1612,6 +1628,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1685,6 +1702,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1758,6 +1776,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1891,6 +1910,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1964,6 +1984,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2037,6 +2058,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2177,6 +2199,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2257,6 +2280,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2337,6 +2361,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2485,6 +2510,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2565,6 +2591,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2645,6 +2672,7 @@ class AppsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,

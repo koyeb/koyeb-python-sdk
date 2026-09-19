@@ -98,6 +98,7 @@ class UsagesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "GetOrganizationUsageReply",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -168,6 +169,7 @@ class UsagesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "GetOrganizationUsageReply",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -238,6 +240,7 @@ class UsagesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "GetOrganizationUsageReply",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -409,6 +412,7 @@ class UsagesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "GetOrganizationUsageDetailsReply",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -495,6 +499,7 @@ class UsagesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "GetOrganizationUsageDetailsReply",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -581,6 +586,7 @@ class UsagesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "GetOrganizationUsageDetailsReply",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,

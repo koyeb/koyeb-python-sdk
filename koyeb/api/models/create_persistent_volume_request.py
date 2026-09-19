@@ -34,8 +34,7 @@ class CreatePersistentVolumeRequest(BaseModel):
     read_only: Optional[StrictBool] = None
     max_size: Optional[StrictInt] = None
     snapshot_id: Optional[StrictStr] = None
-    project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["volume_type", "name", "region", "read_only", "max_size", "snapshot_id", "project_id"]
+    __properties: ClassVar[List[str]] = ["volume_type", "name", "region", "read_only", "max_size", "snapshot_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -93,8 +92,7 @@ class CreatePersistentVolumeRequest(BaseModel):
             "region": obj.get("region"),
             "read_only": obj.get("read_only"),
             "max_size": obj.get("max_size"),
-            "snapshot_id": obj.get("snapshot_id"),
-            "project_id": obj.get("project_id")
+            "snapshot_id": obj.get("snapshot_id")
         })
         return _obj
 

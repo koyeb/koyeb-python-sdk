@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api.models.egress_policy import EgressPolicy
+from koyeb.api.models.mesh import Mesh
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -29,7 +30,8 @@ class NetworkPolicy(BaseModel):
     NetworkPolicy
     """ # noqa: E501
     egress: Optional[EgressPolicy] = None
-    __properties: ClassVar[List[str]] = ["egress"]
+    mesh: Optional[Mesh] = None
+    __properties: ClassVar[List[str]] = ["egress", "mesh"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -73,6 +75,9 @@ class NetworkPolicy(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of egress
         if self.egress:
             _dict['egress'] = self.egress.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of mesh
+        if self.mesh:
+            _dict['mesh'] = self.mesh.to_dict()
         return _dict
 
     @classmethod
@@ -85,7 +90,8 @@ class NetworkPolicy(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "egress": EgressPolicy.from_dict(obj["egress"]) if obj.get("egress") is not None else None
+            "egress": EgressPolicy.from_dict(obj["egress"]) if obj.get("egress") is not None else None,
+            "mesh": Mesh.from_dict(obj["mesh"]) if obj.get("mesh") is not None else None
         })
         return _obj
 

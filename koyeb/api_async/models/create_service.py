@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api_async.models.deployment_definition import DeploymentDefinition
 from koyeb.api_async.models.service_life_cycle import ServiceLifeCycle
@@ -32,10 +32,10 @@ class CreateService(BaseModel):
     app_id: Optional[StrictStr] = None
     definition: Optional[DeploymentDefinition] = None
     life_cycle: Optional[ServiceLifeCycle] = None
-    project_id: Optional[StrictStr] = None
     instance_snapshot_id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["app_id", "definition", "life_cycle", "project_id", "instance_snapshot_id", "name"]
+    service_account_id: Optional[StrictStr] = Field(default=None, description="(Optional) The Albe service account ID to associate with the service. Immutable after creation.")
+    __properties: ClassVar[List[str]] = ["app_id", "definition", "life_cycle", "instance_snapshot_id", "name", "service_account_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -97,9 +97,9 @@ class CreateService(BaseModel):
             "app_id": obj.get("app_id"),
             "definition": DeploymentDefinition.from_dict(obj["definition"]) if obj.get("definition") is not None else None,
             "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None,
-            "project_id": obj.get("project_id"),
             "instance_snapshot_id": obj.get("instance_snapshot_id"),
-            "name": obj.get("name")
+            "name": obj.get("name"),
+            "service_account_id": obj.get("service_account_id")
         })
         return _obj
 

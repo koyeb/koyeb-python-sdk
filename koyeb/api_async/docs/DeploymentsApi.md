@@ -364,7 +364,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_deployments**
-> ListDeploymentsReply list_deployments(app_id=app_id, service_id=service_id, limit=limit, offset=offset, statuses=statuses)
+> ListDeploymentsReply list_deployments(app_id=app_id, service_id=service_id, limit=limit, offset=offset, statuses=statuses, ids=ids)
 
 List Deployments
 
@@ -404,10 +404,11 @@ async with koyeb.api_async.ApiClient(configuration) as api_client:
     limit = 'limit_example' # str | (Optional) The number of items to return (optional)
     offset = 'offset_example' # str | (Optional) The offset in the list of item to return (optional)
     statuses = ['statuses_example'] # List[str] | (Optional) Filter on statuses (optional)
+    ids = ['ids_example'] # List[str] | (Optional) Filter on deployment ids (optional)
 
     try:
         # List Deployments
-        api_response = await api_instance.list_deployments(app_id=app_id, service_id=service_id, limit=limit, offset=offset, statuses=statuses)
+        api_response = await api_instance.list_deployments(app_id=app_id, service_id=service_id, limit=limit, offset=offset, statuses=statuses, ids=ids)
         print("The response of DeploymentsApi->list_deployments:\n")
         pprint(api_response)
     except Exception as e:
@@ -426,6 +427,7 @@ Name | Type | Description  | Notes
  **limit** | **str**| (Optional) The number of items to return | [optional] 
  **offset** | **str**| (Optional) The offset in the list of item to return | [optional] 
  **statuses** | [**List[str]**](str.md)| (Optional) Filter on statuses | [optional] 
+ **ids** | [**List[str]**](str.md)| (Optional) Filter on deployment ids | [optional] 
 
 ### Return type
 

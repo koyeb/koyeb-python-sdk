@@ -105,6 +105,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -177,6 +178,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -249,6 +251,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -381,6 +384,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -453,6 +457,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -525,6 +530,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -657,6 +663,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -729,6 +736,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -801,6 +809,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -949,6 +958,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1037,6 +1047,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1125,6 +1136,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1228,7 +1240,7 @@ class PersistentVolumesApi:
         service_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the service id")] = None,
         region: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the region")] = None,
         name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on volume ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1255,8 +1267,8 @@ class PersistentVolumesApi:
         :type region: str
         :param name: (Optional) A filter for the name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on volume ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1285,7 +1297,7 @@ class PersistentVolumesApi:
             service_id=service_id,
             region=region,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1300,6 +1312,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1320,7 +1333,7 @@ class PersistentVolumesApi:
         service_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the service id")] = None,
         region: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the region")] = None,
         name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on volume ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1347,8 +1360,8 @@ class PersistentVolumesApi:
         :type region: str
         :param name: (Optional) A filter for the name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on volume ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1377,7 +1390,7 @@ class PersistentVolumesApi:
             service_id=service_id,
             region=region,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1392,6 +1405,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1412,7 +1426,7 @@ class PersistentVolumesApi:
         service_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the service id")] = None,
         region: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the region")] = None,
         name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the name")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on volume ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1439,8 +1453,8 @@ class PersistentVolumesApi:
         :type region: str
         :param name: (Optional) A filter for the name
         :type name: str
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on volume ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1469,7 +1483,7 @@ class PersistentVolumesApi:
             service_id=service_id,
             region=region,
             name=name,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1484,6 +1498,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1499,7 +1514,7 @@ class PersistentVolumesApi:
         service_id,
         region,
         name,
-        project_id,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -1509,6 +1524,7 @@ class PersistentVolumesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1542,9 +1558,9 @@ class PersistentVolumesApi:
             
             _query_params.append(('name', name))
             
-        if project_id is not None:
+        if ids is not None:
             
-            _query_params.append(('project_id', project_id))
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters
@@ -1647,6 +1663,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1723,6 +1740,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1799,6 +1817,7 @@ class PersistentVolumesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,

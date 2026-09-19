@@ -104,6 +104,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -176,6 +177,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -248,6 +250,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -380,6 +383,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -452,6 +456,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -524,6 +529,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -656,6 +662,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -728,6 +735,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -800,6 +808,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -880,6 +889,7 @@ class SnapshotsApi:
         organization_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter by organization_id")] = None,
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter by status   - SNAPSHOT_STATUS_INVALID: zero value, invalid  - SNAPSHOT_STATUS_CREATING: the snapshot is being created  - SNAPSHOT_STATUS_AVAILABLE: the snapshot is complete and available  - SNAPSHOT_STATUS_MIGRATING: the snapshot is being migrated  - SNAPSHOT_STATUS_DELETING: the snapshot is being deleted  - SNAPSHOT_STATUS_DELETED: the snapshot is deleted")] = None,
         region: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the region")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on snapshot ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -906,6 +916,8 @@ class SnapshotsApi:
         :type statuses: List[str]
         :param region: (Optional) A filter for the region
         :type region: str
+        :param ids: (Optional) Filter on snapshot ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -934,6 +946,7 @@ class SnapshotsApi:
             organization_id=organization_id,
             statuses=statuses,
             region=region,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -948,6 +961,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -968,6 +982,7 @@ class SnapshotsApi:
         organization_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter by organization_id")] = None,
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter by status   - SNAPSHOT_STATUS_INVALID: zero value, invalid  - SNAPSHOT_STATUS_CREATING: the snapshot is being created  - SNAPSHOT_STATUS_AVAILABLE: the snapshot is complete and available  - SNAPSHOT_STATUS_MIGRATING: the snapshot is being migrated  - SNAPSHOT_STATUS_DELETING: the snapshot is being deleted  - SNAPSHOT_STATUS_DELETED: the snapshot is deleted")] = None,
         region: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the region")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on snapshot ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -994,6 +1009,8 @@ class SnapshotsApi:
         :type statuses: List[str]
         :param region: (Optional) A filter for the region
         :type region: str
+        :param ids: (Optional) Filter on snapshot ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1022,6 +1039,7 @@ class SnapshotsApi:
             organization_id=organization_id,
             statuses=statuses,
             region=region,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1036,6 +1054,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1056,6 +1075,7 @@ class SnapshotsApi:
         organization_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter by organization_id")] = None,
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter by status   - SNAPSHOT_STATUS_INVALID: zero value, invalid  - SNAPSHOT_STATUS_CREATING: the snapshot is being created  - SNAPSHOT_STATUS_AVAILABLE: the snapshot is complete and available  - SNAPSHOT_STATUS_MIGRATING: the snapshot is being migrated  - SNAPSHOT_STATUS_DELETING: the snapshot is being deleted  - SNAPSHOT_STATUS_DELETED: the snapshot is deleted")] = None,
         region: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the region")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on snapshot ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1082,6 +1102,8 @@ class SnapshotsApi:
         :type statuses: List[str]
         :param region: (Optional) A filter for the region
         :type region: str
+        :param ids: (Optional) Filter on snapshot ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1110,6 +1132,7 @@ class SnapshotsApi:
             organization_id=organization_id,
             statuses=statuses,
             region=region,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1124,6 +1147,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1139,6 +1163,7 @@ class SnapshotsApi:
         organization_id,
         statuses,
         region,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -1149,6 +1174,7 @@ class SnapshotsApi:
 
         _collection_formats: Dict[str, str] = {
             'statuses': 'multi',
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1181,6 +1207,10 @@ class SnapshotsApi:
         if region is not None:
             
             _query_params.append(('region', region))
+            
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters
@@ -1283,6 +1313,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1359,6 +1390,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1435,6 +1467,7 @@ class SnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,

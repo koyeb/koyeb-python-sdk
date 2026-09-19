@@ -4,7 +4,6 @@ set -e
 echo "Applying manual patches after code generation..."
 
 PATCHES=(
-  "patches/001-proxy-support.patch"
   "patches/002-api-client-fixes.patch"
 )
 

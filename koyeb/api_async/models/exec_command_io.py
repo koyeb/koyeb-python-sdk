@@ -32,16 +32,13 @@ class ExecCommandIO(BaseModel):
     close: Optional[StrictBool] = Field(default=None, description="Indicate last data frame")
     __properties: ClassVar[List[str]] = ["data", "close"]
 
-    @field_validator('data')
+    @field_validator('data', mode="before")
     def data_validate_regular_expression(cls, value):
         """Validates the regular expression"""
         if value is None:
             return value
 
-        if not isinstance(value, str):
-            value = str(value)
-
-        if not re.match(r"^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$", value):
+        if isinstance(value, str) and not re.match(r"^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$", value):
             raise ValueError(r"must validate the regular expression /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/")
         return value
 

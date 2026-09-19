@@ -9,6 +9,7 @@ Name | Type | Description | Notes
 **name** | **str** |  | [optional] 
 **type** | [**ServiceType**](ServiceType.md) |  | [optional] [default to ServiceType.INVALID_TYPE]
 **organization_id** | **str** |  | [optional] 
+**project_id** | **str** |  | [optional] 
 **app_id** | **str** |  | [optional] 
 **updated_at** | **datetime** |  | [optional] 
 **created_at** | **datetime** |  | [optional] 
@@ -19,6 +20,7 @@ Name | Type | Description | Notes
 **active_deployment_id** | **str** |  | [optional] 
 **latest_deployment_id** | **str** |  | [optional] 
 **life_cycle** | [**ServiceLifeCycle**](ServiceLifeCycle.md) |  | [optional] 
+**service_account_id** | **str** |  | [optional] 
 
 ## Example
 

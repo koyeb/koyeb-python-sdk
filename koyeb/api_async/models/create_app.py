@@ -30,8 +30,7 @@ class CreateApp(BaseModel):
     """ # noqa: E501
     name: Optional[StrictStr] = None
     life_cycle: Optional[AppLifeCycle] = None
-    project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["name", "life_cycle", "project_id"]
+    __properties: ClassVar[List[str]] = ["name", "life_cycle"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -88,8 +87,7 @@ class CreateApp(BaseModel):
 
         _obj = cls.model_validate({
             "name": obj.get("name"),
-            "life_cycle": AppLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None,
-            "project_id": obj.get("project_id")
+            "life_cycle": AppLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None
         })
         return _obj
 

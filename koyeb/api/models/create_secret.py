@@ -45,8 +45,7 @@ class CreateSecret(BaseModel):
     gitlab_registry: Optional[GitLabRegistryConfiguration] = None
     gcp_container_registry: Optional[GCPContainerRegistryConfiguration] = None
     azure_container_registry: Optional[AzureContainerRegistryConfiguration] = None
-    project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["name", "type", "value", "docker_hub_registry", "private_registry", "digital_ocean_registry", "github_registry", "gitlab_registry", "gcp_container_registry", "azure_container_registry", "project_id"]
+    __properties: ClassVar[List[str]] = ["name", "type", "value", "docker_hub_registry", "private_registry", "digital_ocean_registry", "github_registry", "gitlab_registry", "gcp_container_registry", "azure_container_registry"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -129,8 +128,7 @@ class CreateSecret(BaseModel):
             "github_registry": GitHubRegistryConfiguration.from_dict(obj["github_registry"]) if obj.get("github_registry") is not None else None,
             "gitlab_registry": GitLabRegistryConfiguration.from_dict(obj["gitlab_registry"]) if obj.get("gitlab_registry") is not None else None,
             "gcp_container_registry": GCPContainerRegistryConfiguration.from_dict(obj["gcp_container_registry"]) if obj.get("gcp_container_registry") is not None else None,
-            "azure_container_registry": AzureContainerRegistryConfiguration.from_dict(obj["azure_container_registry"]) if obj.get("azure_container_registry") is not None else None,
-            "project_id": obj.get("project_id")
+            "azure_container_registry": AzureContainerRegistryConfiguration.from_dict(obj["azure_container_registry"]) if obj.get("azure_container_registry") is not None else None
         })
         return _obj
 

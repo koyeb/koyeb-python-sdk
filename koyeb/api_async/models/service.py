@@ -43,6 +43,7 @@ class Service(BaseModel):
     name: Optional[StrictStr] = None
     type: Optional[ServiceType] = ServiceType.INVALID_TYPE
     organization_id: Optional[StrictStr] = None
+    project_id: Optional[StrictStr] = None
     app_id: Optional[StrictStr] = None
     status: Optional[ServiceStatus] = ServiceStatus.STARTING
     messages: Optional[List[StrictStr]] = None
@@ -52,7 +53,8 @@ class Service(BaseModel):
     last_provisioned_deployment_id: Optional[StrictStr] = None
     state: Optional[ServiceState] = None
     life_cycle: Optional[ServiceLifeCycle] = None
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "started_at", "succeeded_at", "paused_at", "resumed_at", "terminated_at", "name", "type", "organization_id", "app_id", "status", "messages", "version", "active_deployment_id", "latest_deployment_id", "last_provisioned_deployment_id", "state", "life_cycle"]
+    service_account_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "started_at", "succeeded_at", "paused_at", "resumed_at", "terminated_at", "name", "type", "organization_id", "project_id", "app_id", "status", "messages", "version", "active_deployment_id", "latest_deployment_id", "last_provisioned_deployment_id", "state", "life_cycle", "service_account_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -122,6 +124,7 @@ class Service(BaseModel):
             "name": obj.get("name"),
             "type": obj.get("type") if obj.get("type") is not None else ServiceType.INVALID_TYPE,
             "organization_id": obj.get("organization_id"),
+            "project_id": obj.get("project_id"),
             "app_id": obj.get("app_id"),
             "status": obj.get("status") if obj.get("status") is not None else ServiceStatus.STARTING,
             "messages": obj.get("messages"),
@@ -130,7 +133,8 @@ class Service(BaseModel):
             "latest_deployment_id": obj.get("latest_deployment_id"),
             "last_provisioned_deployment_id": obj.get("last_provisioned_deployment_id"),
             "state": ServiceState.from_dict(obj["state"]) if obj.get("state") is not None else None,
-            "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None
+            "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None,
+            "service_account_id": obj.get("service_account_id")
         })
         return _obj
 

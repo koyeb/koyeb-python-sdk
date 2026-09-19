@@ -67,4 +67,4 @@ fetch-spec:
 	curl -L -s $(KOYEB_API)/public.swagger.json > spec/openapi.json
 
 test:
-	python -m unitest
+	uv run pytest

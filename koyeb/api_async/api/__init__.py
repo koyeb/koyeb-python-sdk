@@ -24,6 +24,7 @@ from koyeb.api_async.api.organization_members_api import OrganizationMembersApi
 from koyeb.api_async.api.organization_quotas_api import OrganizationQuotasApi
 from koyeb.api_async.api.payment_methods_api import PaymentMethodsApi
 from koyeb.api_async.api.persistent_volumes_api import PersistentVolumesApi
+from koyeb.api_async.api.pool_claims_api import PoolClaimsApi
 from koyeb.api_async.api.profile_api import ProfileApi
 from koyeb.api_async.api.projects_api import ProjectsApi
 from koyeb.api_async.api.provisioning_api import ProvisioningApi
@@ -32,6 +33,7 @@ from koyeb.api_async.api.regional_deployments_api import RegionalDeploymentsApi
 from koyeb.api_async.api.repositories_api import RepositoriesApi
 from koyeb.api_async.api.search_api import SearchApi
 from koyeb.api_async.api.secrets_api import SecretsApi
+from koyeb.api_async.api.service_pools_api import ServicePoolsApi
 from koyeb.api_async.api.services_api import ServicesApi
 from koyeb.api_async.api.sessions_api import SessionsApi
 from koyeb.api_async.api.snapshots_api import SnapshotsApi

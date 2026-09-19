@@ -28,8 +28,7 @@ class CreateArchive(BaseModel):
     CreateArchive
     """ # noqa: E501
     size: Optional[StrictStr] = Field(default=None, description="How much space to provision for the archive, in bytes.")
-    project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["size", "project_id"]
+    __properties: ClassVar[List[str]] = ["size"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -82,8 +81,7 @@ class CreateArchive(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "size": obj.get("size"),
-            "project_id": obj.get("project_id")
+            "size": obj.get("size")
         })
         return _obj
 

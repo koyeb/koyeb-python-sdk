@@ -41,6 +41,7 @@ __all__ = [
     "OrganizationQuotasApi",
     "PaymentMethodsApi",
     "PersistentVolumesApi",
+    "PoolClaimsApi",
     "ProfileApi",
     "ProjectsApi",
     "ProvisioningApi",
@@ -49,6 +50,7 @@ __all__ = [
     "RepositoriesApi",
     "SearchApi",
     "SecretsApi",
+    "ServicePoolsApi",
     "ServicesApi",
     "SessionsApi",
     "SnapshotsApi",
@@ -131,6 +133,8 @@ __all__ = [
     "CreateSecret",
     "CreateSecretReply",
     "CreateService",
+    "CreateServicePool",
+    "CreateServicePoolReply",
     "CreateServiceReply",
     "CreateSnapshotReply",
     "CreateSnapshotRequest",
@@ -231,17 +235,20 @@ __all__ = [
     "GetMetricsReplyMetric",
     "GetOAuthOptionsReply",
     "GetOrganizationInvitationReply",
+    "GetOrganizationQuotasUsageReply",
     "GetOrganizationReply",
     "GetOrganizationSummaryReply",
     "GetOrganizationUsageDetailsReply",
     "GetOrganizationUsageReply",
     "GetPaymentMethodReply",
     "GetPersistentVolumeReply",
+    "GetPoolClaimReply",
     "GetProjectReply",
     "GetQuotasReply",
     "GetRegionReply",
     "GetRegionalDeploymentReply",
     "GetSecretReply",
+    "GetServicePoolReply",
     "GetServiceReply",
     "GetServiceScalingReply",
     "GetSnapshotReply",
@@ -270,7 +277,9 @@ __all__ = [
     "InstanceSnapshotQuotas",
     "InstanceSnapshotStatus",
     "InstanceSnapshotType",
+    "InstanceSnapshotTypeUsage",
     "InstanceStatus",
+    "InstanceTypeUsage",
     "InstanceUsage",
     "InstancesSummary",
     "InviteUserRequest",
@@ -310,12 +319,14 @@ __all__ = [
     "ListPaymentMethodsReply",
     "ListPersistentVolumeEventsReply",
     "ListPersistentVolumesReply",
+    "ListPoolClaimReply",
     "ListProjectsReply",
     "ListRegionalDeploymentEventsReply",
     "ListRegionalDeploymentsReply",
     "ListRegionsReply",
     "ListSecretsReply",
     "ListServiceEventsReply",
+    "ListServicePoolsReply",
     "ListServicesReply",
     "ListSnapshotsReply",
     "ListUsageReply",
@@ -329,6 +340,8 @@ __all__ = [
     "ManageReply",
     "ManualServiceScaling",
     "MembersSummary",
+    "Mesh",
+    "MeshScope",
     "MetricName",
     "NeonPostgresDatabase",
     "NeonPostgresDatabaseDeploymentMetadata",
@@ -365,8 +378,13 @@ __all__ = [
     "PersistentVolumeBackingStore",
     "PersistentVolumeEvent",
     "PersistentVolumeQuotas",
+    "PersistentVolumeRegionUsage",
     "PersistentVolumeStatus",
     "Plan",
+    "PoolClaim",
+    "PoolClaimReply",
+    "PoolClaimRequest",
+    "PoolClaimStatus",
     "Port",
     "PrivateRegistryConfiguration",
     "Project",
@@ -375,6 +393,7 @@ __all__ = [
     "PublicUser",
     "QueryLogsReply",
     "QueryLogsReplyPagination",
+    "QuotaUsage",
     "Quotas",
     "ReactivateOrganizationReply",
     "RedeemCouponRequest",
@@ -412,6 +431,8 @@ __all__ = [
     "ServiceEvent",
     "ServiceLifeCycle",
     "ServiceListItem",
+    "ServicePool",
+    "ServicePoolStatus",
     "ServiceState",
     "ServiceStatus",
     "ServiceSummary",
@@ -453,6 +474,8 @@ __all__ = [
     "UpdateProjectReply",
     "UpdateSecretReply",
     "UpdateService",
+    "UpdateServicePool",
+    "UpdateServicePoolReply",
     "UpdateServiceReply",
     "UpdateServiceScalingRequest",
     "UpdateSnapshotReply",
@@ -497,6 +520,7 @@ from koyeb.api_async.api.organization_members_api import OrganizationMembersApi 
 from koyeb.api_async.api.organization_quotas_api import OrganizationQuotasApi as OrganizationQuotasApi
 from koyeb.api_async.api.payment_methods_api import PaymentMethodsApi as PaymentMethodsApi
 from koyeb.api_async.api.persistent_volumes_api import PersistentVolumesApi as PersistentVolumesApi
+from koyeb.api_async.api.pool_claims_api import PoolClaimsApi as PoolClaimsApi
 from koyeb.api_async.api.profile_api import ProfileApi as ProfileApi
 from koyeb.api_async.api.projects_api import ProjectsApi as ProjectsApi
 from koyeb.api_async.api.provisioning_api import ProvisioningApi as ProvisioningApi
@@ -505,6 +529,7 @@ from koyeb.api_async.api.regional_deployments_api import RegionalDeploymentsApi 
 from koyeb.api_async.api.repositories_api import RepositoriesApi as RepositoriesApi
 from koyeb.api_async.api.search_api import SearchApi as SearchApi
 from koyeb.api_async.api.secrets_api import SecretsApi as SecretsApi
+from koyeb.api_async.api.service_pools_api import ServicePoolsApi as ServicePoolsApi
 from koyeb.api_async.api.services_api import ServicesApi as ServicesApi
 from koyeb.api_async.api.sessions_api import SessionsApi as SessionsApi
 from koyeb.api_async.api.snapshots_api import SnapshotsApi as SnapshotsApi
@@ -591,6 +616,8 @@ from koyeb.api_async.models.create_project_reply import CreateProjectReply as Cr
 from koyeb.api_async.models.create_secret import CreateSecret as CreateSecret
 from koyeb.api_async.models.create_secret_reply import CreateSecretReply as CreateSecretReply
 from koyeb.api_async.models.create_service import CreateService as CreateService
+from koyeb.api_async.models.create_service_pool import CreateServicePool as CreateServicePool
+from koyeb.api_async.models.create_service_pool_reply import CreateServicePoolReply as CreateServicePoolReply
 from koyeb.api_async.models.create_service_reply import CreateServiceReply as CreateServiceReply
 from koyeb.api_async.models.create_snapshot_reply import CreateSnapshotReply as CreateSnapshotReply
 from koyeb.api_async.models.create_snapshot_request import CreateSnapshotRequest as CreateSnapshotRequest
@@ -691,17 +718,20 @@ from koyeb.api_async.models.get_metrics_reply import GetMetricsReply as GetMetri
 from koyeb.api_async.models.get_metrics_reply_metric import GetMetricsReplyMetric as GetMetricsReplyMetric
 from koyeb.api_async.models.get_o_auth_options_reply import GetOAuthOptionsReply as GetOAuthOptionsReply
 from koyeb.api_async.models.get_organization_invitation_reply import GetOrganizationInvitationReply as GetOrganizationInvitationReply
+from koyeb.api_async.models.get_organization_quotas_usage_reply import GetOrganizationQuotasUsageReply as GetOrganizationQuotasUsageReply
 from koyeb.api_async.models.get_organization_reply import GetOrganizationReply as GetOrganizationReply
 from koyeb.api_async.models.get_organization_summary_reply import GetOrganizationSummaryReply as GetOrganizationSummaryReply
 from koyeb.api_async.models.get_organization_usage_details_reply import GetOrganizationUsageDetailsReply as GetOrganizationUsageDetailsReply
 from koyeb.api_async.models.get_organization_usage_reply import GetOrganizationUsageReply as GetOrganizationUsageReply
 from koyeb.api_async.models.get_payment_method_reply import GetPaymentMethodReply as GetPaymentMethodReply
 from koyeb.api_async.models.get_persistent_volume_reply import GetPersistentVolumeReply as GetPersistentVolumeReply
+from koyeb.api_async.models.get_pool_claim_reply import GetPoolClaimReply as GetPoolClaimReply
 from koyeb.api_async.models.get_project_reply import GetProjectReply as GetProjectReply
 from koyeb.api_async.models.get_quotas_reply import GetQuotasReply as GetQuotasReply
 from koyeb.api_async.models.get_region_reply import GetRegionReply as GetRegionReply
 from koyeb.api_async.models.get_regional_deployment_reply import GetRegionalDeploymentReply as GetRegionalDeploymentReply
 from koyeb.api_async.models.get_secret_reply import GetSecretReply as GetSecretReply
+from koyeb.api_async.models.get_service_pool_reply import GetServicePoolReply as GetServicePoolReply
 from koyeb.api_async.models.get_service_reply import GetServiceReply as GetServiceReply
 from koyeb.api_async.models.get_service_scaling_reply import GetServiceScalingReply as GetServiceScalingReply
 from koyeb.api_async.models.get_snapshot_reply import GetSnapshotReply as GetSnapshotReply
@@ -730,7 +760,9 @@ from koyeb.api_async.models.instance_snapshot_event import InstanceSnapshotEvent
 from koyeb.api_async.models.instance_snapshot_quotas import InstanceSnapshotQuotas as InstanceSnapshotQuotas
 from koyeb.api_async.models.instance_snapshot_status import InstanceSnapshotStatus as InstanceSnapshotStatus
 from koyeb.api_async.models.instance_snapshot_type import InstanceSnapshotType as InstanceSnapshotType
+from koyeb.api_async.models.instance_snapshot_type_usage import InstanceSnapshotTypeUsage as InstanceSnapshotTypeUsage
 from koyeb.api_async.models.instance_status import InstanceStatus as InstanceStatus
+from koyeb.api_async.models.instance_type_usage import InstanceTypeUsage as InstanceTypeUsage
 from koyeb.api_async.models.instance_usage import InstanceUsage as InstanceUsage
 from koyeb.api_async.models.instances_summary import InstancesSummary as InstancesSummary
 from koyeb.api_async.models.invite_user_request import InviteUserRequest as InviteUserRequest
@@ -770,12 +802,14 @@ from koyeb.api_async.models.list_organization_members_reply import ListOrganizat
 from koyeb.api_async.models.list_payment_methods_reply import ListPaymentMethodsReply as ListPaymentMethodsReply
 from koyeb.api_async.models.list_persistent_volume_events_reply import ListPersistentVolumeEventsReply as ListPersistentVolumeEventsReply
 from koyeb.api_async.models.list_persistent_volumes_reply import ListPersistentVolumesReply as ListPersistentVolumesReply
+from koyeb.api_async.models.list_pool_claim_reply import ListPoolClaimReply as ListPoolClaimReply
 from koyeb.api_async.models.list_projects_reply import ListProjectsReply as ListProjectsReply
 from koyeb.api_async.models.list_regional_deployment_events_reply import ListRegionalDeploymentEventsReply as ListRegionalDeploymentEventsReply
 from koyeb.api_async.models.list_regional_deployments_reply import ListRegionalDeploymentsReply as ListRegionalDeploymentsReply
 from koyeb.api_async.models.list_regions_reply import ListRegionsReply as ListRegionsReply
 from koyeb.api_async.models.list_secrets_reply import ListSecretsReply as ListSecretsReply
 from koyeb.api_async.models.list_service_events_reply import ListServiceEventsReply as ListServiceEventsReply
+from koyeb.api_async.models.list_service_pools_reply import ListServicePoolsReply as ListServicePoolsReply
 from koyeb.api_async.models.list_services_reply import ListServicesReply as ListServicesReply
 from koyeb.api_async.models.list_snapshots_reply import ListSnapshotsReply as ListSnapshotsReply
 from koyeb.api_async.models.list_usage_reply import ListUsageReply as ListUsageReply
@@ -789,6 +823,8 @@ from koyeb.api_async.models.login_request import LoginRequest as LoginRequest
 from koyeb.api_async.models.manage_reply import ManageReply as ManageReply
 from koyeb.api_async.models.manual_service_scaling import ManualServiceScaling as ManualServiceScaling
 from koyeb.api_async.models.members_summary import MembersSummary as MembersSummary
+from koyeb.api_async.models.mesh import Mesh as Mesh
+from koyeb.api_async.models.mesh_scope import MeshScope as MeshScope
 from koyeb.api_async.models.metric_name import MetricName as MetricName
 from koyeb.api_async.models.neon_postgres_database import NeonPostgresDatabase as NeonPostgresDatabase
 from koyeb.api_async.models.neon_postgres_database_deployment_metadata import NeonPostgresDatabaseDeploymentMetadata as NeonPostgresDatabaseDeploymentMetadata
@@ -825,8 +861,13 @@ from koyeb.api_async.models.persistent_volume import PersistentVolume as Persist
 from koyeb.api_async.models.persistent_volume_backing_store import PersistentVolumeBackingStore as PersistentVolumeBackingStore
 from koyeb.api_async.models.persistent_volume_event import PersistentVolumeEvent as PersistentVolumeEvent
 from koyeb.api_async.models.persistent_volume_quotas import PersistentVolumeQuotas as PersistentVolumeQuotas
+from koyeb.api_async.models.persistent_volume_region_usage import PersistentVolumeRegionUsage as PersistentVolumeRegionUsage
 from koyeb.api_async.models.persistent_volume_status import PersistentVolumeStatus as PersistentVolumeStatus
 from koyeb.api_async.models.plan import Plan as Plan
+from koyeb.api_async.models.pool_claim import PoolClaim as PoolClaim
+from koyeb.api_async.models.pool_claim_reply import PoolClaimReply as PoolClaimReply
+from koyeb.api_async.models.pool_claim_request import PoolClaimRequest as PoolClaimRequest
+from koyeb.api_async.models.pool_claim_status import PoolClaimStatus as PoolClaimStatus
 from koyeb.api_async.models.port import Port as Port
 from koyeb.api_async.models.private_registry_configuration import PrivateRegistryConfiguration as PrivateRegistryConfiguration
 from koyeb.api_async.models.project import Project as Project
@@ -835,6 +876,7 @@ from koyeb.api_async.models.public_organization import PublicOrganization as Pub
 from koyeb.api_async.models.public_user import PublicUser as PublicUser
 from koyeb.api_async.models.query_logs_reply import QueryLogsReply as QueryLogsReply
 from koyeb.api_async.models.query_logs_reply_pagination import QueryLogsReplyPagination as QueryLogsReplyPagination
+from koyeb.api_async.models.quota_usage import QuotaUsage as QuotaUsage
 from koyeb.api_async.models.quotas import Quotas as Quotas
 from koyeb.api_async.models.reactivate_organization_reply import ReactivateOrganizationReply as ReactivateOrganizationReply
 from koyeb.api_async.models.redeem_coupon_request import RedeemCouponRequest as RedeemCouponRequest
@@ -872,6 +914,8 @@ from koyeb.api_async.models.service import Service as Service
 from koyeb.api_async.models.service_event import ServiceEvent as ServiceEvent
 from koyeb.api_async.models.service_life_cycle import ServiceLifeCycle as ServiceLifeCycle
 from koyeb.api_async.models.service_list_item import ServiceListItem as ServiceListItem
+from koyeb.api_async.models.service_pool import ServicePool as ServicePool
+from koyeb.api_async.models.service_pool_status import ServicePoolStatus as ServicePoolStatus
 from koyeb.api_async.models.service_state import ServiceState as ServiceState
 from koyeb.api_async.models.service_status import ServiceStatus as ServiceStatus
 from koyeb.api_async.models.service_summary import ServiceSummary as ServiceSummary
@@ -913,6 +957,8 @@ from koyeb.api_async.models.update_persistent_volume_request import UpdatePersis
 from koyeb.api_async.models.update_project_reply import UpdateProjectReply as UpdateProjectReply
 from koyeb.api_async.models.update_secret_reply import UpdateSecretReply as UpdateSecretReply
 from koyeb.api_async.models.update_service import UpdateService as UpdateService
+from koyeb.api_async.models.update_service_pool import UpdateServicePool as UpdateServicePool
+from koyeb.api_async.models.update_service_pool_reply import UpdateServicePoolReply as UpdateServicePoolReply
 from koyeb.api_async.models.update_service_reply import UpdateServiceReply as UpdateServiceReply
 from koyeb.api_async.models.update_service_scaling_request import UpdateServiceScalingRequest as UpdateServiceScalingRequest
 from koyeb.api_async.models.update_snapshot_reply import UpdateSnapshotReply as UpdateSnapshotReply

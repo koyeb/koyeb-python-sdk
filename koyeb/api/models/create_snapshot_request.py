@@ -29,8 +29,7 @@ class CreateSnapshotRequest(BaseModel):
     """ # noqa: E501
     parent_volume_id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
-    project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["parent_volume_id", "name", "project_id"]
+    __properties: ClassVar[List[str]] = ["parent_volume_id", "name"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -84,8 +83,7 @@ class CreateSnapshotRequest(BaseModel):
 
         _obj = cls.model_validate({
             "parent_volume_id": obj.get("parent_volume_id"),
-            "name": obj.get("name"),
-            "project_id": obj.get("project_id")
+            "name": obj.get("name")
         })
         return _obj
 

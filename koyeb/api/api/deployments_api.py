@@ -102,6 +102,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -175,6 +176,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -248,6 +250,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -380,6 +383,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -452,6 +456,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -524,6 +529,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -664,6 +670,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -744,6 +751,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -824,6 +832,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -982,6 +991,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1070,6 +1080,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1158,6 +1169,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1261,6 +1273,7 @@ class DeploymentsApi:
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
         offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on statuses")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on deployment ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1287,6 +1300,8 @@ class DeploymentsApi:
         :type offset: str
         :param statuses: (Optional) Filter on statuses
         :type statuses: List[str]
+        :param ids: (Optional) Filter on deployment ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1315,6 +1330,7 @@ class DeploymentsApi:
             limit=limit,
             offset=offset,
             statuses=statuses,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1329,6 +1345,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1349,6 +1366,7 @@ class DeploymentsApi:
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
         offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on statuses")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on deployment ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1375,6 +1393,8 @@ class DeploymentsApi:
         :type offset: str
         :param statuses: (Optional) Filter on statuses
         :type statuses: List[str]
+        :param ids: (Optional) Filter on deployment ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1403,6 +1423,7 @@ class DeploymentsApi:
             limit=limit,
             offset=offset,
             statuses=statuses,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1417,6 +1438,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1437,6 +1459,7 @@ class DeploymentsApi:
         limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
         offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on statuses")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on deployment ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1463,6 +1486,8 @@ class DeploymentsApi:
         :type offset: str
         :param statuses: (Optional) Filter on statuses
         :type statuses: List[str]
+        :param ids: (Optional) Filter on deployment ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1491,6 +1516,7 @@ class DeploymentsApi:
             limit=limit,
             offset=offset,
             statuses=statuses,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1505,6 +1531,7 @@ class DeploymentsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1520,6 +1547,7 @@ class DeploymentsApi:
         limit,
         offset,
         statuses,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -1530,6 +1558,7 @@ class DeploymentsApi:
 
         _collection_formats: Dict[str, str] = {
             'statuses': 'multi',
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1562,6 +1591,10 @@ class DeploymentsApi:
         if statuses is not None:
             
             _query_params.append(('statuses', statuses))
+            
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters

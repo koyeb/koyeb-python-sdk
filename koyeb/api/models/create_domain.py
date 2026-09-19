@@ -34,8 +34,7 @@ class CreateDomain(BaseModel):
     app_id: Optional[StrictStr] = None
     cloudflare: Optional[Dict[str, Any]] = None
     koyeb: Optional[DomainLoadBalancerKoyeb] = None
-    project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["name", "type", "app_id", "cloudflare", "koyeb", "project_id"]
+    __properties: ClassVar[List[str]] = ["name", "type", "app_id", "cloudflare", "koyeb"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -95,8 +94,7 @@ class CreateDomain(BaseModel):
             "type": obj.get("type") if obj.get("type") is not None else DomainType.AUTOASSIGNED,
             "app_id": obj.get("app_id"),
             "cloudflare": obj.get("cloudflare"),
-            "koyeb": DomainLoadBalancerKoyeb.from_dict(obj["koyeb"]) if obj.get("koyeb") is not None else None,
-            "project_id": obj.get("project_id")
+            "koyeb": DomainLoadBalancerKoyeb.from_dict(obj["koyeb"]) if obj.get("koyeb") is not None else None
         })
         return _obj
 
