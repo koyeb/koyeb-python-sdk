@@ -1074,7 +1074,9 @@ def create(cls,
            args: Optional[List[str]] = None,
            host: Optional[str] = None,
            block_network: bool = False,
-           outbound_allowlist: Optional[List[str]] = None) -> Sandbox
+           outbound_allowlist: Optional[List[str]] = None,
+           snapshot: Optional[Union[str, "Snapshot"]] = None,
+           sandbox_secret: Optional[str] = None) -> Sandbox
 ```
 
 Create a new sandbox instance.
@@ -1121,6 +1123,10 @@ Create a new sandbox instance.
 - `outbound_allowlist` - List of IPs/CIDRs allowed as outbound destinations;
   all other outbound traffic is blocked. Bare IPs are normalized to
   /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
+- `snapshot` - Optional. A Snapshot object or snapshot name/ID string to create the sandbox from.
+  If provided, the sandbox will be initialized from this snapshot.
+  Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
+- `sandbox_secret` - Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
   
 
 **Returns**:
@@ -1145,6 +1151,22 @@ Create a new sandbox instance.
   >>> sandbox = Sandbox.create(
   ...     image="ghcr.io/myorg/myimage:latest",
   ...     registry_secret="my-ghcr-secret"
+  ... )
+  
+  >>> # Create from a Snapshot object
+  >>> from koyeb.sandbox import Snapshot
+  >>> snapshot = Snapshot.get("my-snapshot-id")
+  >>> sandbox = Sandbox.create(snapshot=snapshot)
+  
+  >>> # Create from a snapshot ID string
+  >>> sandbox = Sandbox.create(snapshot="my-snapshot-id")
+  
+  >>> # Create from a snapshot with custom parameters
+  >>> sandbox = Sandbox.create(
+  ...     snapshot="my-snapshot-id",
+  ...     image="python:3.12",
+  ...     instance_type="nano",
+  ...     env={"MY_VAR": "value"}
   ... )
 
 <a id="koyeb/sandbox.sandbox.Sandbox.get_from_id"></a>
@@ -1177,6 +1199,116 @@ Get a sandbox by service ID.
 
 - `ValueError` - If API token is not provided or id is invalid
 - `SandboxError` - If sandbox is not found or retrieval fails
+
+<a id="koyeb/sandbox.sandbox.Sandbox.snapshot"></a>
+
+#### snapshot
+
+```python
+def snapshot(name: str,
+             snapshot_type: "SnapshotType" = None,
+             wait_available: bool = True,
+             timeout: int = 600) -> "Snapshot"
+```
+
+Create a snapshot of this sandbox.
+
+Captures the current state of the sandbox's filesystem (and optionally
+running processes for FULL type) so it can be restored later.
+
+**Arguments**:
+
+- `name` - Name for the snapshot
+- `snapshot_type` - Type of snapshot to create (FILESYSTEM or FULL).
+  Defaults to FILESYSTEM.
+- `wait_available` - Whether to wait for snapshot to become available
+- `timeout` - Timeout in seconds for waiting
+  
+
+**Returns**:
+
+- `Snapshot` - The created snapshot object
+  
+
+**Raises**:
+
+- `SandboxError` - If snapshot creation fails
+
+<a id="koyeb/sandbox.sandbox.Sandbox.create_from_snapshot"></a>
+
+#### create\_from\_snapshot
+
+```python
+@classmethod
+def create_from_snapshot(cls,
+                         snapshot: Union["Snapshot", str],
+                         name: Optional[str] = None,
+                         wait_ready: bool = True,
+                         timeout: int = 300,
+                         **create_kwargs) -> "Sandbox"
+```
+
+Create a new sandbox from a snapshot.
+
+**Arguments**:
+
+- `snapshot` - Snapshot object or snapshot ID string
+- `name` - Name for the new sandbox
+- `wait_ready` - Whether to wait for sandbox to be ready
+- `timeout` - Timeout in seconds
+- `**create_kwargs` - Additional arguments to pass to create()
+  
+
+**Returns**:
+
+- `Sandbox` - A new sandbox instance
+
+<a id="koyeb/sandbox.sandbox.Sandbox.template"></a>
+
+#### template
+
+```python
+@classmethod
+def template(cls,
+             name: str,
+             image: str,
+             workdir: Optional[str] = None,
+             api_token: Optional[str] = None,
+             host: Optional[str] = None,
+             delete_builder: bool = True) -> "DeclarativeSnapshot"
+```
+
+Create a declarative snapshot builder.
+
+Use this to build a reusable snapshot by declaratively defining
+the sandbox environment (files, packages, etc.) and then building
+a snapshot that can be used to spawn pre-configured sandboxes.
+
+**Arguments**:
+
+- `name` - Name for the template
+- `image` - Docker image to use
+- `workdir` - Working directory in the sandbox
+- `api_token` - Koyeb API token
+- `host` - Koyeb API host
+- `delete_builder` - Whether to delete the builder sandbox after creating the snapshot (default: True)
+  
+
+**Returns**:
+
+- `DeclarativeSnapshot` - Fluent builder for creating snapshots
+  
+
+**Example**:
+
+  snapshot = (
+  Sandbox.template("python-ci", image="python:3.12", workdir="/workspace")
+  .file("requirements.txt", "pytest\nrequests")
+  .run("pip install -r requirements.txt")
+  .build(snapshot_name="python-ci-env")
+  )
+  
+  sbx = snapshot.spawn(name="test-runner")
 
 <a id="koyeb/sandbox.sandbox.Sandbox.wait_ready"></a>
 
@@ -1549,7 +1681,10 @@ Update the sandbox's network policy.
 Warning: applying a new network policy triggers a redeployment of the
 sandbox service. The sandbox is restarted and any in-memory or
 non-persisted state is lost. This method does not wait for the
-redeployment to finish.
+redeployment to finish; it repoints the sandbox at the new deployment
+and clears cached connection state, so call wait_ready() afterwards to
+block until the replacement deployment is healthy before issuing further
+operations.
 
 **Arguments**:
 
@@ -1643,35 +1778,36 @@ Get a sandbox by service ID asynchronously.
 
 ```python
 @classmethod
-async def create(
-        cls,
-        image: str = "koyeb/sandbox",
-        name: str = "quick-sandbox",
-        wait_ready: bool = True,
-        instance_type: str = "micro",
-        exposed_port_protocol: Optional[str] = None,
-        env: Optional[Dict[str, Any]] = None,
-        config_files: Optional[Dict[str, Any]] = None,
-        region: Optional[str] = None,
-        api_token: Optional[str] = None,
-        timeout: int = 300,
-        idle_timeout: int = 0,
-        enable_tcp_proxy: bool = False,
-        privileged: bool = False,
-        registry_secret: Optional[str] = None,
-        _experimental_enable_light_sleep: bool = False,
-        _experimental_deep_sleep_value: int = 3900,
-        delete_after_delay: int = 0,
-        delete_after_inactivity_delay: int = 0,
-        app_id: Optional[str] = None,
-        enable_mesh: bool = False,
-        poll_interval: float = DEFAULT_POLL_INTERVAL,
-        entrypoint: Optional[List[str]] = None,
-        command: Optional[str] = None,
-        args: Optional[List[str]] = None,
-        host: Optional[str] = None,
-        block_network: bool = False,
-        outbound_allowlist: Optional[List[str]] = None) -> AsyncSandbox
+async def create(cls,
+                 image: str = "koyeb/sandbox",
+                 name: str = "quick-sandbox",
+                 wait_ready: bool = True,
+                 instance_type: str = "micro",
+                 exposed_port_protocol: Optional[str] = None,
+                 env: Optional[Dict[str, Any]] = None,
+                 config_files: Optional[Dict[str, Any]] = None,
+                 region: Optional[str] = None,
+                 api_token: Optional[str] = None,
+                 timeout: int = 300,
+                 idle_timeout: int = 0,
+                 enable_tcp_proxy: bool = False,
+                 privileged: bool = False,
+                 registry_secret: Optional[str] = None,
+                 _experimental_enable_light_sleep: bool = False,
+                 _experimental_deep_sleep_value: int = 3900,
+                 delete_after_delay: int = 0,
+                 delete_after_inactivity_delay: int = 0,
+                 app_id: Optional[str] = None,
+                 enable_mesh: bool = False,
+                 poll_interval: float = DEFAULT_POLL_INTERVAL,
+                 entrypoint: Optional[List[str]] = None,
+                 command: Optional[str] = None,
+                 args: Optional[List[str]] = None,
+                 host: Optional[str] = None,
+                 block_network: bool = False,
+                 outbound_allowlist: Optional[List[str]] = None,
+                 snapshot: Optional[Union[str, "Snapshot"]] = None,
+                 sandbox_secret: Optional[str] = None) -> AsyncSandbox
 ```
 
 Create a new sandbox instance with async support.
@@ -1720,6 +1856,10 @@ Create a new sandbox instance with async support.
 - `outbound_allowlist` - List of IPs/CIDRs allowed as outbound destinations;
   all other outbound traffic is blocked. Bare IPs are normalized to
   /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
+- `snapshot` - Optional. A Snapshot object or snapshot name/ID string to create the sandbox from.
+  If provided, the sandbox will be initialized from this snapshot.
+  Can be either a Snapshot object (e.g., snapshot=my_snapshot) or a snapshot name/ID string (e.g., snapshot="my snapshot").
+- `sandbox_secret` - Optional sandbox secret to use for executor authentication. If not provided, a new one will be generated.
   
 
 **Returns**:
@@ -1793,6 +1933,69 @@ async def delete() -> None
 ```
 
 Delete the sandbox instance asynchronously.
+
+<a id="koyeb/sandbox.sandbox.AsyncSandbox.snapshot"></a>
+
+#### snapshot
+
+```python
+async def snapshot(name: str,
+                   snapshot_type: "SnapshotType" = None,
+                   wait_available: bool = True,
+                   timeout: int = 600) -> "Snapshot"
+```
+
+Create a snapshot of this sandbox asynchronously.
+
+Captures the current state of the sandbox's filesystem (and optionally
+running processes for FULL type) so it can be restored later.
+
+**Arguments**:
+
+- `name` - Name for the snapshot
+- `snapshot_type` - Type of snapshot to create (FILESYSTEM or FULL).
+  Defaults to FILESYSTEM.
+- `wait_available` - Whether to wait for snapshot to become available
+- `timeout` - Timeout in seconds for waiting
+  
+
+**Returns**:
+
+- `Snapshot` - The created snapshot object
+  
+
+**Raises**:
+
+- `SandboxError` - If snapshot creation fails
+
+<a id="koyeb/sandbox.sandbox.AsyncSandbox.create_from_snapshot"></a>
+
+#### create\_from\_snapshot
+
+```python
+@classmethod
+async def create_from_snapshot(cls,
+                               snapshot: Union["Snapshot", str],
+                               name: Optional[str] = None,
+                               wait_ready: bool = True,
+                               timeout: int = 300,
+                               **create_kwargs) -> "AsyncSandbox"
+```
+
+Create a new async sandbox from a snapshot.
+
+**Arguments**:
+
+- `snapshot` - Snapshot object or snapshot ID string
+- `name` - Name for the new sandbox
+- `wait_ready` - Whether to wait for sandbox to be ready
+- `timeout` - Timeout in seconds
+- `**create_kwargs` - Additional arguments to pass to create()
+  
+
+**Returns**:
+
+- `AsyncSandbox` - A new async sandbox instance
 
 <a id="koyeb/sandbox.sandbox.AsyncSandbox.is_healthy"></a>
 
@@ -1915,7 +2118,10 @@ Update the sandbox's network policy asynchronously.
 Warning: applying a new network policy triggers a redeployment of the
 sandbox service. The sandbox is restarted and any in-memory or
 non-persisted state is lost. This method does not wait for the
-redeployment to finish.
+redeployment to finish; it repoints the sandbox at the new deployment
+and clears cached connection state, so call wait_ready() afterwards to
+block until the replacement deployment is healthy before issuing further
+operations.
 
 See Sandbox.update_network_policy for full documentation.
 
@@ -2362,7 +2568,7 @@ Used by Sandbox, SandboxExecutor, and SandboxFilesystem to avoid duplication.
 #### create\_async\_sandbox\_client
 
 ```python
-def create_async_sandbox_client(conn_info: Optional['ConnectionInfo'],
+def create_async_sandbox_client(conn_info: Optional["ConnectionInfo"],
                                 existing_client: Optional[Any] = None) -> Any
 ```
 
@@ -2416,6 +2622,16 @@ class SandboxDeploymentError(SandboxError)
 
 Raised when a sandbox deployment reaches an error state
 
+<a id="koyeb/sandbox.utils.SandboxClaimError"></a>
+
+## SandboxClaimError Objects
+
+```python
+class SandboxClaimError(SandboxError)
+```
+
+Raised when claiming a sandbox from a service pool fails
+
 <a id="koyeb/sandbox.utils.SandboxServiceError"></a>
 
 ## SandboxServiceError Objects
@@ -2435,6 +2651,88 @@ class EgressPolicyError(SandboxError)
 ```
 
 Raised when egress policy arguments are invalid or conflicting
+
+<a id="koyeb/sandbox.test_sandbox_client"></a>
+
+# koyeb/sandbox.test\_sandbox\_client
+
+<a id="koyeb/sandbox.test_sandbox_client.TestGetClientWhenUrlUnavailable"></a>
+
+## TestGetClientWhenUrlUnavailable Objects
+
+```python
+class TestGetClientWhenUrlUnavailable(unittest.TestCase)
+```
+
+A gone sandbox makes _get_sandbox_url() return None (the metadata/domain
+lookups swallow NotFound and return None). _get_client/_get_async_client must
+raise SandboxError in that case, as their docstring promises, rather than
+letting a raw ``TypeError: cannot unpack non-iterable NoneType object`` escape.
+
+<a id="koyeb/sandbox.test_sandbox_client.TestRunStreamingConnectionLoss"></a>
+
+## TestRunStreamingConnectionLoss Objects
+
+```python
+class TestRunStreamingConnectionLoss(unittest.TestCase)
+```
+
+A dropped connection mid-stream (e.g. the instance is torn down during a
+redeployment) must surface as SandboxError, not a raw httpx transport error.
+
+<a id="koyeb/sandbox.test_pool_claim"></a>
+
+# koyeb/sandbox.test\_pool\_claim
+
+<a id="koyeb/sandbox.test_pool_claim.TestPoolClaim"></a>
+
+## TestPoolClaim Objects
+
+```python
+class TestPoolClaim(unittest.TestCase)
+```
+
+PoolClaim.claim: request_id handling, retries, and result mapping.
+
+<a id="koyeb/sandbox.test_pool_claim.TestPoolClaimGetClaim"></a>
+
+## TestPoolClaimGetClaim Objects
+
+```python
+class TestPoolClaimGetClaim(unittest.TestCase)
+```
+
+PoolClaim.get_claim: fetch a claim resource by id.
+
+<a id="koyeb/sandbox.test_pool_claim.TestPoolClaimWaitReady"></a>
+
+## TestPoolClaimWaitReady Objects
+
+```python
+class TestPoolClaimWaitReady(unittest.TestCase)
+```
+
+PoolClaim.wait_ready: Get Service polling until ready or terminal.
+
+<a id="koyeb/sandbox.test_pool_claim.TestAsyncPoolClaim"></a>
+
+## TestAsyncPoolClaim Objects
+
+```python
+class TestAsyncPoolClaim(unittest.TestCase)
+```
+
+AsyncPoolClaim: async claim retries and wait_ready polling.
+
+<a id="koyeb/sandbox.test_pool_claim.TestServiceStatusClassification"></a>
+
+## TestServiceStatusClassification Objects
+
+```python
+class TestServiceStatusClassification(unittest.TestCase)
+```
+
+The classifier is the single source of truth for the state mapping.
 
 <a id="koyeb/sandbox.executor_client"></a>
 
@@ -3314,4 +3612,658 @@ processes. This includes both active processes and processes that have completed
   >>> result = await client.list_processes()
   >>> for process in result.get("processes", []):
   ...     print(f"{process['id']}: {process['command']} - {process['status']}")
+
+<a id="koyeb/sandbox.pool"></a>
+
+# koyeb/sandbox.pool
+
+Koyeb Sandbox Pool Claim - claim pre-provisioned sandboxes from service pools.
+
+Claiming hands out a sandbox from a pool of pre-provisioned services. When a
+warm service is available the claim is fulfilled immediately (``prewarmed`` is
+True); on the cold path the claimed service is still provisioning and must be
+waited on before use.
+
+Service status mapping for the cold path:
+
+- HEALTHY, DEGRADED -> ready
+- STARTING, RESUMING -> in progress (keep polling)
+- UNHEALTHY (claim-flow policy), DELETING, DELETED, PAUSING, PAUSED, and any
+  unknown/forward-compat value -> terminal failure (fail-closed; a status the
+  SDK cannot classify fails closed the same way)
+- Get Service errors, including 404, are treated as transient: keep polling
+  until the timeout
+
+<a id="koyeb/sandbox.pool.PoolClaim"></a>
+
+## PoolClaim Objects
+
+```python
+class PoolClaim()
+```
+
+A claim on a sandbox from a Koyeb service pool.
+
+Synchronous entry point for the pool claim workflow. Use
+:class:`AsyncPoolClaim` for the async variant.
+
+The claim API is idempotent per ``(pool_id, request_id)``: replaying a
+claim with the same pair returns the same claim instead of consuming
+another sandbox.
+
+<a id="koyeb/sandbox.pool.PoolClaim.claim"></a>
+
+#### claim
+
+```python
+@classmethod
+def claim(cls,
+          pool_id: str,
+          request_id: Optional[str] = None,
+          wait_ready: bool = True,
+          api_token: Optional[str] = None,
+          host: Optional[str] = None,
+          timeout: int = _CLAIM_WAIT_TIMEOUT,
+          poll_interval: float = DEFAULT_POLL_INTERVAL) -> PoolClaim
+```
+
+Claim a sandbox from a service pool.
+
+If ``request_id`` is not provided, one is generated once and reused
+for every internal retry, so a retried claim never consumes a second
+sandbox. Calling ``claim`` again with the same ``(pool_id,
+request_id)`` replays the same claim.
+
+**Arguments**:
+
+- `pool_id` - ID of the service pool to claim from
+- `request_id` - Idempotency key for the claim. If not provided (None
+  or empty), a random one is generated. Reuse the same value to
+  replay a claim.
+- `wait_ready` - Wait for the claimed service to become ready
+- `(default` - True). Warm claims confirm on the first poll;
+  cold claims poll until ready or ``timeout`` expires.
+- `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+- `timeout` - Maximum time to wait for the claimed service to become
+  ready when wait_ready is True (default: 300 seconds — a
+  cold-path claim provisions a service on demand, so budget
+  like Sandbox.create)
+- `poll_interval` - Maximum time between status polls in seconds when
+  wait_ready is True (default: 0.5)
+  
+
+**Returns**:
+
+- `PoolClaim` - The fulfilled claim. ``claim_id``, ``service_id`` and
+  ``prewarmed`` are always set.
+  
+
+**Raises**:
+
+- `ValueError` - If pool_id is not provided, poll_interval is not
+  greater than 0, or no API token is configured
+- `SandboxClaimError` - If the claim fails, or the claimed service
+  reaches a terminal state while waiting
+- `SandboxTimeoutError` - If wait_ready is True and the claimed service
+  does not become ready within timeout
+  
+
+**Example**:
+
+  >>> claim = PoolClaim.claim(pool_id="my-pool-id")
+  >>> claim.service_id, claim.prewarmed
+  ('fd9422ce-...', True)
+  >>> # Replay the same claim (e.g. after a crash): same pair, same sandbox
+  >>> claim = PoolClaim.claim(pool_id="my-pool-id", request_id=claim.request_id)
+
+<a id="koyeb/sandbox.pool.PoolClaim.get_claim"></a>
+
+#### get\_claim
+
+```python
+@classmethod
+def get_claim(cls,
+              claim_id: str,
+              request_id: Optional[str] = None,
+              api_token: Optional[str] = None,
+              host: Optional[str] = None) -> ClaimResource
+```
+
+Fetch a claim's current state by id.
+
+**Arguments**:
+
+- `claim_id` - ID of the claim to fetch
+- `request_id` - The claim's original request id, the optional lookup
+  key the claim API uses to disambiguate replayed claims
+- `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+  
+
+**Returns**:
+
+  The claim resource: ``id``, ``pool_id``, ``service_id``,
+  ``request_id``, ``status`` (PENDING, FULFILLED, FAILED or
+  RELEASED) and timestamps.
+  
+
+**Raises**:
+
+- `ValueError` - If claim_id is not provided or no API token is
+  configured
+- `SandboxClaimError` - If the reply carries no claim resource
+
+<a id="koyeb/sandbox.pool.PoolClaim.wait_ready"></a>
+
+#### wait\_ready
+
+```python
+def wait_ready(timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
+               poll_interval: Optional[float] = None,
+               cancel: Optional[threading.Event] = None) -> bool
+```
+
+Wait for the claimed service to become ready.
+
+Cold-path polling helper: polls Get Service with exponential backoff
+until the service is ready (HEALTHY or DEGRADED), reaches a terminal
+state (UNHEALTHY, DELETING, DELETED, PAUSING, PAUSED, or an unknown
+value — fail-closed) or the timeout expires. Warm claims are usually
+confirmed on the first poll. Transient Get Service errors, including
+404, keep polling until the timeout. A set ``cancel`` event stops
+waiting early.
+
+**Arguments**:
+
+- `timeout` - Maximum time to wait in seconds (default: 60, the
+  instance-wait budget; claim() passes its own 300s cold-path
+  budget)
+- `poll_interval` - Maximum time between status polls in seconds
+  (defaults to this claim's poll_interval)
+- `cancel` - Event that stops waiting when set; an already-set event
+  returns False immediately without polling
+  
+
+**Returns**:
+
+- `bool` - True if the service became ready, False if timeout or
+  cancelled
+  
+
+**Raises**:
+
+- `ValueError` - If poll_interval is not greater than 0
+- `SandboxClaimError` - If the service reaches a terminal state,
+  including a status the SDK cannot classify
+
+<a id="koyeb/sandbox.pool.AsyncPoolClaim"></a>
+
+## AsyncPoolClaim Objects
+
+```python
+class AsyncPoolClaim(PoolClaim)
+```
+
+Asynchronous claim on a sandbox from a Koyeb service pool.
+
+Mirrors :class:`PoolClaim` with awaitable ``claim`` and ``wait_ready``.
+
+<a id="koyeb/sandbox.pool.AsyncPoolClaim.claim"></a>
+
+#### claim
+
+```python
+@classmethod
+async def claim(
+        cls,
+        pool_id: str,
+        request_id: Optional[str] = None,
+        wait_ready: bool = True,
+        api_token: Optional[str] = None,
+        host: Optional[str] = None,
+        timeout: int = _CLAIM_WAIT_TIMEOUT,
+        poll_interval: float = DEFAULT_POLL_INTERVAL) -> AsyncPoolClaim
+```
+
+Claim a sandbox from a service pool asynchronously.
+
+If ``request_id`` is not provided, one is generated once and reused
+for every internal retry, so a retried claim never consumes a second
+sandbox. Calling ``claim`` again with the same ``(pool_id,
+request_id)`` replays the same claim.
+
+**Arguments**:
+
+- `pool_id` - ID of the service pool to claim from
+- `request_id` - Idempotency key for the claim. If not provided (None
+  or empty), a random one is generated. Reuse the same value to
+  replay a claim.
+- `wait_ready` - Wait for the claimed service to become ready
+- `(default` - True). Warm claims confirm on the first poll;
+  cold claims poll until ready or ``timeout`` expires.
+- `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+- `timeout` - Maximum time to wait for the claimed service to become
+  ready when wait_ready is True (default: 300 seconds — a
+  cold-path claim provisions a service on demand, so budget
+  like Sandbox.create)
+- `poll_interval` - Maximum time between status polls in seconds when
+  wait_ready is True (default: 0.5)
+  
+
+**Returns**:
+
+- `AsyncPoolClaim` - The fulfilled claim. ``claim_id``, ``service_id``
+  and ``prewarmed`` are always set.
+  
+
+**Raises**:
+
+- `ValueError` - If pool_id is not provided, poll_interval is not
+  greater than 0, or no API token is configured
+- `SandboxClaimError` - If the claim fails, or the claimed service
+  reaches a terminal state while waiting
+- `SandboxTimeoutError` - If wait_ready is True and the claimed service
+  does not become ready within timeout
+  
+
+**Example**:
+
+  >>> claim = await AsyncPoolClaim.claim(pool_id="my-pool-id")
+  >>> claim.service_id, claim.prewarmed
+  ('fd9422ce-...', True)
+
+<a id="koyeb/sandbox.pool.AsyncPoolClaim.get_claim"></a>
+
+#### get\_claim
+
+```python
+@classmethod
+async def get_claim(cls,
+                    claim_id: str,
+                    request_id: Optional[str] = None,
+                    api_token: Optional[str] = None,
+                    host: Optional[str] = None) -> AsyncClaimResource
+```
+
+Fetch a claim's current state by id asynchronously.
+
+**Arguments**:
+
+- `claim_id` - ID of the claim to fetch
+- `request_id` - The claim's original request id, the optional lookup
+  key the claim API uses to disambiguate replayed claims
+- `api_token` - Koyeb API token (if None, will try to get from KOYEB_API_TOKEN env var)
+- `host` - Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+  
+
+**Returns**:
+
+  The claim resource: ``id``, ``pool_id``, ``service_id``,
+  ``request_id``, ``status`` (PENDING, FULFILLED, FAILED or
+  RELEASED) and timestamps.
+  
+
+**Raises**:
+
+- `ValueError` - If claim_id is not provided or no API token is
+  configured
+- `SandboxClaimError` - If the reply carries no claim resource
+
+<a id="koyeb/sandbox.pool.AsyncPoolClaim.wait_ready"></a>
+
+#### wait\_ready
+
+```python
+async def wait_ready(timeout: int = DEFAULT_INSTANCE_WAIT_TIMEOUT,
+                     poll_interval: Optional[float] = None,
+                     cancel: Optional[asyncio.Event] = None) -> bool
+```
+
+Wait for the claimed service to become ready asynchronously.
+
+Cold-path polling helper: polls Get Service with exponential backoff
+until the service is ready (HEALTHY or DEGRADED), reaches a terminal
+state (UNHEALTHY, DELETING, DELETED, PAUSING, PAUSED, or an unknown
+value — fail-closed) or the timeout expires. Warm claims are usually
+confirmed on the first poll. Transient Get Service errors, including
+404, keep polling until the timeout. A set ``cancel`` event stops
+waiting early, and cancelling the asyncio task stops it as well.
+
+**Arguments**:
+
+- `timeout` - Maximum time to wait in seconds (default: 60, the
+  instance-wait budget; claim() passes its own 300s cold-path
+  budget)
+- `poll_interval` - Maximum time between status polls in seconds
+  (defaults to this claim's poll_interval)
+- `cancel` - Event that stops waiting when set; an already-set event
+  returns False immediately without polling
+  
+
+**Returns**:
+
+- `bool` - True if the service became ready, False if timeout or
+  cancelled
+  
+
+**Raises**:
+
+- `ValueError` - If poll_interval is not greater than 0
+- `SandboxClaimError` - If the service reaches a terminal state,
+  including a status the SDK cannot classify
+
+<a id="koyeb/sandbox.snapshot"></a>
+
+# koyeb/sandbox.snapshot
+
+Koyeb Sandbox Snapshot - Snapshot functionality for Koyeb sandboxes
+
+<a id="koyeb/sandbox.snapshot.SnapshotType"></a>
+
+## SnapshotType Objects
+
+```python
+class SnapshotType(Enum)
+```
+
+Types of sandbox snapshots.
+
+<a id="koyeb/sandbox.snapshot.SnapshotStatus"></a>
+
+## SnapshotStatus Objects
+
+```python
+class SnapshotStatus(Enum)
+```
+
+Status of a sandbox snapshot.
+
+<a id="koyeb/sandbox.snapshot.Snapshot"></a>
+
+## Snapshot Objects
+
+```python
+@dataclass
+class Snapshot()
+```
+
+Represents a sandbox snapshot resource.
+
+A snapshot captures the state of a sandbox at a specific point in time,
+including its filesystem and optionally running processes. Sandboxes can
+be spawned from snapshots to create pre-configured environments.
+
+<a id="koyeb/sandbox.snapshot.Snapshot.get"></a>
+
+#### get
+
+```python
+@classmethod
+def get(cls,
+        snapshot_id: str,
+        api_token: Optional[str] = None,
+        host: Optional[str] = None) -> Snapshot
+```
+
+Get a snapshot by ID.
+
+Uses the InstanceSnapshots API which is for sandbox/service instance snapshots.
+
+**Arguments**:
+
+- `snapshot_id` - The ID of the snapshot to retrieve
+- `api_token` - Koyeb API token (falls back to KOYEB_API_TOKEN env var)
+- `host` - Koyeb API host
+  
+
+**Returns**:
+
+- `Snapshot` - The snapshot object
+  
+
+**Raises**:
+
+- `SandboxError` - If snapshot cannot be retrieved
+
+<a id="koyeb/sandbox.snapshot.Snapshot.list"></a>
+
+#### list
+
+```python
+@classmethod
+def list(cls,
+         service_id: Optional[str] = None,
+         snapshot_type: Optional[SnapshotType] = None,
+         status: Optional[SnapshotStatus] = None,
+         limit: int = 50,
+         offset: int = 0,
+         api_token: Optional[str] = None,
+         host: Optional[str] = None) -> List[Snapshot]
+```
+
+List snapshots with optional filters.
+
+Uses the InstanceSnapshots API which is for sandbox/service instance snapshots.
+
+**Arguments**:
+
+- `service_id` - Filter by service ID
+- `snapshot_type` - Filter by snapshot type
+- `status` - Filter by snapshot status
+- `limit` - Maximum number of snapshots to return
+- `offset` - Offset for pagination
+- `api_token` - Koyeb API token
+- `host` - Koyeb API host
+  
+
+**Returns**:
+
+  List of Snapshot objects
+
+<a id="koyeb/sandbox.snapshot.Snapshot.refresh"></a>
+
+#### refresh
+
+```python
+def refresh() -> None
+```
+
+Refresh snapshot state from the API.
+
+<a id="koyeb/sandbox.snapshot.Snapshot.wait_available"></a>
+
+#### wait\_available
+
+```python
+def wait_available(timeout: int = 600, poll_interval: float = 5.0) -> bool
+```
+
+Wait for snapshot to become available.
+
+**Arguments**:
+
+- `timeout` - Maximum time to wait in seconds
+- `poll_interval` - Time between status checks in seconds
+  
+
+**Returns**:
+
+  True if snapshot became available, False if timeout
+
+<a id="koyeb/sandbox.snapshot.Snapshot.delete"></a>
+
+#### delete
+
+```python
+def delete() -> bool
+```
+
+Delete this snapshot.
+
+Uses the InstanceSnapshots API which is for sandbox/service instance snapshots.
+
+**Returns**:
+
+  True if deletion was successful
+
+<a id="koyeb/sandbox.snapshot.Snapshot.spawn"></a>
+
+#### spawn
+
+```python
+def spawn(name: Optional[str] = None,
+          wait_ready: bool = True,
+          timeout: int = 300,
+          **create_kwargs) -> Sandbox
+```
+
+Spawn a new sandbox from this snapshot.
+
+**Arguments**:
+
+- `name` - Name for the new sandbox
+- `wait_ready` - Whether to wait for sandbox to be ready
+- `timeout` - Timeout for sandbox creation in seconds
+- `**create_kwargs` - Additional arguments to pass to Sandbox.create()
+  
+
+**Returns**:
+
+- `Sandbox` - A new sandbox instance initialized from this snapshot
+
+<a id="koyeb/sandbox.snapshot.DeclarativeSnapshot"></a>
+
+## DeclarativeSnapshot Objects
+
+```python
+class DeclarativeSnapshot()
+```
+
+Fluent builder for creating sandbox snapshots declaratively.
+
+This builder allows you to define a sandbox environment by:
+- Writing files
+- Copying local files/directories
+- Running setup commands
+- Setting environment variables
+
+Then builds a snapshot that can be used to spawn pre-configured sandboxes.
+
+<a id="koyeb/sandbox.snapshot.DeclarativeSnapshot.__init__"></a>
+
+#### \_\_init\_\_
+
+```python
+def __init__(name: str,
+             image: str,
+             workdir: Optional[str] = None,
+             api_token: Optional[str] = None,
+             host: Optional[str] = None,
+             delete_builder: bool = True)
+```
+
+Initialize the declarative snapshot builder.
+
+**Arguments**:
+
+- `name` - Name for the template/builder
+- `image` - Docker image to use for the sandbox
+- `workdir` - Working directory in the sandbox
+- `api_token` - Koyeb API token
+- `host` - Koyeb API host
+- `delete_builder` - Whether to delete the builder sandbox after creating the snapshot (default: True)
+
+<a id="koyeb/sandbox.snapshot.DeclarativeSnapshot.file"></a>
+
+#### file
+
+```python
+def file(path: str, content: str) -> DeclarativeSnapshot
+```
+
+Write a file to the sandbox during build.
+
+**Arguments**:
+
+- `path` - Path in the sandbox (e.g., "/workspace/requirements.txt")
+- `content` - File content as string
+  
+
+**Returns**:
+
+  self for method chaining
+
+<a id="koyeb/sandbox.snapshot.DeclarativeSnapshot.copy"></a>
+
+#### copy
+
+```python
+def copy(src: str, dst: str) -> DeclarativeSnapshot
+```
+
+Copy a local file or directory to the sandbox during build.
+
+**Arguments**:
+
+- `src` - Local source path (file or directory)
+- `dst` - Destination path in the sandbox
+  
+
+**Returns**:
+
+  self for method chaining
+
+<a id="koyeb/sandbox.snapshot.DeclarativeSnapshot.run"></a>
+
+#### run
+
+```python
+def run(command: str, cwd: Optional[str] = None) -> DeclarativeSnapshot
+```
+
+Run a command during build.
+
+**Arguments**:
+
+- `command` - Command to execute
+- `cwd` - Working directory for the command
+  
+
+**Returns**:
+
+  self for method chaining
+
+<a id="koyeb/sandbox.snapshot.DeclarativeSnapshot.build"></a>
+
+#### build
+
+```python
+def build(snapshot_name: Optional[str] = None) -> Snapshot
+```
+
+Build the snapshot by creating a temporary sandbox,
+applying all configurations, and creating a snapshot.
+
+The builder sandbox is automatically deleted after the snapshot is created.
+
+**Arguments**:
+
+- `snapshot_name` - Name for the snapshot (defaults to builder name)
+  
+
+**Returns**:
+
+- `Snapshot` - The created snapshot
+
+<a id="koyeb/sandbox.snapshot.DeclarativeSnapshot.get_operations"></a>
+
+#### get\_operations
+
+```python
+def get_operations() -> List[str]
+```
+
+Get list of operations recorded during build.
 
