@@ -104,6 +104,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -176,6 +177,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -248,6 +250,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -380,6 +383,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -452,6 +456,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -524,6 +529,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -656,6 +662,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -728,6 +735,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -800,6 +808,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -879,7 +888,7 @@ class SecretsApi:
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
         types: Annotated[Optional[List[StrictStr]], Field(description="Filter by secret types")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on secret ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -904,8 +913,8 @@ class SecretsApi:
         :type offset: str
         :param types: Filter by secret types
         :type types: List[str]
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on secret ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -933,7 +942,7 @@ class SecretsApi:
             limit=limit,
             offset=offset,
             types=types,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -948,6 +957,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -967,7 +977,7 @@ class SecretsApi:
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
         types: Annotated[Optional[List[StrictStr]], Field(description="Filter by secret types")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on secret ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -992,8 +1002,8 @@ class SecretsApi:
         :type offset: str
         :param types: Filter by secret types
         :type types: List[str]
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on secret ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1021,7 +1031,7 @@ class SecretsApi:
             limit=limit,
             offset=offset,
             types=types,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1036,6 +1046,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1055,7 +1066,7 @@ class SecretsApi:
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
         types: Annotated[Optional[List[StrictStr]], Field(description="Filter by secret types")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on secret ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1080,8 +1091,8 @@ class SecretsApi:
         :type offset: str
         :param types: Filter by secret types
         :type types: List[str]
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on secret ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1109,7 +1120,7 @@ class SecretsApi:
             limit=limit,
             offset=offset,
             types=types,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1124,6 +1135,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1138,7 +1150,7 @@ class SecretsApi:
         limit,
         offset,
         types,
-        project_id,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -1149,6 +1161,7 @@ class SecretsApi:
 
         _collection_formats: Dict[str, str] = {
             'types': 'multi',
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1178,9 +1191,9 @@ class SecretsApi:
             
             _query_params.append(('types', types))
             
-        if project_id is not None:
+        if ids is not None:
             
-            _query_params.append(('project_id', project_id))
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters
@@ -1283,6 +1296,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1359,6 +1373,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1435,6 +1450,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1578,6 +1594,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1658,6 +1675,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1738,6 +1756,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1886,6 +1905,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1966,6 +1986,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2046,6 +2067,7 @@ class SecretsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,

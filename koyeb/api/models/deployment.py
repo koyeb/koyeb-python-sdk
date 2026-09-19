@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api.models.deployment_database_info import DeploymentDatabaseInfo
 from koyeb.api.models.deployment_definition import DeploymentDefinition
@@ -58,7 +58,8 @@ class Deployment(BaseModel):
     version: Optional[StrictStr] = None
     deployment_group: Optional[StrictStr] = None
     instance_snapshot_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "allocated_at", "started_at", "succeeded_at", "terminated_at", "organization_id", "project_id", "app_id", "service_id", "parent_id", "child_id", "status", "metadata", "definition", "messages", "provisioning_info", "database_info", "skip_build", "role", "version", "deployment_group", "instance_snapshot_id"]
+    created_by: Optional[StrictStr] = Field(default=None, description="CreatedBy is the user_id of the user that called CreateService or UpdateService. It's optional because CreateService or UpdateService can be called by a machine, using a token that's organization scoped, not user scoped.")
+    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "allocated_at", "started_at", "succeeded_at", "terminated_at", "organization_id", "project_id", "app_id", "service_id", "parent_id", "child_id", "status", "metadata", "definition", "messages", "provisioning_info", "database_info", "skip_build", "role", "version", "deployment_group", "instance_snapshot_id", "created_by"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -146,7 +147,8 @@ class Deployment(BaseModel):
             "role": obj.get("role") if obj.get("role") is not None else DeploymentRole.INVALID,
             "version": obj.get("version"),
             "deployment_group": obj.get("deployment_group"),
-            "instance_snapshot_id": obj.get("instance_snapshot_id")
+            "instance_snapshot_id": obj.get("instance_snapshot_id"),
+            "created_by": obj.get("created_by")
         })
         return _obj
 

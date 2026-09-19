@@ -131,6 +131,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -232,6 +233,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -333,6 +335,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -503,6 +506,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -575,6 +579,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -647,6 +652,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -795,6 +801,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -883,6 +890,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -971,6 +979,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1082,6 +1091,7 @@ class InstancesApi:
         order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
         starting_time: Annotated[Optional[datetime], Field(description="(Optional) The starting time of the period of running instance")] = None,
         ending_time: Annotated[Optional[datetime], Field(description="(Optional) The ending time of the period of running instance")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on instance ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1122,6 +1132,8 @@ class InstancesApi:
         :type starting_time: datetime
         :param ending_time: (Optional) The ending time of the period of running instance
         :type ending_time: datetime
+        :param ids: (Optional) Filter on instance ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1157,6 +1169,7 @@ class InstancesApi:
             order=order,
             starting_time=starting_time,
             ending_time=ending_time,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1171,6 +1184,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1198,6 +1212,7 @@ class InstancesApi:
         order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
         starting_time: Annotated[Optional[datetime], Field(description="(Optional) The starting time of the period of running instance")] = None,
         ending_time: Annotated[Optional[datetime], Field(description="(Optional) The ending time of the period of running instance")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on instance ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1238,6 +1253,8 @@ class InstancesApi:
         :type starting_time: datetime
         :param ending_time: (Optional) The ending time of the period of running instance
         :type ending_time: datetime
+        :param ids: (Optional) Filter on instance ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1273,6 +1290,7 @@ class InstancesApi:
             order=order,
             starting_time=starting_time,
             ending_time=ending_time,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1287,6 +1305,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1314,6 +1333,7 @@ class InstancesApi:
         order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
         starting_time: Annotated[Optional[datetime], Field(description="(Optional) The starting time of the period of running instance")] = None,
         ending_time: Annotated[Optional[datetime], Field(description="(Optional) The ending time of the period of running instance")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on instance ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1354,6 +1374,8 @@ class InstancesApi:
         :type starting_time: datetime
         :param ending_time: (Optional) The ending time of the period of running instance
         :type ending_time: datetime
+        :param ids: (Optional) Filter on instance ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1389,6 +1411,7 @@ class InstancesApi:
             order=order,
             starting_time=starting_time,
             ending_time=ending_time,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1403,6 +1426,7 @@ class InstancesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1425,6 +1449,7 @@ class InstancesApi:
         order,
         starting_time,
         ending_time,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -1435,6 +1460,7 @@ class InstancesApi:
 
         _collection_formats: Dict[str, str] = {
             'statuses': 'multi',
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1513,6 +1539,10 @@ class InstancesApi:
                 )
             else:
                 _query_params.append(('ending_time', ending_time))
+            
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters

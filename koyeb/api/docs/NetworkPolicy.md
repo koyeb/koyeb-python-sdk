@@ -6,6 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **egress** | [**EgressPolicy**](EgressPolicy.md) |  | [optional] 
+**mesh** | [**Mesh**](Mesh.md) |  | [optional] 
 
 ## Example
 

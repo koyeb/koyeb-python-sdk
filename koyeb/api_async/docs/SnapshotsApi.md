@@ -265,7 +265,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_snapshots**
-> ListSnapshotsReply list_snapshots(limit=limit, offset=offset, organization_id=organization_id, statuses=statuses, region=region)
+> ListSnapshotsReply list_snapshots(limit=limit, offset=offset, organization_id=organization_id, statuses=statuses, region=region, ids=ids)
 
 List all Snapshots
 
@@ -305,10 +305,11 @@ async with koyeb.api_async.ApiClient(configuration) as api_client:
     organization_id = 'organization_id_example' # str | (Optional) Filter by organization_id (optional)
     statuses = ['statuses_example'] # List[str] | (Optional) Filter by status   - SNAPSHOT_STATUS_INVALID: zero value, invalid  - SNAPSHOT_STATUS_CREATING: the snapshot is being created  - SNAPSHOT_STATUS_AVAILABLE: the snapshot is complete and available  - SNAPSHOT_STATUS_MIGRATING: the snapshot is being migrated  - SNAPSHOT_STATUS_DELETING: the snapshot is being deleted  - SNAPSHOT_STATUS_DELETED: the snapshot is deleted (optional)
     region = 'region_example' # str | (Optional) A filter for the region (optional)
+    ids = ['ids_example'] # List[str] | (Optional) Filter on snapshot ids (optional)
 
     try:
         # List all Snapshots
-        api_response = await api_instance.list_snapshots(limit=limit, offset=offset, organization_id=organization_id, statuses=statuses, region=region)
+        api_response = await api_instance.list_snapshots(limit=limit, offset=offset, organization_id=organization_id, statuses=statuses, region=region, ids=ids)
         print("The response of SnapshotsApi->list_snapshots:\n")
         pprint(api_response)
     except Exception as e:
@@ -327,6 +328,7 @@ Name | Type | Description  | Notes
  **organization_id** | **str**| (Optional) Filter by organization_id | [optional] 
  **statuses** | [**List[str]**](str.md)| (Optional) Filter by status   - SNAPSHOT_STATUS_INVALID: zero value, invalid  - SNAPSHOT_STATUS_CREATING: the snapshot is being created  - SNAPSHOT_STATUS_AVAILABLE: the snapshot is complete and available  - SNAPSHOT_STATUS_MIGRATING: the snapshot is being migrated  - SNAPSHOT_STATUS_DELETING: the snapshot is being deleted  - SNAPSHOT_STATUS_DELETED: the snapshot is deleted | [optional] 
  **region** | **str**| (Optional) A filter for the region | [optional] 
+ **ids** | [**List[str]**](str.md)| (Optional) Filter on snapshot ids | [optional] 
 
 ### Return type
 

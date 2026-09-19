@@ -103,6 +103,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -175,6 +176,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -247,6 +249,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -379,6 +382,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -451,6 +455,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -523,6 +528,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -655,6 +661,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -727,6 +734,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -799,6 +807,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -947,6 +956,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1035,6 +1045,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1123,6 +1134,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1226,6 +1238,7 @@ class InstanceSnapshotsApi:
         name: Optional[StrictStr] = None,
         statuses: Optional[List[StrictStr]] = None,
         type: Optional[StrictStr] = None,
+        ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1252,6 +1265,8 @@ class InstanceSnapshotsApi:
         :type statuses: List[str]
         :param type:
         :type type: str
+        :param ids:
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1280,6 +1295,7 @@ class InstanceSnapshotsApi:
             name=name,
             statuses=statuses,
             type=type,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1294,6 +1310,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1314,6 +1331,7 @@ class InstanceSnapshotsApi:
         name: Optional[StrictStr] = None,
         statuses: Optional[List[StrictStr]] = None,
         type: Optional[StrictStr] = None,
+        ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1340,6 +1358,8 @@ class InstanceSnapshotsApi:
         :type statuses: List[str]
         :param type:
         :type type: str
+        :param ids:
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1368,6 +1388,7 @@ class InstanceSnapshotsApi:
             name=name,
             statuses=statuses,
             type=type,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1382,6 +1403,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1402,6 +1424,7 @@ class InstanceSnapshotsApi:
         name: Optional[StrictStr] = None,
         statuses: Optional[List[StrictStr]] = None,
         type: Optional[StrictStr] = None,
+        ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1428,6 +1451,8 @@ class InstanceSnapshotsApi:
         :type statuses: List[str]
         :param type:
         :type type: str
+        :param ids:
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1456,6 +1481,7 @@ class InstanceSnapshotsApi:
             name=name,
             statuses=statuses,
             type=type,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1470,6 +1496,7 @@ class InstanceSnapshotsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1485,6 +1512,7 @@ class InstanceSnapshotsApi:
         name,
         statuses,
         type,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -1495,6 +1523,7 @@ class InstanceSnapshotsApi:
 
         _collection_formats: Dict[str, str] = {
             'statuses': 'multi',
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1527,6 +1556,10 @@ class InstanceSnapshotsApi:
         if type is not None:
             
             _query_params.append(('type', type))
+            
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters

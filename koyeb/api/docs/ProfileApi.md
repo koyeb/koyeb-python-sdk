@@ -565,7 +565,7 @@ configuration.api_key['Bearer'] = os.environ["API_KEY"]
 with koyeb.api.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = koyeb.api.ProfileApi(api_client)
-    action = signin # str | Which authentication flow is being initiated (optional) (default to signin)
+    action = 'signin' # str | Which authentication flow is being initiated (optional) (default to 'signin')
     metadata = 'metadata_example' # str | A small (limited to 400 characters) string of arbitrary metadata which will be encoded in the state (optional)
 
     try:
@@ -584,7 +584,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **action** | **str**| Which authentication flow is being initiated | [optional] [default to signin]
+ **action** | **str**| Which authentication flow is being initiated | [optional] [default to &#39;signin&#39;]
  **metadata** | **str**| A small (limited to 400 characters) string of arbitrary metadata which will be encoded in the state | [optional] 
 
 ### Return type

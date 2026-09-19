@@ -97,6 +97,7 @@ class SubscriptionsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -169,6 +170,7 @@ class SubscriptionsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -241,6 +243,7 @@ class SubscriptionsApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,

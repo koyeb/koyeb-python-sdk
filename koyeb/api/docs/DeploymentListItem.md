@@ -25,6 +25,7 @@ Name | Type | Description | Notes
 **provisioning_info** | [**DeploymentProvisioningInfo**](DeploymentProvisioningInfo.md) |  | [optional] 
 **database_info** | [**DeploymentDatabaseInfo**](DeploymentDatabaseInfo.md) |  | [optional] 
 **instance_snapshot_id** | **str** |  | [optional] 
+**created_by** | **str** | CreatedBy is the user_id of the user that called CreateService or UpdateService. It&#39;s optional because CreateService or UpdateService can be called by a machine, using a token that&#39;s organization scoped, not user scoped. | [optional] 
 **version** | **str** |  | [optional] 
 **deployment_group** | **str** |  | [optional] 
 

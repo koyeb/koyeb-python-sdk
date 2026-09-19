@@ -91,6 +91,7 @@ class CatalogInstanceUsageApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "ListUsageReply",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -157,6 +158,7 @@ class CatalogInstanceUsageApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "ListUsageReply",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -223,6 +225,7 @@ class CatalogInstanceUsageApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "ListUsageReply",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
             *_param,

@@ -111,6 +111,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -184,6 +185,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -257,6 +259,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -393,6 +396,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -469,6 +473,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -545,6 +550,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -683,6 +689,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -756,6 +763,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -829,6 +837,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -962,6 +971,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1035,6 +1045,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1108,6 +1119,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1240,6 +1252,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1312,6 +1325,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1384,6 +1398,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1517,6 +1532,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1590,6 +1606,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1663,6 +1680,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1811,6 +1829,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1899,6 +1918,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1987,6 +2007,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2092,7 +2113,7 @@ class ServicesApi:
         types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service types")] = None,
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service statuses")] = None,
         regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on regions")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2123,8 +2144,8 @@ class ServicesApi:
         :type statuses: List[str]
         :param regions: (Optional) Filter on regions
         :type regions: List[str]
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on service ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2155,7 +2176,7 @@ class ServicesApi:
             types=types,
             statuses=statuses,
             regions=regions,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2170,6 +2191,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2192,7 +2214,7 @@ class ServicesApi:
         types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service types")] = None,
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service statuses")] = None,
         regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on regions")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2223,8 +2245,8 @@ class ServicesApi:
         :type statuses: List[str]
         :param regions: (Optional) Filter on regions
         :type regions: List[str]
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on service ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2255,7 +2277,7 @@ class ServicesApi:
             types=types,
             statuses=statuses,
             regions=regions,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2270,6 +2292,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2292,7 +2315,7 @@ class ServicesApi:
         types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service types")] = None,
         statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service statuses")] = None,
         regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on regions")] = None,
-        project_id: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for the project ID")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2323,8 +2346,8 @@ class ServicesApi:
         :type statuses: List[str]
         :param regions: (Optional) Filter on regions
         :type regions: List[str]
-        :param project_id: (Optional) A filter for the project ID
-        :type project_id: str
+        :param ids: (Optional) Filter on service ids
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2355,7 +2378,7 @@ class ServicesApi:
             types=types,
             statuses=statuses,
             regions=regions,
-            project_id=project_id,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2370,6 +2393,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2387,7 +2411,7 @@ class ServicesApi:
         types,
         statuses,
         regions,
-        project_id,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -2400,6 +2424,7 @@ class ServicesApi:
             'types': 'multi',
             'statuses': 'multi',
             'regions': 'multi',
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2441,9 +2466,9 @@ class ServicesApi:
             
             _query_params.append(('regions', regions))
             
-        if project_id is not None:
+        if ids is not None:
             
-            _query_params.append(('project_id', project_id))
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters
@@ -2543,6 +2568,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2616,6 +2642,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2689,6 +2716,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2825,6 +2853,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2901,6 +2930,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2977,6 +3007,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3121,6 +3152,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3202,6 +3234,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3283,6 +3316,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3437,6 +3471,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3521,6 +3556,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3605,6 +3641,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3762,6 +3799,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3846,6 +3884,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -3930,6 +3969,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4080,6 +4120,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4157,6 +4198,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -4234,6 +4276,7 @@ class ServicesApi:
             '404': "Error",
             '500': "Error",
             '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
             *_param,
