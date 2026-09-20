@@ -31,7 +31,7 @@ jobs:
         uses: rickstaa/action-black@v1
         id: action_black
         with:
-          black_args: "koyeb/ test/"
+          black_args: "koyeb/"
       - name: Run test suite
         run: tox
       - name: Create Pull Request
