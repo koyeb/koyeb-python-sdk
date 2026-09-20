@@ -29,6 +29,7 @@ Name | Type | Description | Notes
 **version** | **str** |  | [optional] 
 **deployment_group** | **str** |  | [optional] 
 **instance_snapshot_id** | **str** |  | [optional] 
+**created_by** | **str** | CreatedBy is the user_id of the user that called CreateService or UpdateService. It&#39;s optional because CreateService or UpdateService can be called by a machine, using a token that&#39;s organization scoped, not user scoped. | [optional] 
 
 ## Example
 

@@ -89,7 +89,9 @@ async def main():
 
         # Verify processes are preserved
         result = sbx2.exec("curl localhost:8000")
-        assert "Directory listing for /" in result.stdout.strip(), "HTTP server launched in original sandbox is not running anymore"
+        assert (
+            "Directory listing for /" in result.stdout.strip()
+        ), "HTTP server launched in original sandbox is not running anymore"
         print("  ✓ Daemon HTTP server launched on initial sandbox is still running")
 
         return 0

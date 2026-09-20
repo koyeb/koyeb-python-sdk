@@ -153,9 +153,7 @@ class SandboxExecutor:
                 stderr="".join(stderr_buffer),
                 exit_code=exit_code,
                 status=(
-                    CommandStatus.FINISHED
-                    if exit_code == 0
-                    else CommandStatus.FAILED
+                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
                 ),
                 duration=time.time() - start_time,
                 command=command,
@@ -173,9 +171,7 @@ class SandboxExecutor:
             stdout=stdout,
             stderr=stderr,
             exit_code=exit_code,
-            status=(
-                CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
-            ),
+            status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
             duration=time.time() - start_time,
             command=command,
         )
@@ -275,9 +271,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
                 stderr="".join(stderr_buffer),
                 exit_code=exit_code,
                 status=(
-                    CommandStatus.FINISHED
-                    if exit_code == 0
-                    else CommandStatus.FAILED
+                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
                 ),
                 duration=time.time() - start_time,
                 command=command,
@@ -297,9 +291,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
             stdout=stdout,
             stderr=stderr,
             exit_code=exit_code,
-            status=(
-                CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
-            ),
+            status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
             duration=time.time() - start_time,
             command=command,
         )

@@ -150,10 +150,7 @@ class SandboxClient:
                 return response
 
             except httpx.HTTPStatusError as e:
-                if (
-                    e.response.status_code == 503
-                    and attempt < max_retries
-                ):
+                if e.response.status_code == 503 and attempt < max_retries:
                     logger.debug(
                         f"Received 503 error, retrying... (attempt {attempt + 1}/{max_retries + 1})"
                     )
@@ -196,9 +193,7 @@ class SandboxClient:
             httpx.HTTPStatusError: If the health check fails
             httpx.TimeoutException: If the health check times out
         """
-        response = self._client.get(
-            f"{self.base_url}/health", timeout=5
-        )
+        response = self._client.get(f"{self.base_url}/health", timeout=5)
         response.raise_for_status()
         return response.json()
 
@@ -541,9 +536,7 @@ class SandboxClient:
             >>> for process in result.get("processes", []):
             ...     print(f"{process['id']}: {process['command']} - {process['status']}")
         """
-        response = self._request_with_retry(
-            "GET", f"{self.base_url}/list_processes"
-        )
+        response = self._request_with_retry("GET", f"{self.base_url}/list_processes")
         return response.json()
 
 
@@ -629,10 +622,7 @@ class AsyncSandboxClient:
                 return response
 
             except httpx.HTTPStatusError as e:
-                if (
-                    e.response.status_code == 503
-                    and attempt < max_retries
-                ):
+                if e.response.status_code == 503 and attempt < max_retries:
                     logger.debug(
                         f"Received 503 error, retrying... (attempt {attempt + 1}/{max_retries + 1})"
                     )
@@ -675,9 +665,7 @@ class AsyncSandboxClient:
             httpx.HTTPStatusError: If the health check fails
             httpx.TimeoutException: If the health check times out
         """
-        response = await self._client.get(
-            f"{self.base_url}/health", timeout=5
-        )
+        response = await self._client.get(f"{self.base_url}/health", timeout=5)
         response.raise_for_status()
         return response.json()
 

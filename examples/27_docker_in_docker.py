@@ -54,7 +54,9 @@ def main():
 
     sandbox = None
     try:
-        print("Creating privileged sandbox (image koyeb/sandbox:dind, instance_type=medium)...")
+        print(
+            "Creating privileged sandbox (image koyeb/sandbox:dind, instance_type=medium)..."
+        )
         create_start = time.time()
         sandbox = Sandbox.create(
             image="koyeb/sandbox:dind",
@@ -64,7 +66,9 @@ def main():
             privileged=True,
             api_token=api_token,
         )
-        print(f"Created sandbox: {sandbox.service_id} (took {time.time() - create_start:.1f}s)")
+        print(
+            f"Created sandbox: {sandbox.service_id} (took {time.time() - create_start:.1f}s)"
+        )
 
         # The image entrypoint starts the Docker daemon; it can take a few
         # seconds to accept connections after the sandbox is ready.
@@ -78,14 +82,16 @@ def main():
         result = sandbox.exec(
             "mkdir -p /tmp/ctx && cd /tmp/ctx && "
             "cp $(command -v runc) ./app && "
-            "printf 'FROM scratch\\nCOPY app /app\\nENTRYPOINT [\"/app\", \"--version\"]\\n' > Dockerfile && "
+            'printf \'FROM scratch\\nCOPY app /app\\nENTRYPOINT ["/app", "--version"]\\n\' > Dockerfile && '
             "docker build -q -t hello-offline ."
         )
         if result.exit_code != 0:
             print(f"docker build failed (exit code {result.exit_code}):")
             print(result.stderr)
             return 1
-        print(f"Built image {result.stdout.strip()} (took {time.time() - build_start:.1f}s)")
+        print(
+            f"Built image {result.stdout.strip()} (took {time.time() - build_start:.1f}s)"
+        )
 
         # --pull=never makes the run fail loudly if the image were missing,
         # instead of silently falling back to a registry pull.
@@ -101,7 +107,9 @@ def main():
 
         print(result.stdout)
         # Match the prefix only: the exact runc version depends on the image build
-        assert "runc version" in result.stdout, "Expected runc version banner from the container"
+        assert (
+            "runc version" in result.stdout
+        ), "Expected runc version banner from the container"
         print(f"Container run succeeded (took {run_duration:.1f}s)")
         print("Docker-in-Docker works, fully offline")
 

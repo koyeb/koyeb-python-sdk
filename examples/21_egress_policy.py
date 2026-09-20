@@ -26,7 +26,7 @@ PROBE_ALLOWED = (
     'python3 -c "import socket; '
     "addr = socket.getaddrinfo('1.1.1.1', 80, socket.AF_INET, socket.SOCK_STREAM, 0, socket.AI_NUMERICHOST)[0][4]; "
     "s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); "
-    "s.settimeout(5); s.connect(addr); s.close()\""
+    's.settimeout(5); s.connect(addr); s.close()"'
 )
 
 

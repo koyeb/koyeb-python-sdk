@@ -16,6 +16,7 @@ Name | Type | Description | Notes
 **name** | **str** |  | [optional] 
 **type** | [**ServiceType**](ServiceType.md) |  | [optional] [default to ServiceType.INVALID_TYPE]
 **organization_id** | **str** |  | [optional] 
+**project_id** | **str** |  | [optional] 
 **app_id** | **str** |  | [optional] 
 **status** | [**ServiceStatus**](ServiceStatus.md) |  | [optional] [default to ServiceStatus.STARTING]
 **messages** | **List[str]** |  | [optional] 
@@ -25,6 +26,7 @@ Name | Type | Description | Notes
 **last_provisioned_deployment_id** | **str** |  | [optional] 
 **state** | [**ServiceState**](ServiceState.md) |  | [optional] 
 **life_cycle** | [**ServiceLifeCycle**](ServiceLifeCycle.md) |  | [optional] 
+**service_account_id** | **str** |  | [optional] 
 
 ## Example
 

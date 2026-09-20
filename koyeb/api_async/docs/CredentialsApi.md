@@ -300,7 +300,7 @@ configuration.api_key['Bearer'] = os.environ["API_KEY"]
 async with koyeb.api_async.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = koyeb.api_async.CredentialsApi(api_client)
-    type = INVALID # str | (Optional) A filter for type (optional) (default to INVALID)
+    type = 'INVALID' # str | (Optional) A filter for type (optional) (default to 'INVALID')
     name = 'name_example' # str | (Optional) A filter for name (optional)
     organization_id = 'organization_id_example' # str | (Optional) Filter for an organization (optional)
     user_id = 'user_id_example' # str | (Optional) Filter for an user (optional)
@@ -323,7 +323,7 @@ async with koyeb.api_async.ApiClient(configuration) as api_client:
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **type** | **str**| (Optional) A filter for type | [optional] [default to INVALID]
+ **type** | **str**| (Optional) A filter for type | [optional] [default to &#39;INVALID&#39;]
  **name** | **str**| (Optional) A filter for name | [optional] 
  **organization_id** | **str**| (Optional) Filter for an organization | [optional] 
  **user_id** | **str**| (Optional) Filter for an user | [optional] 

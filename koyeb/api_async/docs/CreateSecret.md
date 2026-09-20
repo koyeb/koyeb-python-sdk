@@ -15,7 +15,6 @@ Name | Type | Description | Notes
 **gitlab_registry** | [**GitLabRegistryConfiguration**](GitLabRegistryConfiguration.md) |  | [optional] 
 **gcp_container_registry** | [**GCPContainerRegistryConfiguration**](GCPContainerRegistryConfiguration.md) |  | [optional] 
 **azure_container_registry** | [**AzureContainerRegistryConfiguration**](AzureContainerRegistryConfiguration.md) |  | [optional] 
-**project_id** | **str** |  | [optional] 
 
 ## Example
 
