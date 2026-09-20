@@ -188,7 +188,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_regional_deployments**
-> ListRegionalDeploymentsReply list_regional_deployments(deployment_id=deployment_id, limit=limit, offset=offset)
+> ListRegionalDeploymentsReply list_regional_deployments(deployment_id=deployment_id, limit=limit, offset=offset, ids=ids)
 
 List Regional Deployments
 
@@ -228,10 +228,11 @@ async with koyeb.api_async.ApiClient(configuration) as api_client:
     deployment_id = 'deployment_id_example' # str | (Optional) Filter on deployment id (optional)
     limit = 'limit_example' # str | (Optional) The number of items to return (optional)
     offset = 'offset_example' # str | (Optional) The offset in the list of item to return (optional)
+    ids = ['ids_example'] # List[str] | (Optional) Filter on regional deployment ids (optional)
 
     try:
         # List Regional Deployments
-        api_response = await api_instance.list_regional_deployments(deployment_id=deployment_id, limit=limit, offset=offset)
+        api_response = await api_instance.list_regional_deployments(deployment_id=deployment_id, limit=limit, offset=offset, ids=ids)
         print("The response of RegionalDeploymentsApi->list_regional_deployments:\n")
         pprint(api_response)
     except Exception as e:
@@ -248,6 +249,7 @@ Name | Type | Description  | Notes
  **deployment_id** | **str**| (Optional) Filter on deployment id | [optional] 
  **limit** | **str**| (Optional) The number of items to return | [optional] 
  **offset** | **str**| (Optional) The offset in the list of item to return | [optional] 
+ **ids** | [**List[str]**](str.md)| (Optional) Filter on regional deployment ids | [optional] 
 
 ### Return type
 

@@ -11,7 +11,6 @@ Name | Type | Description | Notes
 **read_only** | **bool** |  | [optional] 
 **max_size** | **int** |  | [optional] 
 **snapshot_id** | **str** |  | [optional] 
-**project_id** | **str** |  | [optional] 
 
 ## Example
 

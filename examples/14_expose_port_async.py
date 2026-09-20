@@ -63,7 +63,9 @@ async def main():
         print("\nMaking HTTP request to verify port exposure...")
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"{exposed.exposed_at}/test.html", timeout=10)
+                response = await client.get(
+                    f"{exposed.exposed_at}/test.html", timeout=10
+                )
             response.raise_for_status()
             print(f"✓ Request successful! Status: {response.status_code}")
             print(f"✓ Response content: {response.text.strip()}")
@@ -105,7 +107,9 @@ async def main():
         print("\nMaking HTTP request to verify port 8081...")
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"{exposed_2.exposed_at}/test2.html", timeout=10)
+                response = await client.get(
+                    f"{exposed_2.exposed_at}/test2.html", timeout=10
+                )
             response.raise_for_status()
             print(f"✓ Request successful! Status: {response.status_code}")
             print(f"✓ Response content: {response.text.strip()}")

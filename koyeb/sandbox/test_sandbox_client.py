@@ -42,7 +42,9 @@ class TestRunStreamingConnectionLoss(unittest.TestCase):
     redeployment) must surface as SandboxError, not a raw httpx transport error.
     """
 
-    _CONN = ConnectionInfo(public_url="https://sb.example", routing_key=None, secret="s")
+    _CONN = ConnectionInfo(
+        public_url="https://sb.example", routing_key=None, secret="s"
+    )
 
     def test_sync_run_streaming_wraps_transport_error(self):
         client = SandboxClient(self._CONN)

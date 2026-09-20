@@ -628,7 +628,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_services**
-> ListServicesReply list_services(app_id=app_id, limit=limit, offset=offset, name=name, types=types, statuses=statuses, regions=regions, project_id=project_id)
+> ListServicesReply list_services(app_id=app_id, limit=limit, offset=offset, name=name, types=types, statuses=statuses, regions=regions, ids=ids)
 
 List Services
 
@@ -670,11 +670,11 @@ async with koyeb.api_async.ApiClient(configuration) as api_client:
     types = ['types_example'] # List[str] | (Optional) Filter on service types (optional)
     statuses = ['statuses_example'] # List[str] | (Optional) Filter on service statuses (optional)
     regions = ['regions_example'] # List[str] | (Optional) Filter on regions (optional)
-    project_id = 'project_id_example' # str | (Optional) A filter for the project ID (optional)
+    ids = ['ids_example'] # List[str] | (Optional) Filter on service ids (optional)
 
     try:
         # List Services
-        api_response = await api_instance.list_services(app_id=app_id, limit=limit, offset=offset, name=name, types=types, statuses=statuses, regions=regions, project_id=project_id)
+        api_response = await api_instance.list_services(app_id=app_id, limit=limit, offset=offset, name=name, types=types, statuses=statuses, regions=regions, ids=ids)
         print("The response of ServicesApi->list_services:\n")
         pprint(api_response)
     except Exception as e:
@@ -695,7 +695,7 @@ Name | Type | Description  | Notes
  **types** | [**List[str]**](str.md)| (Optional) Filter on service types | [optional] 
  **statuses** | [**List[str]**](str.md)| (Optional) Filter on service statuses | [optional] 
  **regions** | [**List[str]**](str.md)| (Optional) Filter on regions | [optional] 
- **project_id** | **str**| (Optional) A filter for the project ID | [optional] 
+ **ids** | [**List[str]**](str.md)| (Optional) Filter on service ids | [optional] 
 
 ### Return type
 

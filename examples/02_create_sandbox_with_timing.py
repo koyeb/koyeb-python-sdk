@@ -16,62 +16,67 @@ from koyeb import Sandbox
 
 class TimingTracker:
     """Track timing information for operations"""
+
     def __init__(self):
         self.operations = []
         self.categories = defaultdict(list)
-    
+
     def record(self, name, duration, category="general"):
         """Record an operation's timing"""
-        self.operations.append({
-            'name': name,
-            'duration': duration,
-            'category': category,
-            'timestamp': datetime.now()
-        })
+        self.operations.append(
+            {
+                "name": name,
+                "duration": duration,
+                "category": category,
+                "timestamp": datetime.now(),
+            }
+        )
         self.categories[category].append(duration)
-    
+
     def get_total_time(self):
         """Get total time for all operations"""
-        return sum(op['duration'] for op in self.operations)
-    
+        return sum(op["duration"] for op in self.operations)
+
     def get_category_total(self, category):
         """Get total time for a specific category"""
         return sum(self.categories[category])
-    
+
     def print_recap(self):
         """Print a detailed recap of all timings"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(" TIMING SUMMARY")
-        print("="*70)
-        
+        print("=" * 70)
+
         if not self.operations:
             print("No operations recorded")
             return
-        
+
         total_time = self.get_total_time()
-        
+
         # Print individual operations
         print()
-        
+
         for op in self.operations:
-            percentage = (op['duration'] / total_time * 100) if total_time > 0 else 0
+            percentage = (op["duration"] / total_time * 100) if total_time > 0 else 0
             bar_length = int(percentage / 2)  # 50 chars = 100%
             bar = "█" * bar_length
-            
-            print(f"  {op['name']:<30} {op['duration']:6.2f}s  {percentage:5.1f}%  {bar}")
-        
+
+            print(
+                f"  {op['name']:<30} {op['duration']:6.2f}s  {percentage:5.1f}%  {bar}"
+            )
+
         print()
         print("-" * 70)
         print(f"  {'TOTAL':<30} {total_time:6.2f}s  100.0%")
-        print("="*70)
+        print("=" * 70)
 
 
 def main(run_long_tests=False):
     script_start = time.time()
     tracker = TimingTracker()
-    
+
     print("Starting sandbox operations...")
-    
+
     api_token = os.getenv("KOYEB_API_TOKEN")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
@@ -121,7 +126,9 @@ def main(run_long_tests=False):
             # Long test 2: Run a computation
             print("  → [LONG TEST] Running computation...")
             compute_start = time.time()
-            result = sandbox.exec("python -c 'import time; sum(range(10000000)); time.sleep(2)'")
+            result = sandbox.exec(
+                "python -c 'import time; sum(range(10000000)); time.sleep(2)'"
+            )
             compute_duration = time.time() - compute_start
             tracker.record("Heavy computation", compute_duration, "long_tests")
             print(f"    ✓ took {compute_duration:.1f}s")
@@ -133,7 +140,9 @@ def main(run_long_tests=False):
                 sandbox.is_healthy()
                 time.sleep(0.5)
             multi_check_duration = time.time() - multi_check_start
-            tracker.record("Multiple health checks (5x)", multi_check_duration, "long_tests")
+            tracker.record(
+                "Multiple health checks (5x)", multi_check_duration, "long_tests"
+            )
             print(f"    ✓ took {multi_check_duration:.1f}s")
 
             return 0
@@ -145,9 +154,9 @@ def main(run_long_tests=False):
             delete_duration = time.time() - delete_start
             tracker.record("Sandbox deletion", delete_duration, "cleanup")
             print(f"    ✓ took {delete_duration:.1f}s")
-        
+
         print("\n✓ All operations completed")
-        
+
         # Print detailed recap
         tracker.print_recap()
 
@@ -159,8 +168,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--long",
         action="store_true",
-        help="Run longer tests (package installation, computation, etc.)"
+        help="Run longer tests (package installation, computation, etc.)",
     )
-    
+
     args = parser.parse_args()
     sys.exit(main(run_long_tests=args.long))

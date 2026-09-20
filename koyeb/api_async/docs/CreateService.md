@@ -8,9 +8,9 @@ Name | Type | Description | Notes
 **app_id** | **str** |  | [optional] 
 **definition** | [**DeploymentDefinition**](DeploymentDefinition.md) |  | [optional] 
 **life_cycle** | [**ServiceLifeCycle**](ServiceLifeCycle.md) |  | [optional] 
-**project_id** | **str** |  | [optional] 
 **instance_snapshot_id** | **str** |  | [optional] 
 **name** | **str** |  | [optional] 
+**service_account_id** | **str** | (Optional) The Albe service account ID to associate with the service. Immutable after creation. | [optional] 
 
 ## Example
 

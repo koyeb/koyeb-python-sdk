@@ -677,7 +677,7 @@ def create_sandbox_client(
 
 
 def create_async_sandbox_client(
-    conn_info: Optional['ConnectionInfo'],
+    conn_info: Optional["ConnectionInfo"],
     existing_client: Optional[Any] = None,
 ) -> Any:
     """

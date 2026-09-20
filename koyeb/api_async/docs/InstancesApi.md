@@ -55,7 +55,7 @@ async with koyeb.api_async.ApiClient(configuration) as api_client:
     body_stdin_data = None # bytes | Data is base64 encoded (optional)
     body_stdin_close = True # bool | Indicate last data frame (optional)
     body_disable_tty = True # bool | Disable TTY. It's enough to specify it in the first frame (optional)
-    id_type = INVALID # str | When specified, it is used to determine if the kind of resource the id refers to. If missing, defaults to the instance id. (optional) (default to INVALID)
+    id_type = 'INVALID' # str | When specified, it is used to determine if the kind of resource the id refers to. If missing, defaults to the instance id. (optional) (default to 'INVALID')
 
     try:
         # Exec Command
@@ -80,7 +80,7 @@ Name | Type | Description  | Notes
  **body_stdin_data** | **bytes**| Data is base64 encoded | [optional] 
  **body_stdin_close** | **bool**| Indicate last data frame | [optional] 
  **body_disable_tty** | **bool**| Disable TTY. It&#39;s enough to specify it in the first frame | [optional] 
- **id_type** | **str**| When specified, it is used to determine if the kind of resource the id refers to. If missing, defaults to the instance id. | [optional] [default to INVALID]
+ **id_type** | **str**| When specified, it is used to determine if the kind of resource the id refers to. If missing, defaults to the instance id. | [optional] [default to &#39;INVALID&#39;]
 
 ### Return type
 
@@ -287,7 +287,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_instances**
-> ListInstancesReply list_instances(app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, allocation_id=allocation_id, replica_index=replica_index, statuses=statuses, limit=limit, offset=offset, order=order, starting_time=starting_time, ending_time=ending_time)
+> ListInstancesReply list_instances(app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, allocation_id=allocation_id, replica_index=replica_index, statuses=statuses, limit=limit, offset=offset, order=order, starting_time=starting_time, ending_time=ending_time, ids=ids)
 
 List Instances
 
@@ -334,10 +334,11 @@ async with koyeb.api_async.ApiClient(configuration) as api_client:
     order = 'order_example' # str | (Optional) Sorts the list in the ascending or the descending order (optional)
     starting_time = '2013-10-20T19:20:30+01:00' # datetime | (Optional) The starting time of the period of running instance (optional)
     ending_time = '2013-10-20T19:20:30+01:00' # datetime | (Optional) The ending time of the period of running instance (optional)
+    ids = ['ids_example'] # List[str] | (Optional) Filter on instance ids (optional)
 
     try:
         # List Instances
-        api_response = await api_instance.list_instances(app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, allocation_id=allocation_id, replica_index=replica_index, statuses=statuses, limit=limit, offset=offset, order=order, starting_time=starting_time, ending_time=ending_time)
+        api_response = await api_instance.list_instances(app_id=app_id, service_id=service_id, deployment_id=deployment_id, regional_deployment_id=regional_deployment_id, allocation_id=allocation_id, replica_index=replica_index, statuses=statuses, limit=limit, offset=offset, order=order, starting_time=starting_time, ending_time=ending_time, ids=ids)
         print("The response of InstancesApi->list_instances:\n")
         pprint(api_response)
     except Exception as e:
@@ -363,6 +364,7 @@ Name | Type | Description  | Notes
  **order** | **str**| (Optional) Sorts the list in the ascending or the descending order | [optional] 
  **starting_time** | **datetime**| (Optional) The starting time of the period of running instance | [optional] 
  **ending_time** | **datetime**| (Optional) The ending time of the period of running instance | [optional] 
+ **ids** | [**List[str]**](str.md)| (Optional) Filter on instance ids | [optional] 
 
 ### Return type
 

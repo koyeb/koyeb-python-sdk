@@ -345,7 +345,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_instance_snapshots**
-> ListInstanceSnapshotsReply list_instance_snapshots(limit=limit, offset=offset, name=name, statuses=statuses, type=type)
+> ListInstanceSnapshotsReply list_instance_snapshots(limit=limit, offset=offset, name=name, statuses=statuses, type=type, ids=ids)
 
 ### Example
 
@@ -382,10 +382,11 @@ with koyeb.api.ApiClient(configuration) as api_client:
     offset = 'offset_example' # str |  (optional)
     name = 'name_example' # str |  (optional)
     statuses = ['statuses_example'] # List[str] |  (optional)
-    type = INSTANCE_SNAPSHOT_TYPE_INVALID # str |  (optional) (default to INSTANCE_SNAPSHOT_TYPE_INVALID)
+    type = 'INSTANCE_SNAPSHOT_TYPE_INVALID' # str |  (optional) (default to 'INSTANCE_SNAPSHOT_TYPE_INVALID')
+    ids = ['ids_example'] # List[str] |  (optional)
 
     try:
-        api_response = api_instance.list_instance_snapshots(limit=limit, offset=offset, name=name, statuses=statuses, type=type)
+        api_response = api_instance.list_instance_snapshots(limit=limit, offset=offset, name=name, statuses=statuses, type=type, ids=ids)
         print("The response of InstanceSnapshotsApi->list_instance_snapshots:\n")
         pprint(api_response)
     except Exception as e:
@@ -403,7 +404,8 @@ Name | Type | Description  | Notes
  **offset** | **str**|  | [optional] 
  **name** | **str**|  | [optional] 
  **statuses** | [**List[str]**](str.md)|  | [optional] 
- **type** | **str**|  | [optional] [default to INSTANCE_SNAPSHOT_TYPE_INVALID]
+ **type** | **str**|  | [optional] [default to &#39;INSTANCE_SNAPSHOT_TYPE_INVALID&#39;]
+ **ids** | [**List[str]**](str.md)|  | [optional] 
 
 ### Return type
 

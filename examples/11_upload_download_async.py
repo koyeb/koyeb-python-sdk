@@ -49,7 +49,9 @@ async def main():
             "/tmp/download_source.txt", "Download test content\nMultiple lines"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix="_downloaded.txt") as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix="_downloaded.txt"
+        ) as f:
             download_path = f.name
 
         try:

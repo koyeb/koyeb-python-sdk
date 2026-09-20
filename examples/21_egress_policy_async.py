@@ -27,11 +27,13 @@ PROBE_ALLOWED = (
     'python3 -c "import socket; '
     "addr = socket.getaddrinfo('1.1.1.1', 80, socket.AF_INET, socket.SOCK_STREAM, 0, socket.AI_NUMERICHOST)[0][4]; "
     "s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); "
-    "s.settimeout(5); s.connect(addr); s.close()\""
+    's.settimeout(5); s.connect(addr); s.close()"'
 )
 
 
-async def wait_for_probe(sandbox, probe, expect_allowed, label, timeout=120, interval=3):
+async def wait_for_probe(
+    sandbox, probe, expect_allowed, label, timeout=120, interval=3
+):
     """Run a probe repeatedly until it reaches the expected allowed/blocked state.
 
     A network-policy change redeploys the sandbox. Even after wait_ready()
@@ -102,7 +104,9 @@ async def main():
         # Switch to an allowlist: only the listed destinations are reachable.
         # Entries are CIDRs or bare IPs (normalized to /32 for IPv4, /128 for
         # IPv6). This triggers a redeployment of the sandbox service.
-        await sandbox.update_network_policy(outbound_allowlist=["1.1.1.1", "9.9.0.0/16"])
+        await sandbox.update_network_policy(
+            outbound_allowlist=["1.1.1.1", "9.9.0.0/16"]
+        )
         print("Egress policy updated to allowlist: 1.1.1.1/32, 9.9.0.0/16")
 
         # The policy update redeploys the sandbox; wait for the new instance to
