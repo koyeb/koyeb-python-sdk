@@ -25,12 +25,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class InstanceAvailability(BaseModel):
     """
     InstanceAvailability
-    """  # noqa: E501
-
+    """ # noqa: E501
     regions: Optional[Dict[str, RegionAvailability]] = None
     availability: Optional[AvailabilityLevel] = AvailabilityLevel.UNKNOWN
     __properties: ClassVar[List[str]] = ["regions", "availability"]
@@ -41,6 +39,7 @@ class InstanceAvailability(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,7 +64,8 @@ class InstanceAvailability(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,12 +76,9 @@ class InstanceAvailability(BaseModel):
         _field_dict = {}
         if self.regions:
             for _key_regions in self.regions:
-                _field_dict[_key_regions] = (
-                    self.regions[_key_regions].to_dict()
-                    if self.regions[_key_regions] is not None
-                    else None
-                )
-            _dict["regions"] = _field_dict
+                if self.regions[_key_regions]:
+                    _field_dict[_key_regions] = self.regions[_key_regions].to_dict()
+            _dict['regions'] = _field_dict
         return _dict
 
     @classmethod
@@ -93,17 +90,15 @@ class InstanceAvailability(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "regions": dict(
-                    (_k, RegionAvailability.from_dict(_v))
-                    for _k, _v in obj["regions"].items()
-                )
-                if obj.get("regions") is not None
-                else None,
-                "availability": obj.get("availability")
-                if obj.get("availability") is not None
-                else AvailabilityLevel.UNKNOWN,
-            }
-        )
+        _obj = cls.model_validate({
+            "regions": dict(
+                (_k, RegionAvailability.from_dict(_v))
+                for _k, _v in obj["regions"].items()
+            )
+            if obj.get("regions") is not None
+            else None,
+            "availability": obj.get("availability") if obj.get("availability") is not None else AvailabilityLevel.UNKNOWN
+        })
         return _obj
+
+

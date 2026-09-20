@@ -24,24 +24,16 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class ListPoolClaimReply(BaseModel):
     """
     ListPoolClaimReply
-    """  # noqa: E501
-
+    """ # noqa: E501
     claims: Optional[List[PoolClaim]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
     count: Optional[StrictInt] = None
     has_next: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = [
-        "claims",
-        "limit",
-        "offset",
-        "count",
-        "has_next",
-    ]
+    __properties: ClassVar[List[str]] = ["claims", "limit", "offset", "count", "has_next"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -49,6 +41,7 @@ class ListPoolClaimReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -73,7 +66,8 @@ class ListPoolClaimReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -84,10 +78,9 @@ class ListPoolClaimReply(BaseModel):
         _items = []
         if self.claims:
             for _item_claims in self.claims:
-                _items.append(
-                    _item_claims.to_dict() if _item_claims is not None else None
-                )
-            _dict["claims"] = _items
+                if _item_claims:
+                    _items.append(_item_claims.to_dict())
+            _dict['claims'] = _items
         return _dict
 
     @classmethod
@@ -99,15 +92,13 @@ class ListPoolClaimReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "claims": [PoolClaim.from_dict(_item) for _item in obj["claims"]]
-                if obj.get("claims") is not None
-                else None,
-                "limit": obj.get("limit"),
-                "offset": obj.get("offset"),
-                "count": obj.get("count"),
-                "has_next": obj.get("has_next"),
-            }
-        )
+        _obj = cls.model_validate({
+            "claims": [PoolClaim.from_dict(_item) for _item in obj["claims"]] if obj.get("claims") is not None else None,
+            "limit": obj.get("limit"),
+            "offset": obj.get("offset"),
+            "count": obj.get("count"),
+            "has_next": obj.get("has_next")
+        })
         return _obj
+
+

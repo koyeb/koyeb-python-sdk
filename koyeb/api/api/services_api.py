@@ -49,6 +49,7 @@ class ServicesApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
+
     @validate_call
     def autocomplete(
         self,
@@ -57,8 +58,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -91,34 +93,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._autocomplete_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "AutocompleteReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "AutocompleteReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def autocomplete_with_http_info(
@@ -128,8 +132,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -162,34 +167,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._autocomplete_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "AutocompleteReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "AutocompleteReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def autocomplete_without_preload_content(
@@ -199,8 +206,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -233,30 +241,32 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._autocomplete_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "AutocompleteReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "AutocompleteReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _autocomplete_serialize(
         self,
@@ -266,9 +276,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -287,16 +299,24 @@ class ServicesApi:
         if body is not None:
             _body_params = body
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="POST",
-            resource_path="/v1/services-autocomplete",
+            method='POST',
+            resource_path='/v1/services-autocomplete',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -306,22 +326,24 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def create_service(
         self,
         service: CreateService,
-        dry_run: Annotated[
-            Optional[StrictBool], Field(description="If set only run validation")
-        ] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="If set only run validation")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -355,7 +377,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._create_service_serialize(
             service=service,
@@ -363,21 +385,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "CreateServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "CreateServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -385,19 +408,19 @@ class ServicesApi:
             response_types_map=_response_types_map,
         ).data
 
+
     @validate_call
     def create_service_with_http_info(
         self,
         service: CreateService,
-        dry_run: Annotated[
-            Optional[StrictBool], Field(description="If set only run validation")
-        ] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="If set only run validation")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -431,7 +454,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._create_service_serialize(
             service=service,
@@ -439,21 +462,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "CreateServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "CreateServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -461,19 +485,19 @@ class ServicesApi:
             response_types_map=_response_types_map,
         )
 
+
     @validate_call
     def create_service_without_preload_content(
         self,
         service: CreateService,
-        dry_run: Annotated[
-            Optional[StrictBool], Field(description="If set only run validation")
-        ] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="If set only run validation")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -507,7 +531,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._create_service_serialize(
             service=service,
@@ -515,23 +539,25 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "CreateServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "CreateServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _create_service_serialize(
         self,
@@ -542,9 +568,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -558,24 +586,33 @@ class ServicesApi:
         # process the path parameters
         # process the query parameters
         if dry_run is not None:
-            _query_params.append(("dry_run", dry_run))
-
+            
+            _query_params.append(('dry_run', dry_run))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
         if service is not None:
             _body_params = service
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="POST",
-            resource_path="/v1/services",
+            method='POST',
+            resource_path='/v1/services',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -585,8 +622,11 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def delete_service(
@@ -596,8 +636,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -630,34 +671,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._delete_service_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def delete_service_with_http_info(
@@ -667,8 +710,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -701,34 +745,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._delete_service_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def delete_service_without_preload_content(
@@ -738,8 +784,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -772,30 +819,32 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._delete_service_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _delete_service_serialize(
         self,
@@ -805,9 +854,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -820,22 +871,30 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="DELETE",
-            resource_path="/v1/services/{id}",
+            method='DELETE',
+            resource_path='/v1/services/{id}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -845,8 +904,11 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def delete_service_scaling(
@@ -856,8 +918,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -890,34 +953,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._delete_service_scaling_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def delete_service_scaling_with_http_info(
@@ -927,8 +992,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -961,34 +1027,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._delete_service_scaling_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def delete_service_scaling_without_preload_content(
@@ -998,8 +1066,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1032,30 +1101,32 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._delete_service_scaling_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _delete_service_scaling_serialize(
         self,
@@ -1065,9 +1136,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -1080,22 +1153,30 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="DELETE",
-            resource_path="/v1/services/{id}/scale",
+            method='DELETE',
+            resource_path='/v1/services/{id}/scale',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1105,8 +1186,11 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def get_service(
@@ -1116,8 +1200,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1149,34 +1234,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_service_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GetServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "GetServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def get_service_with_http_info(
@@ -1186,8 +1273,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1219,34 +1307,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_service_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GetServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "GetServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def get_service_without_preload_content(
@@ -1256,8 +1346,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1289,30 +1380,32 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_service_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GetServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "GetServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _get_service_serialize(
         self,
@@ -1322,9 +1415,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -1337,22 +1432,30 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="GET",
-            resource_path="/v1/services/{id}",
+            method='GET',
+            resource_path='/v1/services/{id}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1362,8 +1465,11 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def get_service_scaling(
@@ -1373,8 +1479,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1407,34 +1514,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_service_scaling_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GetServiceScalingReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "GetServiceScalingReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def get_service_scaling_with_http_info(
@@ -1444,8 +1553,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1478,34 +1588,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_service_scaling_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GetServiceScalingReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "GetServiceScalingReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def get_service_scaling_without_preload_content(
@@ -1515,8 +1627,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1549,30 +1662,32 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_service_scaling_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GetServiceScalingReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "GetServiceScalingReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _get_service_scaling_serialize(
         self,
@@ -1582,9 +1697,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -1597,22 +1714,30 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="GET",
-            resource_path="/v1/services/{id}/scale",
+            method='GET',
+            resource_path='/v1/services/{id}/scale',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1622,39 +1747,27 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def list_service_events(
         self,
-        service_id: Annotated[
-            Optional[StrictStr], Field(description="(Optional) Filter on service id")
-        ] = None,
-        types: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service event types"),
-        ] = None,
-        limit: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The number of items to return"),
-        ] = None,
-        offset: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The offset in the list of item to return"),
-        ] = None,
-        order: Annotated[
-            Optional[StrictStr],
-            Field(
-                description="(Optional) Sorts the list in the ascending or the descending order"
-            ),
-        ] = None,
+        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on service id")] = None,
+        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service event types")] = None,
+        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
+        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
+        order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1694,7 +1807,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_service_events_serialize(
             service_id=service_id,
@@ -1705,21 +1818,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ListServiceEventsReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ListServiceEventsReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -1727,36 +1841,22 @@ class ServicesApi:
             response_types_map=_response_types_map,
         ).data
 
+
     @validate_call
     def list_service_events_with_http_info(
         self,
-        service_id: Annotated[
-            Optional[StrictStr], Field(description="(Optional) Filter on service id")
-        ] = None,
-        types: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service event types"),
-        ] = None,
-        limit: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The number of items to return"),
-        ] = None,
-        offset: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The offset in the list of item to return"),
-        ] = None,
-        order: Annotated[
-            Optional[StrictStr],
-            Field(
-                description="(Optional) Sorts the list in the ascending or the descending order"
-            ),
-        ] = None,
+        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on service id")] = None,
+        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service event types")] = None,
+        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
+        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
+        order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1796,7 +1896,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_service_events_serialize(
             service_id=service_id,
@@ -1807,21 +1907,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ListServiceEventsReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ListServiceEventsReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -1829,36 +1930,22 @@ class ServicesApi:
             response_types_map=_response_types_map,
         )
 
+
     @validate_call
     def list_service_events_without_preload_content(
         self,
-        service_id: Annotated[
-            Optional[StrictStr], Field(description="(Optional) Filter on service id")
-        ] = None,
-        types: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service event types"),
-        ] = None,
-        limit: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The number of items to return"),
-        ] = None,
-        offset: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The offset in the list of item to return"),
-        ] = None,
-        order: Annotated[
-            Optional[StrictStr],
-            Field(
-                description="(Optional) Sorts the list in the ascending or the descending order"
-            ),
-        ] = None,
+        service_id: Annotated[Optional[StrictStr], Field(description="(Optional) Filter on service id")] = None,
+        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service event types")] = None,
+        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
+        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
+        order: Annotated[Optional[StrictStr], Field(description="(Optional) Sorts the list in the ascending or the descending order")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1898,7 +1985,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_service_events_serialize(
             service_id=service_id,
@@ -1909,23 +1996,25 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ListServiceEventsReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ListServiceEventsReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _list_service_events_serialize(
         self,
@@ -1939,10 +2028,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
         _collection_formats: Dict[str, str] = {
-            "types": "multi",
+            'types': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1957,34 +2047,47 @@ class ServicesApi:
         # process the path parameters
         # process the query parameters
         if service_id is not None:
-            _query_params.append(("service_id", service_id))
-
+            
+            _query_params.append(('service_id', service_id))
+            
         if types is not None:
-            _query_params.append(("types", types))
-
+            
+            _query_params.append(('types', types))
+            
         if limit is not None:
-            _query_params.append(("limit", limit))
-
+            
+            _query_params.append(('limit', limit))
+            
         if offset is not None:
-            _query_params.append(("offset", offset))
-
+            
+            _query_params.append(('offset', offset))
+            
         if order is not None:
-            _query_params.append(("order", order))
-
+            
+            _query_params.append(('order', order))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="GET",
-            resource_path="/v1/service_events",
+            method='GET',
+            resource_path='/v1/service_events',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1994,47 +2097,30 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def list_services(
         self,
-        app_id: Annotated[
-            Optional[StrictStr], Field(description="(Optional) The id of the app")
-        ] = None,
-        limit: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The number of items to return"),
-        ] = None,
-        offset: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The offset in the list of item to return"),
-        ] = None,
-        name: Annotated[
-            Optional[StrictStr], Field(description="(Optional) A filter for name")
-        ] = None,
-        types: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service types"),
-        ] = None,
-        statuses: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service statuses"),
-        ] = None,
-        regions: Annotated[
-            Optional[List[StrictStr]], Field(description="(Optional) Filter on regions")
-        ] = None,
-        ids: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service ids"),
-        ] = None,
+        app_id: Annotated[Optional[StrictStr], Field(description="(Optional) The id of the app")] = None,
+        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
+        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for name")] = None,
+        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service types")] = None,
+        statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service statuses")] = None,
+        regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on regions")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2080,7 +2166,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_services_serialize(
             app_id=app_id,
@@ -2094,21 +2180,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ListServicesReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ListServicesReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -2116,44 +2203,25 @@ class ServicesApi:
             response_types_map=_response_types_map,
         ).data
 
+
     @validate_call
     def list_services_with_http_info(
         self,
-        app_id: Annotated[
-            Optional[StrictStr], Field(description="(Optional) The id of the app")
-        ] = None,
-        limit: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The number of items to return"),
-        ] = None,
-        offset: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The offset in the list of item to return"),
-        ] = None,
-        name: Annotated[
-            Optional[StrictStr], Field(description="(Optional) A filter for name")
-        ] = None,
-        types: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service types"),
-        ] = None,
-        statuses: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service statuses"),
-        ] = None,
-        regions: Annotated[
-            Optional[List[StrictStr]], Field(description="(Optional) Filter on regions")
-        ] = None,
-        ids: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service ids"),
-        ] = None,
+        app_id: Annotated[Optional[StrictStr], Field(description="(Optional) The id of the app")] = None,
+        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
+        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for name")] = None,
+        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service types")] = None,
+        statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service statuses")] = None,
+        regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on regions")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2199,7 +2267,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_services_serialize(
             app_id=app_id,
@@ -2213,21 +2281,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ListServicesReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ListServicesReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -2235,44 +2304,25 @@ class ServicesApi:
             response_types_map=_response_types_map,
         )
 
+
     @validate_call
     def list_services_without_preload_content(
         self,
-        app_id: Annotated[
-            Optional[StrictStr], Field(description="(Optional) The id of the app")
-        ] = None,
-        limit: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The number of items to return"),
-        ] = None,
-        offset: Annotated[
-            Optional[StrictStr],
-            Field(description="(Optional) The offset in the list of item to return"),
-        ] = None,
-        name: Annotated[
-            Optional[StrictStr], Field(description="(Optional) A filter for name")
-        ] = None,
-        types: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service types"),
-        ] = None,
-        statuses: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service statuses"),
-        ] = None,
-        regions: Annotated[
-            Optional[List[StrictStr]], Field(description="(Optional) Filter on regions")
-        ] = None,
-        ids: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on service ids"),
-        ] = None,
+        app_id: Annotated[Optional[StrictStr], Field(description="(Optional) The id of the app")] = None,
+        limit: Annotated[Optional[StrictStr], Field(description="(Optional) The number of items to return")] = None,
+        offset: Annotated[Optional[StrictStr], Field(description="(Optional) The offset in the list of item to return")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="(Optional) A filter for name")] = None,
+        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service types")] = None,
+        statuses: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service statuses")] = None,
+        regions: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on regions")] = None,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on service ids")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2318,7 +2368,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_services_serialize(
             app_id=app_id,
@@ -2332,23 +2382,25 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ListServicesReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ListServicesReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _list_services_serialize(
         self,
@@ -2365,13 +2417,14 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
         _collection_formats: Dict[str, str] = {
-            "types": "multi",
-            "statuses": "multi",
-            "regions": "multi",
-            "ids": "multi",
+            'types': 'multi',
+            'statuses': 'multi',
+            'regions': 'multi',
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2386,43 +2439,59 @@ class ServicesApi:
         # process the path parameters
         # process the query parameters
         if app_id is not None:
-            _query_params.append(("app_id", app_id))
-
+            
+            _query_params.append(('app_id', app_id))
+            
         if limit is not None:
-            _query_params.append(("limit", limit))
-
+            
+            _query_params.append(('limit', limit))
+            
         if offset is not None:
-            _query_params.append(("offset", offset))
-
+            
+            _query_params.append(('offset', offset))
+            
         if name is not None:
-            _query_params.append(("name", name))
-
+            
+            _query_params.append(('name', name))
+            
         if types is not None:
-            _query_params.append(("types", types))
-
+            
+            _query_params.append(('types', types))
+            
         if statuses is not None:
-            _query_params.append(("statuses", statuses))
-
+            
+            _query_params.append(('statuses', statuses))
+            
         if regions is not None:
-            _query_params.append(("regions", regions))
-
+            
+            _query_params.append(('regions', regions))
+            
         if ids is not None:
-            _query_params.append(("ids", ids))
-
+            
+            _query_params.append(('ids', ids))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="GET",
-            resource_path="/v1/services",
+            method='GET',
+            resource_path='/v1/services',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -2432,8 +2501,11 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def pause_service(
@@ -2443,8 +2515,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2477,34 +2550,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._pause_service_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def pause_service_with_http_info(
@@ -2514,8 +2589,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2548,34 +2624,36 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._pause_service_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def pause_service_without_preload_content(
@@ -2585,8 +2663,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2619,30 +2698,32 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._pause_service_serialize(
             id=id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _pause_service_serialize(
         self,
@@ -2652,9 +2733,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -2667,22 +2750,30 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="POST",
-            resource_path="/v1/services/{id}/pause",
+            method='POST',
+            resource_path='/v1/services/{id}/pause',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -2692,8 +2783,11 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def re_deploy(
@@ -2704,8 +2798,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2739,7 +2834,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._re_deploy_serialize(
             id=id,
@@ -2747,27 +2842,29 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "RedeployReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "RedeployReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def re_deploy_with_http_info(
@@ -2778,8 +2875,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2813,7 +2911,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._re_deploy_serialize(
             id=id,
@@ -2821,27 +2919,29 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "RedeployReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "RedeployReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def re_deploy_without_preload_content(
@@ -2852,8 +2952,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2887,7 +2988,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._re_deploy_serialize(
             id=id,
@@ -2895,23 +2996,25 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "RedeployReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "RedeployReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _re_deploy_serialize(
         self,
@@ -2922,9 +3025,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -2937,7 +3042,7 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
@@ -2945,16 +3050,24 @@ class ServicesApi:
         if info is not None:
             _body_params = info
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="POST",
-            resource_path="/v1/services/{id}/redeploy",
+            method='POST',
+            resource_path='/v1/services/{id}/redeploy',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -2964,26 +3077,25 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def resume_service(
         self,
         id: Annotated[StrictStr, Field(description="The id of the service to pause.")],
-        skip_build: Annotated[
-            Optional[StrictBool],
-            Field(
-                description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened."
-            ),
-        ] = None,
+        skip_build: Annotated[Optional[StrictBool], Field(description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened.")] = None,
         use_cache: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3020,7 +3132,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._resume_service_serialize(
             id=id,
@@ -3029,21 +3141,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -3051,23 +3164,20 @@ class ServicesApi:
             response_types_map=_response_types_map,
         ).data
 
+
     @validate_call
     def resume_service_with_http_info(
         self,
         id: Annotated[StrictStr, Field(description="The id of the service to pause.")],
-        skip_build: Annotated[
-            Optional[StrictBool],
-            Field(
-                description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened."
-            ),
-        ] = None,
+        skip_build: Annotated[Optional[StrictBool], Field(description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened.")] = None,
         use_cache: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3104,7 +3214,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._resume_service_serialize(
             id=id,
@@ -3113,21 +3223,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -3135,23 +3246,20 @@ class ServicesApi:
             response_types_map=_response_types_map,
         )
 
+
     @validate_call
     def resume_service_without_preload_content(
         self,
         id: Annotated[StrictStr, Field(description="The id of the service to pause.")],
-        skip_build: Annotated[
-            Optional[StrictBool],
-            Field(
-                description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened."
-            ),
-        ] = None,
+        skip_build: Annotated[Optional[StrictBool], Field(description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened.")] = None,
         use_cache: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3188,7 +3296,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._resume_service_serialize(
             id=id,
@@ -3197,23 +3305,25 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _resume_service_serialize(
         self,
@@ -3225,9 +3335,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -3240,28 +3352,38 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         if skip_build is not None:
-            _query_params.append(("skip_build", skip_build))
-
+            
+            _query_params.append(('skip_build', skip_build))
+            
         if use_cache is not None:
-            _query_params.append(("use_cache", use_cache))
-
+            
+            _query_params.append(('use_cache', use_cache))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="POST",
-            resource_path="/v1/services/{id}/resume",
+            method='POST',
+            resource_path='/v1/services/{id}/resume',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -3271,8 +3393,11 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def update_service(
@@ -3280,18 +3405,14 @@ class ServicesApi:
         id: Annotated[StrictStr, Field(description="The id of the entity to update")],
         service: UpdateService,
         update_mask: Optional[StrictStr] = None,
-        dry_run: Annotated[
-            Optional[StrictBool],
-            Field(
-                description="If set, run validation and check that the service exists"
-            ),
-        ] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="If set, run validation and check that the service exists")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3329,7 +3450,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._update_service_serialize(
             id=id,
@@ -3339,21 +3460,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "UpdateServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "UpdateServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -3361,24 +3483,21 @@ class ServicesApi:
             response_types_map=_response_types_map,
         ).data
 
+
     @validate_call
     def update_service_with_http_info(
         self,
         id: Annotated[StrictStr, Field(description="The id of the entity to update")],
         service: UpdateService,
         update_mask: Optional[StrictStr] = None,
-        dry_run: Annotated[
-            Optional[StrictBool],
-            Field(
-                description="If set, run validation and check that the service exists"
-            ),
-        ] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="If set, run validation and check that the service exists")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3416,7 +3535,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._update_service_serialize(
             id=id,
@@ -3426,21 +3545,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "UpdateServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "UpdateServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -3448,24 +3568,21 @@ class ServicesApi:
             response_types_map=_response_types_map,
         )
 
+
     @validate_call
     def update_service_without_preload_content(
         self,
         id: Annotated[StrictStr, Field(description="The id of the entity to update")],
         service: UpdateService,
         update_mask: Optional[StrictStr] = None,
-        dry_run: Annotated[
-            Optional[StrictBool],
-            Field(
-                description="If set, run validation and check that the service exists"
-            ),
-        ] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="If set, run validation and check that the service exists")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3503,7 +3620,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._update_service_serialize(
             id=id,
@@ -3513,23 +3630,25 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "UpdateServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "UpdateServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _update_service_serialize(
         self,
@@ -3542,9 +3661,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -3557,30 +3678,40 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         if update_mask is not None:
-            _query_params.append(("update_mask", update_mask))
-
+            
+            _query_params.append(('update_mask', update_mask))
+            
         if dry_run is not None:
-            _query_params.append(("dry_run", dry_run))
-
+            
+            _query_params.append(('dry_run', dry_run))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
         if service is not None:
             _body_params = service
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="PUT",
-            resource_path="/v1/services/{id}",
+            method='PUT',
+            resource_path='/v1/services/{id}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -3590,8 +3721,11 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def update_service2(
@@ -3599,18 +3733,14 @@ class ServicesApi:
         id: Annotated[StrictStr, Field(description="The id of the entity to update")],
         service: UpdateService,
         update_mask: Optional[StrictStr] = None,
-        dry_run: Annotated[
-            Optional[StrictBool],
-            Field(
-                description="If set, run validation and check that the service exists"
-            ),
-        ] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="If set, run validation and check that the service exists")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3648,7 +3778,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._update_service2_serialize(
             id=id,
@@ -3658,21 +3788,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "UpdateServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "UpdateServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -3680,24 +3811,21 @@ class ServicesApi:
             response_types_map=_response_types_map,
         ).data
 
+
     @validate_call
     def update_service2_with_http_info(
         self,
         id: Annotated[StrictStr, Field(description="The id of the entity to update")],
         service: UpdateService,
         update_mask: Optional[StrictStr] = None,
-        dry_run: Annotated[
-            Optional[StrictBool],
-            Field(
-                description="If set, run validation and check that the service exists"
-            ),
-        ] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="If set, run validation and check that the service exists")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3735,7 +3863,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._update_service2_serialize(
             id=id,
@@ -3745,21 +3873,22 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "UpdateServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "UpdateServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -3767,24 +3896,21 @@ class ServicesApi:
             response_types_map=_response_types_map,
         )
 
+
     @validate_call
     def update_service2_without_preload_content(
         self,
         id: Annotated[StrictStr, Field(description="The id of the entity to update")],
         service: UpdateService,
         update_mask: Optional[StrictStr] = None,
-        dry_run: Annotated[
-            Optional[StrictBool],
-            Field(
-                description="If set, run validation and check that the service exists"
-            ),
-        ] = None,
+        dry_run: Annotated[Optional[StrictBool], Field(description="If set, run validation and check that the service exists")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3822,7 +3948,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._update_service2_serialize(
             id=id,
@@ -3832,23 +3958,25 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "UpdateServiceReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "UpdateServiceReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _update_service2_serialize(
         self,
@@ -3861,9 +3989,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -3876,30 +4006,40 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         if update_mask is not None:
-            _query_params.append(("update_mask", update_mask))
-
+            
+            _query_params.append(('update_mask', update_mask))
+            
         if dry_run is not None:
-            _query_params.append(("dry_run", dry_run))
-
+            
+            _query_params.append(('dry_run', dry_run))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
         if service is not None:
             _body_params = service
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="PATCH",
-            resource_path="/v1/services/{id}",
+            method='PATCH',
+            resource_path='/v1/services/{id}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -3909,8 +4049,11 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def update_service_scaling(
@@ -3921,8 +4064,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -3957,7 +4101,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._update_service_scaling_serialize(
             id=id,
@@ -3965,27 +4109,29 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def update_service_scaling_with_http_info(
@@ -3996,8 +4142,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -4032,7 +4179,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._update_service_scaling_serialize(
             id=id,
@@ -4040,27 +4187,29 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def update_service_scaling_without_preload_content(
@@ -4071,8 +4220,9 @@ class ServicesApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -4107,7 +4257,7 @@ class ServicesApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._update_service_scaling_serialize(
             id=id,
@@ -4115,23 +4265,25 @@ class ServicesApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _update_service_scaling_serialize(
         self,
@@ -4142,9 +4294,11 @@ class ServicesApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -4157,7 +4311,7 @@ class ServicesApi:
 
         # process the path parameters
         if id is not None:
-            _path_params["id"] = id
+            _path_params['id'] = id
         # process the query parameters
         # process the header parameters
         # process the form parameters
@@ -4165,16 +4319,24 @@ class ServicesApi:
         if body is not None:
             _body_params = body
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="PUT",
-            resource_path="/v1/services/{id}/scale",
+            method='PUT',
+            resource_path='/v1/services/{id}/scale',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -4184,5 +4346,7 @@ class ServicesApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+

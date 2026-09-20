@@ -24,12 +24,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class ListSnapshotsReply(BaseModel):
     """
     ListSnapshotsReply
-    """  # noqa: E501
-
+    """ # noqa: E501
     snapshots: Optional[List[Snapshot]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
@@ -42,6 +40,7 @@ class ListSnapshotsReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,7 +65,8 @@ class ListSnapshotsReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,10 +77,9 @@ class ListSnapshotsReply(BaseModel):
         _items = []
         if self.snapshots:
             for _item_snapshots in self.snapshots:
-                _items.append(
-                    _item_snapshots.to_dict() if _item_snapshots is not None else None
-                )
-            _dict["snapshots"] = _items
+                if _item_snapshots:
+                    _items.append(_item_snapshots.to_dict())
+            _dict['snapshots'] = _items
         return _dict
 
     @classmethod
@@ -92,14 +91,12 @@ class ListSnapshotsReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "snapshots": [Snapshot.from_dict(_item) for _item in obj["snapshots"]]
-                if obj.get("snapshots") is not None
-                else None,
-                "limit": obj.get("limit"),
-                "offset": obj.get("offset"),
-                "has_next": obj.get("has_next"),
-            }
-        )
+        _obj = cls.model_validate({
+            "snapshots": [Snapshot.from_dict(_item) for _item in obj["snapshots"]] if obj.get("snapshots") is not None else None,
+            "limit": obj.get("limit"),
+            "offset": obj.get("offset"),
+            "has_next": obj.get("has_next")
+        })
         return _obj
+
+

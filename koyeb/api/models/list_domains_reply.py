@@ -24,12 +24,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class ListDomainsReply(BaseModel):
     """
     ListDomainsReply
-    """  # noqa: E501
-
+    """ # noqa: E501
     domains: Optional[List[Domain]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
@@ -42,6 +40,7 @@ class ListDomainsReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,7 +65,8 @@ class ListDomainsReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,10 +77,9 @@ class ListDomainsReply(BaseModel):
         _items = []
         if self.domains:
             for _item_domains in self.domains:
-                _items.append(
-                    _item_domains.to_dict() if _item_domains is not None else None
-                )
-            _dict["domains"] = _items
+                if _item_domains:
+                    _items.append(_item_domains.to_dict())
+            _dict['domains'] = _items
         return _dict
 
     @classmethod
@@ -92,14 +91,12 @@ class ListDomainsReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "domains": [Domain.from_dict(_item) for _item in obj["domains"]]
-                if obj.get("domains") is not None
-                else None,
-                "limit": obj.get("limit"),
-                "offset": obj.get("offset"),
-                "count": obj.get("count"),
-            }
-        )
+        _obj = cls.model_validate({
+            "domains": [Domain.from_dict(_item) for _item in obj["domains"]] if obj.get("domains") is not None else None,
+            "limit": obj.get("limit"),
+            "offset": obj.get("offset"),
+            "count": obj.get("count")
+        })
         return _obj
+
+

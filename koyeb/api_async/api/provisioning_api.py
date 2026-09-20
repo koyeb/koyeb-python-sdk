@@ -17,15 +17,9 @@ from typing_extensions import Annotated
 
 from pydantic import StrictStr
 from typing import Any, Dict
-from koyeb.api_async.models.create_stage_attempt_request import (
-    CreateStageAttemptRequest,
-)
-from koyeb.api_async.models.declare_stage_progress_request import (
-    DeclareStageProgressRequest,
-)
-from koyeb.api_async.models.declare_step_progress_request import (
-    DeclareStepProgressRequest,
-)
+from koyeb.api_async.models.create_stage_attempt_request import CreateStageAttemptRequest
+from koyeb.api_async.models.declare_stage_progress_request import DeclareStageProgressRequest
+from koyeb.api_async.models.declare_step_progress_request import DeclareStepProgressRequest
 
 from koyeb.api_async.api_client import ApiClient, RequestSerialized
 from koyeb.api_async.api_response import ApiResponse
@@ -44,6 +38,7 @@ class ProvisioningApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
+
     @validate_call
     async def create_stage_attempt(
         self,
@@ -55,8 +50,9 @@ class ProvisioningApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -94,7 +90,7 @@ class ProvisioningApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._create_stage_attempt_serialize(
             deployment_id=deployment_id,
@@ -104,27 +100,29 @@ class ProvisioningApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     async def create_stage_attempt_with_http_info(
@@ -137,8 +135,9 @@ class ProvisioningApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -176,7 +175,7 @@ class ProvisioningApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._create_stage_attempt_serialize(
             deployment_id=deployment_id,
@@ -186,27 +185,29 @@ class ProvisioningApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     async def create_stage_attempt_without_preload_content(
@@ -219,8 +220,9 @@ class ProvisioningApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -258,7 +260,7 @@ class ProvisioningApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._create_stage_attempt_serialize(
             deployment_id=deployment_id,
@@ -268,23 +270,25 @@ class ProvisioningApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _create_stage_attempt_serialize(
         self,
@@ -297,9 +301,11 @@ class ProvisioningApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -312,11 +318,11 @@ class ProvisioningApi:
 
         # process the path parameters
         if deployment_id is not None:
-            _path_params["deployment_id"] = deployment_id
+            _path_params['deployment_id'] = deployment_id
         if stage is not None:
-            _path_params["stage"] = stage
+            _path_params['stage'] = stage
         if attempt is not None:
-            _path_params["attempt"] = attempt
+            _path_params['attempt'] = attempt
         # process the query parameters
         # process the header parameters
         # process the form parameters
@@ -324,16 +330,24 @@ class ProvisioningApi:
         if body is not None:
             _body_params = body
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="POST",
-            resource_path="/v1/provisioning/{deployment_id}/status/{stage}/{attempt}",
+            method='POST',
+            resource_path='/v1/provisioning/{deployment_id}/status/{stage}/{attempt}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -343,8 +357,11 @@ class ProvisioningApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     async def declare_stage_progress(
@@ -357,8 +374,9 @@ class ProvisioningApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -396,7 +414,7 @@ class ProvisioningApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._declare_stage_progress_serialize(
             deployment_id=deployment_id,
@@ -406,27 +424,29 @@ class ProvisioningApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     async def declare_stage_progress_with_http_info(
@@ -439,8 +459,9 @@ class ProvisioningApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -478,7 +499,7 @@ class ProvisioningApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._declare_stage_progress_serialize(
             deployment_id=deployment_id,
@@ -488,27 +509,29 @@ class ProvisioningApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     async def declare_stage_progress_without_preload_content(
@@ -521,8 +544,9 @@ class ProvisioningApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -560,7 +584,7 @@ class ProvisioningApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._declare_stage_progress_serialize(
             deployment_id=deployment_id,
@@ -570,23 +594,25 @@ class ProvisioningApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _declare_stage_progress_serialize(
         self,
@@ -599,9 +625,11 @@ class ProvisioningApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -614,11 +642,11 @@ class ProvisioningApi:
 
         # process the path parameters
         if deployment_id is not None:
-            _path_params["deployment_id"] = deployment_id
+            _path_params['deployment_id'] = deployment_id
         if stage is not None:
-            _path_params["stage"] = stage
+            _path_params['stage'] = stage
         if attempt is not None:
-            _path_params["attempt"] = attempt
+            _path_params['attempt'] = attempt
         # process the query parameters
         # process the header parameters
         # process the form parameters
@@ -626,16 +654,24 @@ class ProvisioningApi:
         if body is not None:
             _body_params = body
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="PATCH",
-            resource_path="/v1/provisioning/{deployment_id}/status/{stage}/{attempt}",
+            method='PATCH',
+            resource_path='/v1/provisioning/{deployment_id}/status/{stage}/{attempt}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -645,8 +681,11 @@ class ProvisioningApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     async def declare_step_progress(
@@ -660,8 +699,9 @@ class ProvisioningApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -701,7 +741,7 @@ class ProvisioningApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._declare_step_progress_serialize(
             deployment_id=deployment_id,
@@ -712,27 +752,29 @@ class ProvisioningApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     async def declare_step_progress_with_http_info(
@@ -746,8 +788,9 @@ class ProvisioningApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -787,7 +830,7 @@ class ProvisioningApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._declare_step_progress_serialize(
             deployment_id=deployment_id,
@@ -798,27 +841,29 @@ class ProvisioningApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     async def declare_step_progress_without_preload_content(
@@ -832,8 +877,9 @@ class ProvisioningApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -873,7 +919,7 @@ class ProvisioningApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._declare_step_progress_serialize(
             deployment_id=deployment_id,
@@ -884,23 +930,25 @@ class ProvisioningApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "object",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "object",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _declare_step_progress_serialize(
         self,
@@ -914,9 +962,11 @@ class ProvisioningApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -929,13 +979,13 @@ class ProvisioningApi:
 
         # process the path parameters
         if deployment_id is not None:
-            _path_params["deployment_id"] = deployment_id
+            _path_params['deployment_id'] = deployment_id
         if stage is not None:
-            _path_params["stage"] = stage
+            _path_params['stage'] = stage
         if attempt is not None:
-            _path_params["attempt"] = attempt
+            _path_params['attempt'] = attempt
         if step is not None:
-            _path_params["step"] = step
+            _path_params['step'] = step
         # process the query parameters
         # process the header parameters
         # process the form parameters
@@ -943,16 +993,24 @@ class ProvisioningApi:
         if body is not None:
             _body_params = body
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="PATCH",
-            resource_path="/v1/provisioning/{deployment_id}/status/{stage}/{attempt}/{step}",
+            method='PATCH',
+            resource_path='/v1/provisioning/{deployment_id}/status/{stage}/{attempt}/{step}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -962,5 +1020,7 @@ class ProvisioningApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+

@@ -26,10 +26,12 @@ class UserRoleRole(str, Enum):
     """
     allowed enum values
     """
-    INVALID = "INVALID"
-    OWNER = "OWNER"
+    INVALID = 'INVALID'
+    OWNER = 'OWNER'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of UserRoleRole from a JSON string"""
         return cls(json.loads(json_str))
+
+

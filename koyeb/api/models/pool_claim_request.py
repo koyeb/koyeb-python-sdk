@@ -23,12 +23,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class PoolClaimRequest(BaseModel):
     """
     PoolClaimRequest
-    """  # noqa: E501
-
+    """ # noqa: E501
     pool_id: Optional[StrictStr] = None
     request_id: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["pool_id", "request_id"]
@@ -39,6 +37,7 @@ class PoolClaimRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,7 +62,8 @@ class PoolClaimRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,7 +81,10 @@ class PoolClaimRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {"pool_id": obj.get("pool_id"), "request_id": obj.get("request_id")}
-        )
+        _obj = cls.model_validate({
+            "pool_id": obj.get("pool_id"),
+            "request_id": obj.get("request_id")
+        })
         return _obj
+
+

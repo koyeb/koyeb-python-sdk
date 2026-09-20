@@ -19,35 +19,22 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api_async.models.persistent_volume_backing_store import (
-    PersistentVolumeBackingStore,
-)
+from koyeb.api_async.models.persistent_volume_backing_store import PersistentVolumeBackingStore
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class CreatePersistentVolumeRequest(BaseModel):
     """
     CreatePersistentVolumeRequest
-    """  # noqa: E501
-
-    volume_type: Optional[
-        PersistentVolumeBackingStore
-    ] = PersistentVolumeBackingStore.PERSISTENT_VOLUME_BACKING_STORE_INVALID
+    """ # noqa: E501
+    volume_type: Optional[PersistentVolumeBackingStore] = PersistentVolumeBackingStore.PERSISTENT_VOLUME_BACKING_STORE_INVALID
     name: Optional[StrictStr] = None
     region: Optional[StrictStr] = None
     read_only: Optional[StrictBool] = None
     max_size: Optional[StrictInt] = None
     snapshot_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = [
-        "volume_type",
-        "name",
-        "region",
-        "read_only",
-        "max_size",
-        "snapshot_id",
-    ]
+    __properties: ClassVar[List[str]] = ["volume_type", "name", "region", "read_only", "max_size", "snapshot_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -55,6 +42,7 @@ class CreatePersistentVolumeRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -79,7 +67,8 @@ class CreatePersistentVolumeRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -97,16 +86,14 @@ class CreatePersistentVolumeRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "volume_type": obj.get("volume_type")
-                if obj.get("volume_type") is not None
-                else PersistentVolumeBackingStore.PERSISTENT_VOLUME_BACKING_STORE_INVALID,
-                "name": obj.get("name"),
-                "region": obj.get("region"),
-                "read_only": obj.get("read_only"),
-                "max_size": obj.get("max_size"),
-                "snapshot_id": obj.get("snapshot_id"),
-            }
-        )
+        _obj = cls.model_validate({
+            "volume_type": obj.get("volume_type") if obj.get("volume_type") is not None else PersistentVolumeBackingStore.PERSISTENT_VOLUME_BACKING_STORE_INVALID,
+            "name": obj.get("name"),
+            "region": obj.get("region"),
+            "read_only": obj.get("read_only"),
+            "max_size": obj.get("max_size"),
+            "snapshot_id": obj.get("snapshot_id")
+        })
         return _obj
+
+

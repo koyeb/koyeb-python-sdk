@@ -19,18 +19,10 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api.models.azure_container_registry_configuration import (
-    AzureContainerRegistryConfiguration,
-)
-from koyeb.api.models.digital_ocean_registry_configuration import (
-    DigitalOceanRegistryConfiguration,
-)
-from koyeb.api.models.docker_hub_registry_configuration import (
-    DockerHubRegistryConfiguration,
-)
-from koyeb.api.models.gcp_container_registry_configuration import (
-    GCPContainerRegistryConfiguration,
-)
+from koyeb.api.models.azure_container_registry_configuration import AzureContainerRegistryConfiguration
+from koyeb.api.models.digital_ocean_registry_configuration import DigitalOceanRegistryConfiguration
+from koyeb.api.models.docker_hub_registry_configuration import DockerHubRegistryConfiguration
+from koyeb.api.models.gcp_container_registry_configuration import GCPContainerRegistryConfiguration
 from koyeb.api.models.git_hub_registry_configuration import GitHubRegistryConfiguration
 from koyeb.api.models.git_lab_registry_configuration import GitLabRegistryConfiguration
 from koyeb.api.models.private_registry_configuration import PrivateRegistryConfiguration
@@ -39,12 +31,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class CreateSecret(BaseModel):
     """
     CreateSecret
-    """  # noqa: E501
-
+    """ # noqa: E501
     name: Optional[StrictStr] = None
     type: Optional[SecretType] = SecretType.SIMPLE
     value: Optional[StrictStr] = None
@@ -55,18 +45,7 @@ class CreateSecret(BaseModel):
     gitlab_registry: Optional[GitLabRegistryConfiguration] = None
     gcp_container_registry: Optional[GCPContainerRegistryConfiguration] = None
     azure_container_registry: Optional[AzureContainerRegistryConfiguration] = None
-    __properties: ClassVar[List[str]] = [
-        "name",
-        "type",
-        "value",
-        "docker_hub_registry",
-        "private_registry",
-        "digital_ocean_registry",
-        "github_registry",
-        "gitlab_registry",
-        "gcp_container_registry",
-        "azure_container_registry",
-    ]
+    __properties: ClassVar[List[str]] = ["name", "type", "value", "docker_hub_registry", "private_registry", "digital_ocean_registry", "github_registry", "gitlab_registry", "gcp_container_registry", "azure_container_registry"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -74,6 +53,7 @@ class CreateSecret(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -98,7 +78,8 @@ class CreateSecret(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -107,25 +88,25 @@ class CreateSecret(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of docker_hub_registry
         if self.docker_hub_registry:
-            _dict["docker_hub_registry"] = self.docker_hub_registry.to_dict()
+            _dict['docker_hub_registry'] = self.docker_hub_registry.to_dict()
         # override the default output from pydantic by calling `to_dict()` of private_registry
         if self.private_registry:
-            _dict["private_registry"] = self.private_registry.to_dict()
+            _dict['private_registry'] = self.private_registry.to_dict()
         # override the default output from pydantic by calling `to_dict()` of digital_ocean_registry
         if self.digital_ocean_registry:
-            _dict["digital_ocean_registry"] = self.digital_ocean_registry.to_dict()
+            _dict['digital_ocean_registry'] = self.digital_ocean_registry.to_dict()
         # override the default output from pydantic by calling `to_dict()` of github_registry
         if self.github_registry:
-            _dict["github_registry"] = self.github_registry.to_dict()
+            _dict['github_registry'] = self.github_registry.to_dict()
         # override the default output from pydantic by calling `to_dict()` of gitlab_registry
         if self.gitlab_registry:
-            _dict["gitlab_registry"] = self.gitlab_registry.to_dict()
+            _dict['gitlab_registry'] = self.gitlab_registry.to_dict()
         # override the default output from pydantic by calling `to_dict()` of gcp_container_registry
         if self.gcp_container_registry:
-            _dict["gcp_container_registry"] = self.gcp_container_registry.to_dict()
+            _dict['gcp_container_registry'] = self.gcp_container_registry.to_dict()
         # override the default output from pydantic by calling `to_dict()` of azure_container_registry
         if self.azure_container_registry:
-            _dict["azure_container_registry"] = self.azure_container_registry.to_dict()
+            _dict['azure_container_registry'] = self.azure_container_registry.to_dict()
         return _dict
 
     @classmethod
@@ -137,48 +118,18 @@ class CreateSecret(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "name": obj.get("name"),
-                "type": obj.get("type")
-                if obj.get("type") is not None
-                else SecretType.SIMPLE,
-                "value": obj.get("value"),
-                "docker_hub_registry": DockerHubRegistryConfiguration.from_dict(
-                    obj["docker_hub_registry"]
-                )
-                if obj.get("docker_hub_registry") is not None
-                else None,
-                "private_registry": PrivateRegistryConfiguration.from_dict(
-                    obj["private_registry"]
-                )
-                if obj.get("private_registry") is not None
-                else None,
-                "digital_ocean_registry": DigitalOceanRegistryConfiguration.from_dict(
-                    obj["digital_ocean_registry"]
-                )
-                if obj.get("digital_ocean_registry") is not None
-                else None,
-                "github_registry": GitHubRegistryConfiguration.from_dict(
-                    obj["github_registry"]
-                )
-                if obj.get("github_registry") is not None
-                else None,
-                "gitlab_registry": GitLabRegistryConfiguration.from_dict(
-                    obj["gitlab_registry"]
-                )
-                if obj.get("gitlab_registry") is not None
-                else None,
-                "gcp_container_registry": GCPContainerRegistryConfiguration.from_dict(
-                    obj["gcp_container_registry"]
-                )
-                if obj.get("gcp_container_registry") is not None
-                else None,
-                "azure_container_registry": AzureContainerRegistryConfiguration.from_dict(
-                    obj["azure_container_registry"]
-                )
-                if obj.get("azure_container_registry") is not None
-                else None,
-            }
-        )
+        _obj = cls.model_validate({
+            "name": obj.get("name"),
+            "type": obj.get("type") if obj.get("type") is not None else SecretType.SIMPLE,
+            "value": obj.get("value"),
+            "docker_hub_registry": DockerHubRegistryConfiguration.from_dict(obj["docker_hub_registry"]) if obj.get("docker_hub_registry") is not None else None,
+            "private_registry": PrivateRegistryConfiguration.from_dict(obj["private_registry"]) if obj.get("private_registry") is not None else None,
+            "digital_ocean_registry": DigitalOceanRegistryConfiguration.from_dict(obj["digital_ocean_registry"]) if obj.get("digital_ocean_registry") is not None else None,
+            "github_registry": GitHubRegistryConfiguration.from_dict(obj["github_registry"]) if obj.get("github_registry") is not None else None,
+            "gitlab_registry": GitLabRegistryConfiguration.from_dict(obj["gitlab_registry"]) if obj.get("gitlab_registry") is not None else None,
+            "gcp_container_registry": GCPContainerRegistryConfiguration.from_dict(obj["gcp_container_registry"]) if obj.get("gcp_container_registry") is not None else None,
+            "azure_container_registry": AzureContainerRegistryConfiguration.from_dict(obj["azure_container_registry"]) if obj.get("azure_container_registry") is not None else None
+        })
         return _obj
+
+

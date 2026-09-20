@@ -18,9 +18,7 @@ from koyeb.api_async.api.instances_api import InstancesApi
 from koyeb.api_async.api.intercom_api import IntercomApi
 from koyeb.api_async.api.logs_api import LogsApi
 from koyeb.api_async.api.metrics_api import MetricsApi
-from koyeb.api_async.api.organization_confirmations_api import (
-    OrganizationConfirmationsApi,
-)
+from koyeb.api_async.api.organization_confirmations_api import OrganizationConfirmationsApi
 from koyeb.api_async.api.organization_invitations_api import OrganizationInvitationsApi
 from koyeb.api_async.api.organization_members_api import OrganizationMembersApi
 from koyeb.api_async.api.organization_quotas_api import OrganizationQuotasApi
@@ -49,3 +47,4 @@ from koyeb.api_async.api.billing_api import BillingApi
 from koyeb.api_async.api.invite_api import InviteApi
 from koyeb.api_async.api.organization_api import OrganizationApi
 from koyeb.api_async.api.sso_api import SsoApi
+

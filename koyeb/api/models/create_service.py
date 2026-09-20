@@ -25,29 +25,17 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class CreateService(BaseModel):
     """
     CreateService
-    """  # noqa: E501
-
+    """ # noqa: E501
     app_id: Optional[StrictStr] = None
     definition: Optional[DeploymentDefinition] = None
     life_cycle: Optional[ServiceLifeCycle] = None
     instance_snapshot_id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
-    service_account_id: Optional[StrictStr] = Field(
-        default=None,
-        description="(Optional) The Albe service account ID to associate with the service. Immutable after creation.",
-    )
-    __properties: ClassVar[List[str]] = [
-        "app_id",
-        "definition",
-        "life_cycle",
-        "instance_snapshot_id",
-        "name",
-        "service_account_id",
-    ]
+    service_account_id: Optional[StrictStr] = Field(default=None, description="(Optional) The Albe service account ID to associate with the service. Immutable after creation.")
+    __properties: ClassVar[List[str]] = ["app_id", "definition", "life_cycle", "instance_snapshot_id", "name", "service_account_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -55,6 +43,7 @@ class CreateService(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -79,7 +68,8 @@ class CreateService(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -88,10 +78,10 @@ class CreateService(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of definition
         if self.definition:
-            _dict["definition"] = self.definition.to_dict()
+            _dict['definition'] = self.definition.to_dict()
         # override the default output from pydantic by calling `to_dict()` of life_cycle
         if self.life_cycle:
-            _dict["life_cycle"] = self.life_cycle.to_dict()
+            _dict['life_cycle'] = self.life_cycle.to_dict()
         return _dict
 
     @classmethod
@@ -103,18 +93,14 @@ class CreateService(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "app_id": obj.get("app_id"),
-                "definition": DeploymentDefinition.from_dict(obj["definition"])
-                if obj.get("definition") is not None
-                else None,
-                "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"])
-                if obj.get("life_cycle") is not None
-                else None,
-                "instance_snapshot_id": obj.get("instance_snapshot_id"),
-                "name": obj.get("name"),
-                "service_account_id": obj.get("service_account_id"),
-            }
-        )
+        _obj = cls.model_validate({
+            "app_id": obj.get("app_id"),
+            "definition": DeploymentDefinition.from_dict(obj["definition"]) if obj.get("definition") is not None else None,
+            "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None,
+            "instance_snapshot_id": obj.get("instance_snapshot_id"),
+            "name": obj.get("name"),
+            "service_account_id": obj.get("service_account_id")
+        })
         return _obj
+
+

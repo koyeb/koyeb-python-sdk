@@ -24,12 +24,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class UpdateServiceScalingRequest(BaseModel):
     """
     UpdateServiceScalingRequest
-    """  # noqa: E501
-
+    """ # noqa: E501
     scalings: Optional[List[ManualServiceScaling]] = None
     __properties: ClassVar[List[str]] = ["scalings"]
 
@@ -39,6 +37,7 @@ class UpdateServiceScalingRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,7 +62,8 @@ class UpdateServiceScalingRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -74,10 +74,9 @@ class UpdateServiceScalingRequest(BaseModel):
         _items = []
         if self.scalings:
             for _item_scalings in self.scalings:
-                _items.append(
-                    _item_scalings.to_dict() if _item_scalings is not None else None
-                )
-            _dict["scalings"] = _items
+                if _item_scalings:
+                    _items.append(_item_scalings.to_dict())
+            _dict['scalings'] = _items
         return _dict
 
     @classmethod
@@ -89,13 +88,9 @@ class UpdateServiceScalingRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "scalings": [
-                    ManualServiceScaling.from_dict(_item) for _item in obj["scalings"]
-                ]
-                if obj.get("scalings") is not None
-                else None
-            }
-        )
+        _obj = cls.model_validate({
+            "scalings": [ManualServiceScaling.from_dict(_item) for _item in obj["scalings"]] if obj.get("scalings") is not None else None
+        })
         return _obj
+
+

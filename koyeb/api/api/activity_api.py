@@ -38,6 +38,7 @@ class ActivityApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
+
     @validate_call
     def get_account_activities(
         self,
@@ -47,8 +48,9 @@ class ActivityApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -82,7 +84,7 @@ class ActivityApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_account_activities_serialize(
             limit=limit,
@@ -90,27 +92,29 @@ class ActivityApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ActivityList",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ActivityList",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def get_account_activities_with_http_info(
@@ -121,8 +125,9 @@ class ActivityApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -156,7 +161,7 @@ class ActivityApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_account_activities_serialize(
             limit=limit,
@@ -164,27 +169,29 @@ class ActivityApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ActivityList",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ActivityList",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def get_account_activities_without_preload_content(
@@ -195,8 +202,9 @@ class ActivityApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -230,7 +238,7 @@ class ActivityApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_account_activities_serialize(
             limit=limit,
@@ -238,23 +246,25 @@ class ActivityApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ActivityList",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ActivityList",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _get_account_activities_serialize(
         self,
@@ -265,9 +275,11 @@ class ActivityApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -281,25 +293,35 @@ class ActivityApi:
         # process the path parameters
         # process the query parameters
         if limit is not None:
-            _query_params.append(("limit", limit))
-
+            
+            _query_params.append(('limit', limit))
+            
         if offset is not None:
-            _query_params.append(("offset", offset))
-
+            
+            _query_params.append(('offset', offset))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="GET",
-            resource_path="/v1/account/activities",
+            method='GET',
+            resource_path='/v1/account/activities',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -309,24 +331,25 @@ class ActivityApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def list_activities(
         self,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
-        types: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on object type"),
-        ] = None,
+        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on object type")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -362,7 +385,7 @@ class ActivityApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_activities_serialize(
             limit=limit,
@@ -371,21 +394,22 @@ class ActivityApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ActivityList",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ActivityList",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -393,21 +417,20 @@ class ActivityApi:
             response_types_map=_response_types_map,
         ).data
 
+
     @validate_call
     def list_activities_with_http_info(
         self,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
-        types: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on object type"),
-        ] = None,
+        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on object type")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -443,7 +466,7 @@ class ActivityApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_activities_serialize(
             limit=limit,
@@ -452,21 +475,22 @@ class ActivityApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ActivityList",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ActivityList",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
@@ -474,21 +498,20 @@ class ActivityApi:
             response_types_map=_response_types_map,
         )
 
+
     @validate_call
     def list_activities_without_preload_content(
         self,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
-        types: Annotated[
-            Optional[List[StrictStr]],
-            Field(description="(Optional) Filter on object type"),
-        ] = None,
+        types: Annotated[Optional[List[StrictStr]], Field(description="(Optional) Filter on object type")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -524,7 +547,7 @@ class ActivityApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_activities_serialize(
             limit=limit,
@@ -533,23 +556,25 @@ class ActivityApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ActivityList",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ActivityList",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _list_activities_serialize(
         self,
@@ -561,10 +586,11 @@ class ActivityApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
         _collection_formats: Dict[str, str] = {
-            "types": "multi",
+            'types': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -579,28 +605,39 @@ class ActivityApi:
         # process the path parameters
         # process the query parameters
         if limit is not None:
-            _query_params.append(("limit", limit))
-
+            
+            _query_params.append(('limit', limit))
+            
         if offset is not None:
-            _query_params.append(("offset", offset))
-
+            
+            _query_params.append(('offset', offset))
+            
         if types is not None:
-            _query_params.append(("types", types))
-
+            
+            _query_params.append(('types', types))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="GET",
-            resource_path="/v1/activities",
+            method='GET',
+            resource_path='/v1/activities',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -610,8 +647,11 @@ class ActivityApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     def list_notifications(
@@ -626,8 +666,9 @@ class ActivityApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -669,7 +710,7 @@ class ActivityApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_notifications_serialize(
             limit=limit,
@@ -681,27 +722,29 @@ class ActivityApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "NotificationList",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "NotificationList",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     def list_notifications_with_http_info(
@@ -716,8 +759,9 @@ class ActivityApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -759,7 +803,7 @@ class ActivityApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_notifications_serialize(
             limit=limit,
@@ -771,27 +815,29 @@ class ActivityApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "NotificationList",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "NotificationList",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     def list_notifications_without_preload_content(
@@ -806,8 +852,9 @@ class ActivityApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -849,7 +896,7 @@ class ActivityApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_notifications_serialize(
             limit=limit,
@@ -861,23 +908,25 @@ class ActivityApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "NotificationList",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "NotificationList",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _list_notifications_serialize(
         self,
@@ -892,9 +941,11 @@ class ActivityApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -908,37 +959,51 @@ class ActivityApi:
         # process the path parameters
         # process the query parameters
         if limit is not None:
-            _query_params.append(("limit", limit))
-
+            
+            _query_params.append(('limit', limit))
+            
         if offset is not None:
-            _query_params.append(("offset", offset))
-
+            
+            _query_params.append(('offset', offset))
+            
         if mark_read is not None:
-            _query_params.append(("mark_read", mark_read))
-
+            
+            _query_params.append(('mark_read', mark_read))
+            
         if mark_seen is not None:
-            _query_params.append(("mark_seen", mark_seen))
-
+            
+            _query_params.append(('mark_seen', mark_seen))
+            
         if unread is not None:
-            _query_params.append(("unread", unread))
-
+            
+            _query_params.append(('unread', unread))
+            
         if unseen is not None:
-            _query_params.append(("unseen", unseen))
-
+            
+            _query_params.append(('unseen', unseen))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="GET",
-            resource_path="/v1/notifications",
+            method='GET',
+            resource_path='/v1/notifications',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -948,5 +1013,7 @@ class ActivityApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+

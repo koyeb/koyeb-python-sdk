@@ -25,12 +25,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class NetworkPolicy(BaseModel):
     """
     NetworkPolicy
-    """  # noqa: E501
-
+    """ # noqa: E501
     egress: Optional[EgressPolicy] = None
     mesh: Optional[Mesh] = None
     __properties: ClassVar[List[str]] = ["egress", "mesh"]
@@ -41,6 +39,7 @@ class NetworkPolicy(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,7 +64,8 @@ class NetworkPolicy(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -74,10 +74,10 @@ class NetworkPolicy(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of egress
         if self.egress:
-            _dict["egress"] = self.egress.to_dict()
+            _dict['egress'] = self.egress.to_dict()
         # override the default output from pydantic by calling `to_dict()` of mesh
         if self.mesh:
-            _dict["mesh"] = self.mesh.to_dict()
+            _dict['mesh'] = self.mesh.to_dict()
         return _dict
 
     @classmethod
@@ -89,14 +89,10 @@ class NetworkPolicy(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "egress": EgressPolicy.from_dict(obj["egress"])
-                if obj.get("egress") is not None
-                else None,
-                "mesh": Mesh.from_dict(obj["mesh"])
-                if obj.get("mesh") is not None
-                else None,
-            }
-        )
+        _obj = cls.model_validate({
+            "egress": EgressPolicy.from_dict(obj["egress"]) if obj.get("egress") is not None else None,
+            "mesh": Mesh.from_dict(obj["mesh"]) if obj.get("mesh") is not None else None
+        })
         return _obj
+
+

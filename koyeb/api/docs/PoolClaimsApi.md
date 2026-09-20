@@ -95,7 +95,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **get_claim**
-> GetPoolClaimReply get_claim(claim_id)
+> GetPoolClaimReply get_claim(claim_id, request_id=request_id)
 
 Get a claim
 
@@ -131,10 +131,11 @@ with koyeb.api.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = koyeb.api.PoolClaimsApi(api_client)
     claim_id = 'claim_id_example' # str | 
+    request_id = 'request_id_example' # str |  (optional)
 
     try:
         # Get a claim
-        api_response = api_instance.get_claim(claim_id)
+        api_response = api_instance.get_claim(claim_id, request_id=request_id)
         print("The response of PoolClaimsApi->get_claim:\n")
         pprint(api_response)
     except Exception as e:
@@ -149,6 +150,7 @@ with koyeb.api.ApiClient(configuration) as api_client:
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **claim_id** | **str**|  | 
+ **request_id** | **str**|  | [optional] 
 
 ### Return type
 

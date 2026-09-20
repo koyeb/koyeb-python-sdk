@@ -39,6 +39,7 @@ class PoolClaimsApi:
             api_client = ApiClient.get_default()
         self.api_client = api_client
 
+
     @validate_call
     async def claim(
         self,
@@ -47,8 +48,9 @@ class PoolClaimsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -80,34 +82,36 @@ class PoolClaimsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._claim_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "PoolClaimReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "PoolClaimReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     async def claim_with_http_info(
@@ -117,8 +121,9 @@ class PoolClaimsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -150,34 +155,36 @@ class PoolClaimsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._claim_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "PoolClaimReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "PoolClaimReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     async def claim_without_preload_content(
@@ -187,8 +194,9 @@ class PoolClaimsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -220,30 +228,32 @@ class PoolClaimsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._claim_serialize(
             body=body,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "PoolClaimReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "PoolClaimReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _claim_serialize(
         self,
@@ -253,9 +263,11 @@ class PoolClaimsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -274,16 +286,24 @@ class PoolClaimsApi:
         if body is not None:
             _body_params = body
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="POST",
-            resource_path="/v1/claim",
+            method='POST',
+            resource_path='/v1/claim',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -293,19 +313,24 @@ class PoolClaimsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     async def get_claim(
         self,
         claim_id: StrictStr,
+        request_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -317,6 +342,8 @@ class PoolClaimsApi:
 
         :param claim_id: (required)
         :type claim_id: str
+        :param request_id:
+        :type request_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -337,28 +364,30 @@ class PoolClaimsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_claim_serialize(
             claim_id=claim_id,
+            request_id=request_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GetPoolClaimReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "GetPoolClaimReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -366,16 +395,19 @@ class PoolClaimsApi:
             response_types_map=_response_types_map,
         ).data
 
+
     @validate_call
     async def get_claim_with_http_info(
         self,
         claim_id: StrictStr,
+        request_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -387,6 +419,8 @@ class PoolClaimsApi:
 
         :param claim_id: (required)
         :type claim_id: str
+        :param request_id:
+        :type request_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -407,28 +441,30 @@ class PoolClaimsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_claim_serialize(
             claim_id=claim_id,
+            request_id=request_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GetPoolClaimReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "GetPoolClaimReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
@@ -436,16 +472,19 @@ class PoolClaimsApi:
             response_types_map=_response_types_map,
         )
 
+
     @validate_call
     async def get_claim_without_preload_content(
         self,
         claim_id: StrictStr,
+        request_id: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -457,6 +496,8 @@ class PoolClaimsApi:
 
         :param claim_id: (required)
         :type claim_id: str
+        :param request_id:
+        :type request_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -477,42 +518,48 @@ class PoolClaimsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._get_claim_serialize(
             claim_id=claim_id,
+            request_id=request_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "GetPoolClaimReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "GetPoolClaimReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _get_claim_serialize(
         self,
         claim_id,
+        request_id,
         _request_auth,
         _content_type,
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -525,22 +572,34 @@ class PoolClaimsApi:
 
         # process the path parameters
         if claim_id is not None:
-            _path_params["claim_id"] = claim_id
+            _path_params['claim_id'] = claim_id
         # process the query parameters
+        if request_id is not None:
+            
+            _query_params.append(('request_id', request_id))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="GET",
-            resource_path="/v1/claims/{claim_id}",
+            method='GET',
+            resource_path='/v1/claims/{claim_id}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -550,8 +609,11 @@ class PoolClaimsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+
+
 
     @validate_call
     async def list_claim(
@@ -564,8 +626,9 @@ class PoolClaimsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -603,7 +666,7 @@ class PoolClaimsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_claim_serialize(
             pool_id=pool_id,
@@ -613,27 +676,29 @@ class PoolClaimsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ListPoolClaimReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ListPoolClaimReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
+
 
     @validate_call
     async def list_claim_with_http_info(
@@ -646,8 +711,9 @@ class PoolClaimsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -685,7 +751,7 @@ class PoolClaimsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_claim_serialize(
             pool_id=pool_id,
@@ -695,27 +761,29 @@ class PoolClaimsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ListPoolClaimReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ListPoolClaimReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         await response_data.read()
         return self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         )
+
 
     @validate_call
     async def list_claim_without_preload_content(
@@ -728,8 +796,9 @@ class PoolClaimsApi:
             None,
             Annotated[StrictFloat, Field(gt=0)],
             Tuple[
-                Annotated[StrictFloat, Field(gt=0)], Annotated[StrictFloat, Field(gt=0)]
-            ],
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
         ] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -767,7 +836,7 @@ class PoolClaimsApi:
                             in the spec for a single request.
         :type _host_index: int, optional
         :return: Returns the result object.
-        """  # noqa: E501
+        """ # noqa: E501
 
         _param = self._list_claim_serialize(
             pool_id=pool_id,
@@ -777,23 +846,25 @@ class PoolClaimsApi:
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
-            _host_index=_host_index,
+            _host_index=_host_index
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            "200": "ListPoolClaimReply",
-            "400": "ErrorWithFields",
-            "401": "Error",
-            "403": "Error",
-            "404": "Error",
-            "500": "Error",
-            "503": "Error",
-            "default": "GoogleRpcStatus",
+            '200': "ListPoolClaimReply",
+            '400': "ErrorWithFields",
+            '401': "Error",
+            '403': "Error",
+            '404': "Error",
+            '500': "Error",
+            '503': "Error",
+            'default': "GoogleRpcStatus",
         }
         response_data = await self.api_client.call_api(
-            *_param, _request_timeout=_request_timeout
+            *_param,
+            _request_timeout=_request_timeout
         )
         return response_data.response
+
 
     def _list_claim_serialize(
         self,
@@ -806,9 +877,11 @@ class PoolClaimsApi:
         _headers,
         _host_index,
     ) -> RequestSerialized:
+
         _host = None
 
-        _collection_formats: Dict[str, str] = {}
+        _collection_formats: Dict[str, str] = {
+        }
 
         _path_params: Dict[str, str] = {}
         _query_params: List[Tuple[str, str]] = []
@@ -821,31 +894,42 @@ class PoolClaimsApi:
 
         # process the path parameters
         if pool_id is not None:
-            _path_params["pool_id"] = pool_id
+            _path_params['pool_id'] = pool_id
         # process the query parameters
         if status is not None:
-            _query_params.append(("status", status))
-
+            
+            _query_params.append(('status', status))
+            
         if limit is not None:
-            _query_params.append(("limit", limit))
-
+            
+            _query_params.append(('limit', limit))
+            
         if offset is not None:
-            _query_params.append(("offset", offset))
-
+            
+            _query_params.append(('offset', offset))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
 
+
         # set the HTTP header `Accept`
-        if "Accept" not in _header_params:
-            _header_params["Accept"] = self.api_client.select_header_accept(["*/*"])
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    '*/*'
+                ]
+            )
+
 
         # authentication setting
-        _auth_settings: List[str] = ["Bearer"]
+        _auth_settings: List[str] = [
+            'Bearer'
+        ]
 
         return self.api_client.param_serialize(
-            method="GET",
-            resource_path="/v1/service_pools/{pool_id}/claims",
+            method='GET',
+            resource_path='/v1/service_pools/{pool_id}/claims',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -855,5 +939,7 @@ class PoolClaimsApi:
             auth_settings=_auth_settings,
             collection_formats=_collection_formats,
             _host=_host,
-            _request_auth=_request_auth,
+            _request_auth=_request_auth
         )
+
+

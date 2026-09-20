@@ -26,13 +26,15 @@ class MeshScope(str, Enum):
     """
     allowed enum values
     """
-    MESH_SCOPE_UNSPECIFIED = "MESH_SCOPE_UNSPECIFIED"
-    MESH_SCOPE_ORGANIZATION = "MESH_SCOPE_ORGANIZATION"
-    MESH_SCOPE_WORKSPACE = "MESH_SCOPE_WORKSPACE"
-    MESH_SCOPE_APP = "MESH_SCOPE_APP"
-    MESH_SCOPE_CUSTOM = "MESH_SCOPE_CUSTOM"
+    MESH_SCOPE_UNSPECIFIED = 'MESH_SCOPE_UNSPECIFIED'
+    MESH_SCOPE_ORGANIZATION = 'MESH_SCOPE_ORGANIZATION'
+    MESH_SCOPE_WORKSPACE = 'MESH_SCOPE_WORKSPACE'
+    MESH_SCOPE_APP = 'MESH_SCOPE_APP'
+    MESH_SCOPE_CUSTOM = 'MESH_SCOPE_CUSTOM'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of MeshScope from a JSON string"""
         return cls(json.loads(json_str))
+
+

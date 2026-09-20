@@ -24,12 +24,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class ListOrganizationMembersReply(BaseModel):
     """
     ListOrganizationMembersReply
-    """  # noqa: E501
-
+    """ # noqa: E501
     members: Optional[List[OrganizationMember]] = None
     limit: Optional[StrictInt] = None
     offset: Optional[StrictInt] = None
@@ -42,6 +40,7 @@ class ListOrganizationMembersReply(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,7 +65,8 @@ class ListOrganizationMembersReply(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,10 +77,9 @@ class ListOrganizationMembersReply(BaseModel):
         _items = []
         if self.members:
             for _item_members in self.members:
-                _items.append(
-                    _item_members.to_dict() if _item_members is not None else None
-                )
-            _dict["members"] = _items
+                if _item_members:
+                    _items.append(_item_members.to_dict())
+            _dict['members'] = _items
         return _dict
 
     @classmethod
@@ -92,16 +91,12 @@ class ListOrganizationMembersReply(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "members": [
-                    OrganizationMember.from_dict(_item) for _item in obj["members"]
-                ]
-                if obj.get("members") is not None
-                else None,
-                "limit": obj.get("limit"),
-                "offset": obj.get("offset"),
-                "count": obj.get("count"),
-            }
-        )
+        _obj = cls.model_validate({
+            "members": [OrganizationMember.from_dict(_item) for _item in obj["members"]] if obj.get("members") is not None else None,
+            "limit": obj.get("limit"),
+            "offset": obj.get("offset"),
+            "count": obj.get("count")
+        })
         return _obj
+
+

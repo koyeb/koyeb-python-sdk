@@ -24,12 +24,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class HTTPHealthCheck(BaseModel):
     """
     HTTPHealthCheck
-    """  # noqa: E501
-
+    """ # noqa: E501
     port: Optional[StrictInt] = None
     path: Optional[StrictStr] = None
     method: Optional[StrictStr] = None
@@ -42,6 +40,7 @@ class HTTPHealthCheck(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,7 +65,8 @@ class HTTPHealthCheck(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,10 +77,9 @@ class HTTPHealthCheck(BaseModel):
         _items = []
         if self.headers:
             for _item_headers in self.headers:
-                _items.append(
-                    _item_headers.to_dict() if _item_headers is not None else None
-                )
-            _dict["headers"] = _items
+                if _item_headers:
+                    _items.append(_item_headers.to_dict())
+            _dict['headers'] = _items
         return _dict
 
     @classmethod
@@ -92,14 +91,12 @@ class HTTPHealthCheck(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "port": obj.get("port"),
-                "path": obj.get("path"),
-                "method": obj.get("method"),
-                "headers": [HTTPHeader.from_dict(_item) for _item in obj["headers"]]
-                if obj.get("headers") is not None
-                else None,
-            }
-        )
+        _obj = cls.model_validate({
+            "port": obj.get("port"),
+            "path": obj.get("path"),
+            "method": obj.get("method"),
+            "headers": [HTTPHeader.from_dict(_item) for _item in obj["headers"]] if obj.get("headers") is not None else None
+        })
         return _obj
+
+

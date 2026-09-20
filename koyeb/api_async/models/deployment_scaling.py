@@ -24,12 +24,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class DeploymentScaling(BaseModel):
     """
     DeploymentScaling
-    """  # noqa: E501
-
+    """ # noqa: E501
     scopes: Optional[List[StrictStr]] = None
     min: Optional[StrictInt] = None
     max: Optional[StrictInt] = None
@@ -42,6 +40,7 @@ class DeploymentScaling(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,7 +65,8 @@ class DeploymentScaling(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,10 +77,9 @@ class DeploymentScaling(BaseModel):
         _items = []
         if self.targets:
             for _item_targets in self.targets:
-                _items.append(
-                    _item_targets.to_dict() if _item_targets is not None else None
-                )
-            _dict["targets"] = _items
+                if _item_targets:
+                    _items.append(_item_targets.to_dict())
+            _dict['targets'] = _items
         return _dict
 
     @classmethod
@@ -92,16 +91,12 @@ class DeploymentScaling(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "scopes": obj.get("scopes"),
-                "min": obj.get("min"),
-                "max": obj.get("max"),
-                "targets": [
-                    DeploymentScalingTarget.from_dict(_item) for _item in obj["targets"]
-                ]
-                if obj.get("targets") is not None
-                else None,
-            }
-        )
+        _obj = cls.model_validate({
+            "scopes": obj.get("scopes"),
+            "min": obj.get("min"),
+            "max": obj.get("max"),
+            "targets": [DeploymentScalingTarget.from_dict(_item) for _item in obj["targets"]] if obj.get("targets") is not None else None
+        })
         return _obj
+
+

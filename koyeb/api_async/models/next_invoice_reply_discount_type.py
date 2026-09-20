@@ -26,10 +26,12 @@ class NextInvoiceReplyDiscountType(str, Enum):
     """
     allowed enum values
     """
-    PERCENT_OFF = "PERCENT_OFF"
-    AMOUNT_OFF = "AMOUNT_OFF"
+    PERCENT_OFF = 'PERCENT_OFF'
+    AMOUNT_OFF = 'AMOUNT_OFF'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of NextInvoiceReplyDiscountType from a JSON string"""
         return cls(json.loads(json_str))
+
+

@@ -24,15 +24,11 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class DeploymentStrategy(BaseModel):
     """
     DeploymentStrategy
-    """  # noqa: E501
-
-    type: Optional[
-        DeploymentStrategyType
-    ] = DeploymentStrategyType.DEPLOYMENT_STRATEGY_TYPE_INVALID
+    """ # noqa: E501
+    type: Optional[DeploymentStrategyType] = DeploymentStrategyType.DEPLOYMENT_STRATEGY_TYPE_INVALID
     __properties: ClassVar[List[str]] = ["type"]
 
     model_config = ConfigDict(
@@ -41,6 +37,7 @@ class DeploymentStrategy(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,7 +62,8 @@ class DeploymentStrategy(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,11 +81,9 @@ class DeploymentStrategy(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "type": obj.get("type")
-                if obj.get("type") is not None
-                else DeploymentStrategyType.DEPLOYMENT_STRATEGY_TYPE_INVALID
-            }
-        )
+        _obj = cls.model_validate({
+            "type": obj.get("type") if obj.get("type") is not None else DeploymentStrategyType.DEPLOYMENT_STRATEGY_TYPE_INVALID
+        })
         return _obj
+
+

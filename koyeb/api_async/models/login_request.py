@@ -23,12 +23,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class LoginRequest(BaseModel):
     """
     LoginRequest
-    """  # noqa: E501
-
+    """ # noqa: E501
     email: Optional[StrictStr] = None
     password: Optional[StrictStr] = None
     organization_id: Optional[StrictStr] = None
@@ -40,6 +38,7 @@ class LoginRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,7 +63,8 @@ class LoginRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,11 +82,11 @@ class LoginRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "email": obj.get("email"),
-                "password": obj.get("password"),
-                "organization_id": obj.get("organization_id"),
-            }
-        )
+        _obj = cls.model_validate({
+            "email": obj.get("email"),
+            "password": obj.get("password"),
+            "organization_id": obj.get("organization_id")
+        })
         return _obj
+
+

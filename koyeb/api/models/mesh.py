@@ -24,17 +24,12 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class Mesh(BaseModel):
     """
     Mesh groups the mesh scope selector and the (optional) custom mesh name. Kept inside NetworkPolicy so scope/name and other network-policy dimensions (egress, future inbound) live together.
-    """  # noqa: E501
-
+    """ # noqa: E501
     scope: Optional[MeshScope] = MeshScope.MESH_SCOPE_UNSPECIFIED
-    name: Optional[StrictStr] = Field(
-        default=None,
-        description="Custom mesh name — required when scope is MESH_SCOPE_CUSTOM, ignored otherwise. Combined with the workspace ID server-side to ensure the same custom name in different workspaces never collides.",
-    )
+    name: Optional[StrictStr] = Field(default=None, description="Custom mesh name — required when scope is MESH_SCOPE_CUSTOM, ignored otherwise. Combined with the workspace ID server-side to ensure the same custom name in different workspaces never collides.")
     __properties: ClassVar[List[str]] = ["scope", "name"]
 
     model_config = ConfigDict(
@@ -43,6 +38,7 @@ class Mesh(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -67,7 +63,8 @@ class Mesh(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -85,12 +82,10 @@ class Mesh(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "scope": obj.get("scope")
-                if obj.get("scope") is not None
-                else MeshScope.MESH_SCOPE_UNSPECIFIED,
-                "name": obj.get("name"),
-            }
-        )
+        _obj = cls.model_validate({
+            "scope": obj.get("scope") if obj.get("scope") is not None else MeshScope.MESH_SCOPE_UNSPECIFIED,
+            "name": obj.get("name")
+        })
         return _obj
+
+

@@ -25,12 +25,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class PeriodUsage(BaseModel):
     """
     PeriodUsage
-    """  # noqa: E501
-
+    """ # noqa: E501
     starting_time: Optional[datetime] = None
     ending_time: Optional[datetime] = None
     apps: Optional[List[AppUsage]] = None
@@ -42,6 +40,7 @@ class PeriodUsage(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -66,7 +65,8 @@ class PeriodUsage(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -77,8 +77,9 @@ class PeriodUsage(BaseModel):
         _items = []
         if self.apps:
             for _item_apps in self.apps:
-                _items.append(_item_apps.to_dict() if _item_apps is not None else None)
-            _dict["apps"] = _items
+                if _item_apps:
+                    _items.append(_item_apps.to_dict())
+            _dict['apps'] = _items
         return _dict
 
     @classmethod
@@ -90,13 +91,11 @@ class PeriodUsage(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "starting_time": obj.get("starting_time"),
-                "ending_time": obj.get("ending_time"),
-                "apps": [AppUsage.from_dict(_item) for _item in obj["apps"]]
-                if obj.get("apps") is not None
-                else None,
-            }
-        )
+        _obj = cls.model_validate({
+            "starting_time": obj.get("starting_time"),
+            "ending_time": obj.get("ending_time"),
+            "apps": [AppUsage.from_dict(_item) for _item in obj["apps"]] if obj.get("apps") is not None else None
+        })
         return _obj
+
+

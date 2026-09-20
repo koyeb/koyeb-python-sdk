@@ -26,13 +26,15 @@ class PoolClaimStatus(str, Enum):
     """
     allowed enum values
     """
-    UNSPECIFIED = "UNSPECIFIED"
-    PENDING = "PENDING"
-    FULFILLED = "FULFILLED"
-    FAILED = "FAILED"
-    RELEASED = "RELEASED"
+    UNSPECIFIED = 'UNSPECIFIED'
+    PENDING = 'PENDING'
+    FULFILLED = 'FULFILLED'
+    FAILED = 'FAILED'
+    RELEASED = 'RELEASED'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of PoolClaimStatus from a JSON string"""
         return cls(json.loads(json_str))
+
+

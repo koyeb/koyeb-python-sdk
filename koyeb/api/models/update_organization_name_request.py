@@ -23,12 +23,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class UpdateOrganizationNameRequest(BaseModel):
     """
     UpdateOrganizationNameRequest
-    """  # noqa: E501
-
+    """ # noqa: E501
     name: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["name"]
 
@@ -38,6 +36,7 @@ class UpdateOrganizationNameRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -62,7 +61,8 @@ class UpdateOrganizationNameRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -80,5 +80,9 @@ class UpdateOrganizationNameRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({"name": obj.get("name")})
+        _obj = cls.model_validate({
+            "name": obj.get("name")
+        })
         return _obj
+
+

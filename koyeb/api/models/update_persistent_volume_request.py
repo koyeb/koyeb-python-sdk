@@ -23,12 +23,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class UpdatePersistentVolumeRequest(BaseModel):
     """
     UpdatePersistentVolumeRequest
-    """  # noqa: E501
-
+    """ # noqa: E501
     name: Optional[StrictStr] = None
     max_size: Optional[StrictInt] = None
     __properties: ClassVar[List[str]] = ["name", "max_size"]
@@ -39,6 +37,7 @@ class UpdatePersistentVolumeRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -63,7 +62,8 @@ class UpdatePersistentVolumeRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -81,7 +81,10 @@ class UpdatePersistentVolumeRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {"name": obj.get("name"), "max_size": obj.get("max_size")}
-        )
+        _obj = cls.model_validate({
+            "name": obj.get("name"),
+            "max_size": obj.get("max_size")
+        })
         return _obj
+
+

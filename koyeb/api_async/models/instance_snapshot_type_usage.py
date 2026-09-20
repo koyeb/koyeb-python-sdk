@@ -23,12 +23,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class InstanceSnapshotTypeUsage(BaseModel):
     """
     InstanceSnapshotTypeUsage
-    """  # noqa: E501
-
+    """ # noqa: E501
     type: Optional[StrictStr] = None
     used: Optional[StrictInt] = None
     limit: Optional[StrictInt] = None
@@ -40,6 +38,7 @@ class InstanceSnapshotTypeUsage(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,7 +63,8 @@ class InstanceSnapshotTypeUsage(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -82,11 +82,11 @@ class InstanceSnapshotTypeUsage(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "type": obj.get("type"),
-                "used": obj.get("used"),
-                "limit": obj.get("limit"),
-            }
-        )
+        _obj = cls.model_validate({
+            "type": obj.get("type"),
+            "used": obj.get("used"),
+            "limit": obj.get("limit")
+        })
         return _obj
+
+

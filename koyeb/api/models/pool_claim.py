@@ -25,12 +25,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class PoolClaim(BaseModel):
     """
     PoolClaim
-    """  # noqa: E501
-
+    """ # noqa: E501
     id: Optional[StrictStr] = None
     pool_id: Optional[StrictStr] = None
     service_id: Optional[StrictStr] = None
@@ -43,20 +41,7 @@ class PoolClaim(BaseModel):
     fulfilled_at: Optional[datetime] = None
     released_at: Optional[datetime] = None
     pool_generation: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = [
-        "id",
-        "pool_id",
-        "service_id",
-        "request_id",
-        "status",
-        "organization_id",
-        "workspace_id",
-        "customer_id",
-        "created_at",
-        "fulfilled_at",
-        "released_at",
-        "pool_generation",
-    ]
+    __properties: ClassVar[List[str]] = ["id", "pool_id", "service_id", "request_id", "status", "organization_id", "workspace_id", "customer_id", "created_at", "fulfilled_at", "released_at", "pool_generation"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -64,6 +49,7 @@ class PoolClaim(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -88,7 +74,8 @@ class PoolClaim(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -106,22 +93,20 @@ class PoolClaim(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "id": obj.get("id"),
-                "pool_id": obj.get("pool_id"),
-                "service_id": obj.get("service_id"),
-                "request_id": obj.get("request_id"),
-                "status": obj.get("status")
-                if obj.get("status") is not None
-                else PoolClaimStatus.UNSPECIFIED,
-                "organization_id": obj.get("organization_id"),
-                "workspace_id": obj.get("workspace_id"),
-                "customer_id": obj.get("customer_id"),
-                "created_at": obj.get("created_at"),
-                "fulfilled_at": obj.get("fulfilled_at"),
-                "released_at": obj.get("released_at"),
-                "pool_generation": obj.get("pool_generation"),
-            }
-        )
+        _obj = cls.model_validate({
+            "id": obj.get("id"),
+            "pool_id": obj.get("pool_id"),
+            "service_id": obj.get("service_id"),
+            "request_id": obj.get("request_id"),
+            "status": obj.get("status") if obj.get("status") is not None else PoolClaimStatus.UNSPECIFIED,
+            "organization_id": obj.get("organization_id"),
+            "workspace_id": obj.get("workspace_id"),
+            "customer_id": obj.get("customer_id"),
+            "created_at": obj.get("created_at"),
+            "fulfilled_at": obj.get("fulfilled_at"),
+            "released_at": obj.get("released_at"),
+            "pool_generation": obj.get("pool_generation")
+        })
         return _obj
+
+

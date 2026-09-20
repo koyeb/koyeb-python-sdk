@@ -23,16 +23,11 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class DeactivateOrganizationRequest(BaseModel):
     """
     DeactivateOrganizationRequest
-    """  # noqa: E501
-
-    skip_confirmation: Optional[StrictBool] = Field(
-        default=None,
-        description="if set to true, skip_confirmation will directly start the deactivation process, without sending a confirmation email beforehand.",
-    )
+    """ # noqa: E501
+    skip_confirmation: Optional[StrictBool] = Field(default=None, description="if set to true, skip_confirmation will directly start the deactivation process, without sending a confirmation email beforehand.")
     __properties: ClassVar[List[str]] = ["skip_confirmation"]
 
     model_config = ConfigDict(
@@ -41,6 +36,7 @@ class DeactivateOrganizationRequest(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,7 +61,8 @@ class DeactivateOrganizationRequest(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -83,5 +80,9 @@ class DeactivateOrganizationRequest(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({"skip_confirmation": obj.get("skip_confirmation")})
+        _obj = cls.model_validate({
+            "skip_confirmation": obj.get("skip_confirmation")
+        })
         return _obj
+
+

@@ -19,22 +19,16 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from koyeb.api.models.trigger_git_deployment_metadata_provider import (
-    TriggerGitDeploymentMetadataProvider,
-)
+from koyeb.api.models.trigger_git_deployment_metadata_provider import TriggerGitDeploymentMetadataProvider
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class TriggerGitDeploymentMetadata(BaseModel):
     """
     TriggerGitDeploymentMetadata
-    """  # noqa: E501
-
-    provider: Optional[
-        TriggerGitDeploymentMetadataProvider
-    ] = TriggerGitDeploymentMetadataProvider.UNKNOWN
+    """ # noqa: E501
+    provider: Optional[TriggerGitDeploymentMetadataProvider] = TriggerGitDeploymentMetadataProvider.UNKNOWN
     repository: Optional[StrictStr] = None
     branch: Optional[StrictStr] = None
     sha: Optional[StrictStr] = None
@@ -42,16 +36,7 @@ class TriggerGitDeploymentMetadata(BaseModel):
     sender_username: Optional[StrictStr] = None
     sender_avatar_url: Optional[StrictStr] = None
     sender_profile_url: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = [
-        "provider",
-        "repository",
-        "branch",
-        "sha",
-        "message",
-        "sender_username",
-        "sender_avatar_url",
-        "sender_profile_url",
-    ]
+    __properties: ClassVar[List[str]] = ["provider", "repository", "branch", "sha", "message", "sender_username", "sender_avatar_url", "sender_profile_url"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -59,6 +44,7 @@ class TriggerGitDeploymentMetadata(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -83,7 +69,8 @@ class TriggerGitDeploymentMetadata(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -101,18 +88,16 @@ class TriggerGitDeploymentMetadata(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "provider": obj.get("provider")
-                if obj.get("provider") is not None
-                else TriggerGitDeploymentMetadataProvider.UNKNOWN,
-                "repository": obj.get("repository"),
-                "branch": obj.get("branch"),
-                "sha": obj.get("sha"),
-                "message": obj.get("message"),
-                "sender_username": obj.get("sender_username"),
-                "sender_avatar_url": obj.get("sender_avatar_url"),
-                "sender_profile_url": obj.get("sender_profile_url"),
-            }
-        )
+        _obj = cls.model_validate({
+            "provider": obj.get("provider") if obj.get("provider") is not None else TriggerGitDeploymentMetadataProvider.UNKNOWN,
+            "repository": obj.get("repository"),
+            "branch": obj.get("branch"),
+            "sha": obj.get("sha"),
+            "message": obj.get("message"),
+            "sender_username": obj.get("sender_username"),
+            "sender_avatar_url": obj.get("sender_avatar_url"),
+            "sender_profile_url": obj.get("sender_profile_url")
+        })
         return _obj
+
+

@@ -26,12 +26,10 @@ from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
-
 class QuotaUsage(BaseModel):
     """
     QuotaUsage carries an organization's current resource consumption alongside the corresponding plan limits (from the caller's InternalToken.Quotas). Paused services are included in services_used but excluded from memory / instances_by_type / proxy_ports totals, matching enforcement semantics.
-    """  # noqa: E501
-
+    """ # noqa: E501
     apps_used: Optional[StrictInt] = None
     apps_limit: Optional[StrictInt] = None
     services_used: Optional[StrictInt] = None
@@ -47,23 +45,7 @@ class QuotaUsage(BaseModel):
     instances_by_type: Optional[List[InstanceTypeUsage]] = None
     persistent_volumes_by_region: Optional[List[PersistentVolumeRegionUsage]] = None
     instance_snapshots_by_type: Optional[List[InstanceSnapshotTypeUsage]] = None
-    __properties: ClassVar[List[str]] = [
-        "apps_used",
-        "apps_limit",
-        "services_used",
-        "services_limit",
-        "memory_mb_used",
-        "memory_mb_limit",
-        "custom_domains_used",
-        "custom_domains_limit",
-        "koyeb_lb_domains_used",
-        "koyeb_lb_domains_limit",
-        "proxy_ports_used",
-        "proxy_ports_limit",
-        "instances_by_type",
-        "persistent_volumes_by_region",
-        "instance_snapshots_by_type",
-    ]
+    __properties: ClassVar[List[str]] = ["apps_used", "apps_limit", "services_used", "services_limit", "memory_mb_used", "memory_mb_limit", "custom_domains_used", "custom_domains_limit", "koyeb_lb_domains_used", "koyeb_lb_domains_limit", "proxy_ports_used", "proxy_ports_limit", "instances_by_type", "persistent_volumes_by_region", "instance_snapshots_by_type"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -71,6 +53,7 @@ class QuotaUsage(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
+
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -95,7 +78,8 @@ class QuotaUsage(BaseModel):
           were set at model initialization. Other fields with value `None`
           are ignored.
         """
-        excluded_fields: Set[str] = set([])
+        excluded_fields: Set[str] = set([
+        ])
 
         _dict = self.model_dump(
             by_alias=True,
@@ -106,32 +90,23 @@ class QuotaUsage(BaseModel):
         _items = []
         if self.instances_by_type:
             for _item_instances_by_type in self.instances_by_type:
-                _items.append(
-                    _item_instances_by_type.to_dict()
-                    if _item_instances_by_type is not None
-                    else None
-                )
-            _dict["instances_by_type"] = _items
+                if _item_instances_by_type:
+                    _items.append(_item_instances_by_type.to_dict())
+            _dict['instances_by_type'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in persistent_volumes_by_region (list)
         _items = []
         if self.persistent_volumes_by_region:
             for _item_persistent_volumes_by_region in self.persistent_volumes_by_region:
-                _items.append(
-                    _item_persistent_volumes_by_region.to_dict()
-                    if _item_persistent_volumes_by_region is not None
-                    else None
-                )
-            _dict["persistent_volumes_by_region"] = _items
+                if _item_persistent_volumes_by_region:
+                    _items.append(_item_persistent_volumes_by_region.to_dict())
+            _dict['persistent_volumes_by_region'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in instance_snapshots_by_type (list)
         _items = []
         if self.instance_snapshots_by_type:
             for _item_instance_snapshots_by_type in self.instance_snapshots_by_type:
-                _items.append(
-                    _item_instance_snapshots_by_type.to_dict()
-                    if _item_instance_snapshots_by_type is not None
-                    else None
-                )
-            _dict["instance_snapshots_by_type"] = _items
+                if _item_instance_snapshots_by_type:
+                    _items.append(_item_instance_snapshots_by_type.to_dict())
+            _dict['instance_snapshots_by_type'] = _items
         return _dict
 
     @classmethod
@@ -143,38 +118,23 @@ class QuotaUsage(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate(
-            {
-                "apps_used": obj.get("apps_used"),
-                "apps_limit": obj.get("apps_limit"),
-                "services_used": obj.get("services_used"),
-                "services_limit": obj.get("services_limit"),
-                "memory_mb_used": obj.get("memory_mb_used"),
-                "memory_mb_limit": obj.get("memory_mb_limit"),
-                "custom_domains_used": obj.get("custom_domains_used"),
-                "custom_domains_limit": obj.get("custom_domains_limit"),
-                "koyeb_lb_domains_used": obj.get("koyeb_lb_domains_used"),
-                "koyeb_lb_domains_limit": obj.get("koyeb_lb_domains_limit"),
-                "proxy_ports_used": obj.get("proxy_ports_used"),
-                "proxy_ports_limit": obj.get("proxy_ports_limit"),
-                "instances_by_type": [
-                    InstanceTypeUsage.from_dict(_item)
-                    for _item in obj["instances_by_type"]
-                ]
-                if obj.get("instances_by_type") is not None
-                else None,
-                "persistent_volumes_by_region": [
-                    PersistentVolumeRegionUsage.from_dict(_item)
-                    for _item in obj["persistent_volumes_by_region"]
-                ]
-                if obj.get("persistent_volumes_by_region") is not None
-                else None,
-                "instance_snapshots_by_type": [
-                    InstanceSnapshotTypeUsage.from_dict(_item)
-                    for _item in obj["instance_snapshots_by_type"]
-                ]
-                if obj.get("instance_snapshots_by_type") is not None
-                else None,
-            }
-        )
+        _obj = cls.model_validate({
+            "apps_used": obj.get("apps_used"),
+            "apps_limit": obj.get("apps_limit"),
+            "services_used": obj.get("services_used"),
+            "services_limit": obj.get("services_limit"),
+            "memory_mb_used": obj.get("memory_mb_used"),
+            "memory_mb_limit": obj.get("memory_mb_limit"),
+            "custom_domains_used": obj.get("custom_domains_used"),
+            "custom_domains_limit": obj.get("custom_domains_limit"),
+            "koyeb_lb_domains_used": obj.get("koyeb_lb_domains_used"),
+            "koyeb_lb_domains_limit": obj.get("koyeb_lb_domains_limit"),
+            "proxy_ports_used": obj.get("proxy_ports_used"),
+            "proxy_ports_limit": obj.get("proxy_ports_limit"),
+            "instances_by_type": [InstanceTypeUsage.from_dict(_item) for _item in obj["instances_by_type"]] if obj.get("instances_by_type") is not None else None,
+            "persistent_volumes_by_region": [PersistentVolumeRegionUsage.from_dict(_item) for _item in obj["persistent_volumes_by_region"]] if obj.get("persistent_volumes_by_region") is not None else None,
+            "instance_snapshots_by_type": [InstanceSnapshotTypeUsage.from_dict(_item) for _item in obj["instance_snapshots_by_type"]] if obj.get("instance_snapshots_by_type") is not None else None
+        })
         return _obj
+
+
