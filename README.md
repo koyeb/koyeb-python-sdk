@@ -35,15 +35,20 @@ Using the Koyeb Python SDK requires an API token. Complete the following steps t
 1. Click the **API** tab.
 1. Click **Create API token** and provide a name and description. You can use the following:
     Name:
+
     ```copy
     sandbox-quickstart
     ```
+
     Description:
+
     ```copy
     For accessing the Koyeb Python SDK to generate sandboxes
     ```
+
 1. Click **Create** to complete token creation. Note that the token value will not be accessible later, so take note of it as needed.
 1. In the terminal, set the API token to be accessible to your Python environment, replacing the placeholder with your API token:
+
     ```bash copy
     export KOYEB_API_TOKEN="YOUR_API_TOKEN"
     ```
@@ -83,6 +88,7 @@ sandbox.delete()
 ```
 
 This code does the following:
+
 - Creates a new sandbox environment using an image of Ubuntu.
 - Creates a new Python file in the sandbox at `tmp/script.py` and adds a "Hello from Python" message to the file.
 - Sets the file as executable using `chmod +x`.
@@ -111,3 +117,46 @@ The Koyeb Sandbox Python module contains functionality to take any actions neede
 [View the reference for the Sandbox module](./docs/sandbox.md)
 
 [View Sandboxes documentation on the Koyeb website](https://www.koyeb.com/docs/sandboxes)
+
+## Claim a sandbox from a service pool
+
+Service pools keep a set of pre-provisioned services warm so a claim is
+fulfilled immediately. When no warm sandbox is available, the claim takes the
+cold path and the service is provisioned on demand, `PoolClaim.claim` waits
+for it to become ready either way.
+
+```python
+import os
+from koyeb import PoolClaim
+
+claim = PoolClaim.claim(
+    pool_id=os.environ["KOYEB_POOL_ID"],
+)
+
+print(claim.service_id)  # always set
+print(claim.prewarmed)    # True when a warm sandbox was handed out
+print(claim.request_id)   # idempotency key: replay the same claim with it
+```
+
+- The claim API is idempotent per `(pool_id, request_id)`: replaying the
+  same pair returns the same claim instead of consuming another service.
+- `request_id` is generated once when omitted and preserved across the
+  SDK's internal retries. `AsyncPoolClaim` mirrors the workflow for asyncio.
+
+Use `Sandbox.get_from_id(id=claim.service_id)` to attach a `Sandbox` to the
+claimed service and run code in it. On the cold path, `claim(wait_ready=True)`
+polls the service until it is ready (`HEALTHY` or `DEGRADED`) and raises if it
+reaches a terminal state (`UNHEALTHY`, `DELETING`, `DELETED`, `PAUSING`, or
+`PAUSED`, or any status the SDK cannot classify — fail-closed). Claim
+failures raise `SandboxClaimError`, which carries the claim's `request_id`
+so the same `(pool_id, request_id)` pair can be replayed instead of
+claiming a second sandbox.
+
+`wait_ready` accepts a `cancel` event (`threading.Event` for the sync class,
+`asyncio.Event` for the async one) that stops waiting early — an already-set
+event returns `False` without polling. `PoolClaim.get_claim(claim_id)`
+and its async twin fetch a claim's current state by id
+(`PENDING`, `FULFILLED`, `FAILED`, `RELEASED`).
+
+See [examples/29_pool_claim.py](./examples/29_pool_claim.py) for a complete
+example.

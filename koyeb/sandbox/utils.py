@@ -19,7 +19,9 @@ from koyeb.api.api import (
     DeploymentsApi,
     InstancesApi,
     InstanceSnapshotsApi,
+    PoolClaimsApi,
     SecretsApi,
+    ServicePoolsApi,
     ServicesApi,
 )
 from koyeb.api.models.config_file import ConfigFile
@@ -109,6 +111,8 @@ class ApiClients:
     deployments: DeploymentsApi
     secrets: SecretsApi
     instance_snapshots: Any
+    service_pools: ServicePoolsApi
+    pool_claims: PoolClaimsApi
 
 
 _api_clients_cache: Dict[Tuple[str, str], ApiClients] = {}
@@ -159,6 +163,8 @@ def get_api_clients(
         deployments=DeploymentsApi(api_client),
         secrets=SecretsApi(api_client),
         instance_snapshots=InstanceSnapshotsApi(api_client),
+        service_pools=ServicePoolsApi(api_client),
+        pool_claims=PoolClaimsApi(api_client),
     )
     _api_clients_cache[cache_key] = clients
     return clients
@@ -174,7 +180,9 @@ from koyeb.api_async.api import (
     DeploymentsApi as AsyncDeploymentsApi,
     InstancesApi as AsyncInstancesApi,
     InstanceSnapshotsApi as AsyncInstanceSnapshotsApi,
+    PoolClaimsApi as AsyncPoolClaimsApi,
     SecretsApi as AsyncSecretsApi,
+    ServicePoolsApi as AsyncServicePoolsApi,
     ServicesApi as AsyncServicesApi,
 )
 
@@ -190,6 +198,8 @@ class AsyncApiClients:
     deployments: AsyncDeploymentsApi
     secrets: AsyncSecretsApi
     instance_snapshots: Any
+    service_pools: AsyncServicePoolsApi
+    pool_claims: AsyncPoolClaimsApi
 
 
 _async_api_clients_cache: Dict[Tuple[str, str], AsyncApiClients] = {}
@@ -240,6 +250,8 @@ def get_async_api_clients(
         deployments=AsyncDeploymentsApi(api_client),
         secrets=AsyncSecretsApi(api_client),
         instance_snapshots=AsyncInstanceSnapshotsApi(api_client),
+        service_pools=AsyncServicePoolsApi(api_client),
+        pool_claims=AsyncPoolClaimsApi(api_client),
     )
     _async_api_clients_cache[cache_key] = clients
     return clients
@@ -719,6 +731,20 @@ class SandboxTimeoutError(SandboxError):
 
 class SandboxDeploymentError(SandboxError):
     """Raised when a sandbox deployment reaches an error state"""
+
+
+class SandboxClaimError(SandboxError):
+    """Raised when claiming a sandbox from a service pool fails"""
+
+    def __init__(self, message: str, request_id: Optional[str] = None):
+        super().__init__(message)
+        # The claim's idempotency key, so a failed claim can be replayed with
+        # the same (pool_id, request_id) pair instead of claiming twice.
+        self.request_id = request_id
+
+
+class ServicePoolError(SandboxError):
+    """Raised when a service pool operation (create/get/list/update/delete) fails"""
 
 
 class SandboxServiceError(SandboxError):

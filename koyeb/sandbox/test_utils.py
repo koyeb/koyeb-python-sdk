@@ -1,10 +1,18 @@
 import unittest
+from unittest.mock import patch
 
+from koyeb.api.api import PoolClaimsApi, ServicePoolsApi
 from koyeb.api.models.egress_policy_mode import EgressPolicyMode
+from koyeb.api_async.api import (
+    PoolClaimsApi as AsyncPoolClaimsApi,
+    ServicePoolsApi as AsyncServicePoolsApi,
+)
 from koyeb.sandbox.utils import (
     EgressPolicyError,
     build_network_policy,
     create_docker_source,
+    get_api_clients,
+    get_async_api_clients,
 )
 
 
@@ -136,6 +144,22 @@ class TestBuildEgressPolicy(unittest.TestCase):
         self.assertTrue(issubclass(EgressPolicyError, SandboxError))
         self.assertIs(sandbox_pkg.EgressPolicyError, EgressPolicyError)
         self.assertIn("EgressPolicyError", sandbox_pkg.__all__)
+
+
+class TestGetApiClients(unittest.TestCase):
+    """The shared client factory wires the service pool and claim APIs."""
+
+    def test_sync_clients_expose_pool_apis(self):
+        with patch("koyeb.sandbox.utils._api_clients_cache", {}):
+            clients = get_api_clients(api_token="tok-test")
+        self.assertIsInstance(clients.service_pools, ServicePoolsApi)
+        self.assertIsInstance(clients.pool_claims, PoolClaimsApi)
+
+    def test_async_clients_expose_pool_apis(self):
+        with patch("koyeb.sandbox.utils._async_api_clients_cache", {}):
+            clients = get_async_api_clients(api_token="tok-test")
+        self.assertIsInstance(clients.service_pools, AsyncServicePoolsApi)
+        self.assertIsInstance(clients.pool_claims, AsyncPoolClaimsApi)
 
 
 if __name__ == "__main__":

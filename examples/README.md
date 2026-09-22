@@ -40,7 +40,9 @@ uv run python examples/01_create_sandbox.py
 - **24_declarative_snapshot_builder.py** - Declarative snapshot building
 - **25_full_snapshot_and_spawn.py** - Full snapshots with process state preservation
 - **26_snapshot_boot_benchmark.py** - Benchmark snapshot boot times (sync)
-- **27_docker_in_docker.py** - Run containers inside a sandbox (docker-in-docker), building an image from scratch with no registry pull
+- **28_service_pool.py** - Service pool lifecycle: create, list, update, and delete a pool
+- **29_pool_claim.py** - Claim a sandbox from a service pool, then attach and use it
+- **29_pool_claim_async.py** - Claim a sandbox from a service pool (async variant)
 
 ## Basic Usage
 

@@ -18,14 +18,18 @@ from .exec import (
     SandboxExecutor,
 )
 from .filesystem import FileInfo, SandboxFilesystem
+from .pool import AsyncPoolClaim, PoolClaim
 from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
+from .service_pool import AsyncServicePool, ServicePool
 from .snapshot import DeclarativeSnapshot, Snapshot, SnapshotStatus, SnapshotType
 from .utils import (
     EgressPolicyError,
+    SandboxClaimError,
     SandboxDeploymentError,
     SandboxError,
     SandboxServiceError,
     SandboxTimeoutError,
+    ServicePoolError,
 )
 
 __all__ = [
@@ -33,6 +37,10 @@ __all__ = [
     "AsyncSandbox",
     "ConfigFile",
     "Secret",
+    "PoolClaim",
+    "AsyncPoolClaim",
+    "ServicePool",
+    "AsyncServicePool",
     "SandboxFilesystem",
     "SandboxExecutor",
     "AsyncSandboxExecutor",
@@ -43,6 +51,8 @@ __all__ = [
     "SandboxError",
     "SandboxServiceError",
     "SandboxTimeoutError",
+    "SandboxClaimError",
+    "ServicePoolError",
     "CommandResult",
     "CommandStatus",
     "SandboxCommandError",
