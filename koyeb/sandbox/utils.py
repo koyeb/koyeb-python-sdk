@@ -17,6 +17,7 @@ from koyeb.api.api import (
     AppsApi,
     CatalogInstancesApi,
     DeploymentsApi,
+    DomainsApi,
     InstancesApi,
     InstanceSnapshotsApi,
     SecretsApi,
@@ -109,6 +110,7 @@ class ApiClients:
     deployments: DeploymentsApi
     secrets: SecretsApi
     instance_snapshots: Any
+    domains: DomainsApi
 
 
 _api_clients_cache: Dict[Tuple[str, str], ApiClients] = {}
@@ -159,6 +161,7 @@ def get_api_clients(
         deployments=DeploymentsApi(api_client),
         secrets=SecretsApi(api_client),
         instance_snapshots=InstanceSnapshotsApi(api_client),
+        domains=DomainsApi(api_client),
     )
     _api_clients_cache[cache_key] = clients
     return clients
@@ -172,6 +175,7 @@ from koyeb.api_async.api import (
     AppsApi as AsyncAppsApi,
     CatalogInstancesApi as AsyncCatalogInstancesApi,
     DeploymentsApi as AsyncDeploymentsApi,
+    DomainsApi as AsyncDomainsApi,
     InstancesApi as AsyncInstancesApi,
     InstanceSnapshotsApi as AsyncInstanceSnapshotsApi,
     SecretsApi as AsyncSecretsApi,
@@ -190,6 +194,7 @@ class AsyncApiClients:
     deployments: AsyncDeploymentsApi
     secrets: AsyncSecretsApi
     instance_snapshots: Any
+    domains: AsyncDomainsApi
 
 
 _async_api_clients_cache: Dict[Tuple[str, str], AsyncApiClients] = {}
@@ -240,9 +245,78 @@ def get_async_api_clients(
         deployments=AsyncDeploymentsApi(api_client),
         secrets=AsyncSecretsApi(api_client),
         instance_snapshots=AsyncInstanceSnapshotsApi(api_client),
+        domains=AsyncDomainsApi(api_client),
     )
     _async_api_clients_cache[cache_key] = clients
     return clients
+
+
+# --- Direct URL / domain helpers ---
+
+KOYEB_APP_DOMAIN_SUFFIX = ".koyeb.app"
+KOYEB_DIRECT_DOMAIN_SUFFIX = ".direct.koyeb.app"
+
+# Env var that globally enables routing sandbox traffic through the per-app
+# direct (Koyeb load balancer) domain without requiring code changes.
+DIRECT_URL_ENV_VAR = "KOYEB_SANDBOX_DIRECT_URL"
+_TRUTHY_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+def direct_url_enabled(explicit: Optional[bool] = None) -> bool:
+    """
+    Resolve whether sandbox traffic should go through the direct domain.
+
+    Precedence: an explicit ``True``/``False`` argument always wins; when the
+    argument is ``None`` the ``KOYEB_SANDBOX_DIRECT_URL`` env var is consulted
+    (truthy values: ``1``, ``true``, ``yes``, ``on``, case-insensitive).
+
+    Args:
+        explicit: Value passed by the caller, or ``None`` to defer to the env var.
+
+    Returns:
+        True if the direct URL should be used, False otherwise.
+    """
+    if explicit is not None:
+        return explicit
+    value = os.getenv(DIRECT_URL_ENV_VAR)
+    if value is None:
+        return False
+    return value.strip().lower() in _TRUTHY_VALUES
+
+
+def is_direct_domain(name: str) -> bool:
+    """Return True if ``name`` is a ``*.direct.koyeb.app`` domain."""
+    return name.endswith(KOYEB_DIRECT_DOMAIN_SUFFIX)
+
+
+def direct_domain_name_from_base(base: str) -> str:
+    """
+    Derive the direct (Koyeb load balancer) domain name from an app's base
+    autoassigned domain.
+
+    The direct domain reuses the same label as the base ``*.koyeb.app`` domain
+    but inserts ``direct`` before ``koyeb.app`` so traffic is routed through the
+    per-region Koyeb GLB instead of the Cloudflare-proxied edge, e.g.
+    ``myapp-org-abc123.koyeb.app`` -> ``myapp-org-abc123.direct.koyeb.app``.
+
+    Args:
+        base: The app's base autoassigned domain (``<label>.koyeb.app``).
+
+    Returns:
+        The corresponding ``<label>.direct.koyeb.app`` domain name.
+
+    Raises:
+        SandboxError: If ``base`` does not end with ``.koyeb.app``.
+    """
+    if base.endswith(KOYEB_DIRECT_DOMAIN_SUFFIX):
+        return base
+    if not base.endswith(KOYEB_APP_DOMAIN_SUFFIX):
+        raise SandboxError(
+            f"Cannot derive a direct domain from '{base}': expected a "
+            f"'{KOYEB_APP_DOMAIN_SUFFIX}' domain"
+        )
+    label = base[: -len(KOYEB_APP_DOMAIN_SUFFIX)]
+    return f"{label}{KOYEB_DIRECT_DOMAIN_SUFFIX}"
 
 
 # --- Model building helpers (shared by sync and async) ---
