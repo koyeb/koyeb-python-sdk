@@ -55,7 +55,23 @@ class CommandResult:
 
 
 class SandboxCommandError(SandboxError):
-    """Raised when command execution fails"""
+    """Raised when a sandbox command fails (opt-in via raise_on_error)."""
+
+    def __init__(self, message: str, result: Optional["CommandResult"] = None):
+        super().__init__(message)
+        self.result = result
+
+
+def _check_result(result: CommandResult, raise_on_error: bool) -> CommandResult:
+    """Raise SandboxCommandError for failed commands when opted in."""
+    if raise_on_error and not result.success:
+        raise SandboxCommandError(
+            f"Command '{result.command}' failed with exit code "
+            f"{result.exit_code}: {result.stderr or result.stdout}",
+            result=result,
+        )
+    return result
+
 
 
 class SandboxExecutor:
@@ -82,6 +98,7 @@ class SandboxExecutor:
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
         stream: bool = True,
+        raise_on_error: bool = False,
     ) -> CommandResult:
         """
         Execute a command in a shell synchronously. Supports streaming output via callbacks.
@@ -139,24 +156,30 @@ class SandboxExecutor:
                 elif "code" in event:
                     exit_code = event["code"]
                 elif "error" in event and isinstance(event["error"], str):
-                    return CommandResult(
-                        stdout="",
-                        stderr=event["error"],
-                        exit_code=1,
-                        status=CommandStatus.FAILED,
-                        duration=time.time() - start_time,
-                        command=command,
+                    return _check_result(
+                        CommandResult(
+                            stdout="",
+                            stderr=event["error"],
+                            exit_code=1,
+                            status=CommandStatus.FAILED,
+                            duration=time.time() - start_time,
+                            command=command,
+                        ),
+                        raise_on_error,
                     )
 
-            return CommandResult(
-                stdout="".join(stdout_buffer),
-                stderr="".join(stderr_buffer),
-                exit_code=exit_code,
-                status=(
-                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+            return _check_result(
+                CommandResult(
+                    stdout="".join(stdout_buffer),
+                    stderr="".join(stderr_buffer),
+                    exit_code=exit_code,
+                    status=(
+                        CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                    ),
+                    duration=time.time() - start_time,
+                    command=command,
                 ),
-                duration=time.time() - start_time,
-                command=command,
+                raise_on_error,
             )
 
         # Use regular run for non-streaming execution
@@ -167,13 +190,16 @@ class SandboxExecutor:
         stderr = response.get("stderr", "")
         exit_code = response.get("code", 0)
 
-        return CommandResult(
-            stdout=stdout,
-            stderr=stderr,
-            exit_code=exit_code,
-            status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
-            duration=time.time() - start_time,
-            command=command,
+        return _check_result(
+            CommandResult(
+                stdout=stdout,
+                stderr=stderr,
+                exit_code=exit_code,
+                status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
+                duration=time.time() - start_time,
+                command=command,
+            ),
+            raise_on_error,
         )
 
 
@@ -199,6 +225,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
         stream: bool = True,
+        raise_on_error: bool = False,
     ) -> CommandResult:
         """
         Execute a command in a shell asynchronously. Supports streaming output via callbacks.
@@ -257,24 +284,30 @@ class AsyncSandboxExecutor(SandboxExecutor):
                 elif "code" in event:
                     exit_code = event["code"]
                 elif "error" in event and isinstance(event["error"], str):
-                    return CommandResult(
-                        stdout="",
-                        stderr=event["error"],
-                        exit_code=1,
-                        status=CommandStatus.FAILED,
-                        duration=time.time() - start_time,
-                        command=command,
+                    return _check_result(
+                        CommandResult(
+                            stdout="",
+                            stderr=event["error"],
+                            exit_code=1,
+                            status=CommandStatus.FAILED,
+                            duration=time.time() - start_time,
+                            command=command,
+                        ),
+                        raise_on_error,
                     )
 
-            return CommandResult(
-                stdout="".join(stdout_buffer),
-                stderr="".join(stderr_buffer),
-                exit_code=exit_code,
-                status=(
-                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+            return _check_result(
+                CommandResult(
+                    stdout="".join(stdout_buffer),
+                    stderr="".join(stderr_buffer),
+                    exit_code=exit_code,
+                    status=(
+                        CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                    ),
+                    duration=time.time() - start_time,
+                    command=command,
                 ),
-                duration=time.time() - start_time,
-                command=command,
+                raise_on_error,
             )
 
         # Use native async for non-streaming execution
@@ -287,11 +320,14 @@ class AsyncSandboxExecutor(SandboxExecutor):
         stderr = response.get("stderr", "")
         exit_code = response.get("code", 0)
 
-        return CommandResult(
-            stdout=stdout,
-            stderr=stderr,
-            exit_code=exit_code,
-            status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
-            duration=time.time() - start_time,
-            command=command,
+        return _check_result(
+            CommandResult(
+                stdout=stdout,
+                stderr=stderr,
+                exit_code=exit_code,
+                status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
+                duration=time.time() - start_time,
+                command=command,
+            ),
+            raise_on_error,
         )
