@@ -18,10 +18,26 @@ from .exec import (
     SandboxExecutor,
 )
 from .filesystem import FileInfo, SandboxFilesystem
+from .pool import (
+    AsyncServicePool,
+    ClaimResult,
+    ServicePool,
+    claim,
+    claim_async,
+    get_claim,
+    get_claim_async,
+    list_claims,
+    list_claims_async,
+    wait_claim_ready,
+    wait_claim_ready_async,
+)
 from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
 from .snapshot import DeclarativeSnapshot, Snapshot, SnapshotStatus, SnapshotType
 from .utils import (
     EgressPolicyError,
+    PoolClaimError,
+    ServicePoolError,
+    ServiceTerminalStateError,
     InvalidPortError,
     MissingApiTokenError,
     NoSandboxSecretError,
@@ -42,7 +58,21 @@ __all__ = [
     "AsyncSandboxExecutor",
     "FileInfo",
     "SandboxStatus",
+    "AsyncServicePool",
+    "ClaimResult",
+    "ServicePool",
+    "claim",
+    "claim_async",
+    "get_claim",
+    "get_claim_async",
+    "list_claims",
+    "list_claims_async",
+    "wait_claim_ready",
+    "wait_claim_ready_async",
     "EgressPolicyError",
+    "PoolClaimError",
+    "ServicePoolError",
+    "ServiceTerminalStateError",
     "InvalidPortError",
     "MissingApiTokenError",
     "NoSandboxSecretError",
