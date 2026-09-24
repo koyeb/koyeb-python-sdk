@@ -10,7 +10,7 @@ import logging
 import os
 import shlex
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from koyeb.api import ApiClient, Configuration
 from koyeb.api.api import (
@@ -31,6 +31,8 @@ from koyeb.api.models.deployment_instance_type import DeploymentInstanceType
 from koyeb.api.models.deployment_port import DeploymentPort
 from koyeb.api.models.deployment_proxy_port import DeploymentProxyPort
 from koyeb.api.models.deployment_route import DeploymentRoute
+from koyeb.api.models.deployment_status import DeploymentStatus
+from koyeb.api.models.service_status import ServiceStatus
 from koyeb.api.models.deployment_scaling import DeploymentScaling
 from koyeb.api.models.deployment_scaling_target import DeploymentScalingTarget
 from koyeb.api.models.deployment_scaling_target_sleep_idle_delay import (
@@ -96,6 +98,47 @@ def _validate_port_protocol(protocol: str) -> str:
         raise ValueError(
             f"Invalid protocol '{protocol}'. Must be one of {VALID_DEPLOYMENT_PORT_PROTOCOLS}"
         ) from e
+
+
+StatusClassification = Literal["ready", "in_progress", "terminal_failure"]
+
+
+def classify_service_status(status: Union[ServiceStatus, str]) -> StatusClassification:
+    """Classify a service status for readiness, failing closed.
+
+    HEALTHY and DEGRADED are usable, STARTING and RESUMING are still in
+    progress, and every other state — including unknown forward-compat
+    values — is a terminal failure. Mirrors the JS SDK's
+    classifyServiceStatus (src/claim.ts).
+    """
+    if status in (ServiceStatus.HEALTHY, ServiceStatus.DEGRADED):
+        return "ready"
+    if status in (ServiceStatus.STARTING, ServiceStatus.RESUMING):
+        return "in_progress"
+    return "terminal_failure"
+
+
+def classify_deployment_status(
+    status: Union[DeploymentStatus, str],
+) -> StatusClassification:
+    """Classify a deployment status for readiness, failing closed.
+
+    HEALTHY and DEGRADED are ready, the pre-ready states (PENDING,
+    PROVISIONING, SCHEDULED, ALLOCATING, STARTING) are in progress, and every
+    other state — including SLEEPING, STASHED, and unknown forward-compat
+    values — is terminal: it will not become ready on its own during a wait.
+    """
+    if status in (DeploymentStatus.HEALTHY, DeploymentStatus.DEGRADED):
+        return "ready"
+    if status in (
+        DeploymentStatus.PENDING,
+        DeploymentStatus.PROVISIONING,
+        DeploymentStatus.SCHEDULED,
+        DeploymentStatus.ALLOCATING,
+        DeploymentStatus.STARTING,
+    ):
+        return "in_progress"
+    return "terminal_failure"
 
 
 @dataclass(frozen=True)

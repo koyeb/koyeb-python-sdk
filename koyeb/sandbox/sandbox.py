@@ -17,7 +17,6 @@ from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.exceptions import ApiException, NotFoundException
 from koyeb.api.models.create_app import AppLifeCycle, CreateApp
 from koyeb.api.models.create_service import CreateService, ServiceLifeCycle
-from koyeb.api.models.deployment_status import DeploymentStatus
 from koyeb.api.models.egress_policy import EgressPolicy
 from koyeb.api.models.egress_policy_mode import EgressPolicyMode
 from koyeb.api.models.network_policy import NetworkPolicy
@@ -33,6 +32,7 @@ from .utils import (
     build_config_files,
     build_network_policy,
     build_env_vars,
+    classify_deployment_status,
     create_deployment_definition,
     create_docker_source,
     create_koyeb_sandbox_routes,
@@ -800,11 +800,6 @@ class Sandbox:
             delete_builder=delete_builder,
         )
 
-    _DEPLOYMENT_ERROR_STATUSES = {
-        DeploymentStatus.ERROR,
-        DeploymentStatus.ERRORING,
-    }
-
     def _resolve_deployment_id(self) -> Optional[str]:
         """Resolve and cache the deployment ID for this sandbox's service."""
         if self._deployment_id is not None:
@@ -862,12 +857,14 @@ class Sandbox:
             deployment_response = clients.deployments.get_deployment(deployment_id)
             deployment = deployment_response.deployment
             status = deployment.status
-            if status in self._DEPLOYMENT_ERROR_STATUSES:
+            classification = classify_deployment_status(status)
+            if classification == "terminal_failure":
+                status_value = getattr(status, "value", status)
                 raise SandboxDeploymentError(
-                    f"Sandbox '{self.name}' deployment reached status {status.value}. "
-                    f"The sandbox will not become ready."
+                    f"Sandbox '{self.name}' deployment reached status {status_value} "
+                    f"— it will not become ready; wake or redeploy the sandbox."
                 )
-            is_healthy = status == DeploymentStatus.HEALTHY
+            is_healthy = classification == "ready"
             # Cache sandbox URL from metadata when deployment is healthy
             if is_healthy and self._sandbox_url is None:
                 metadata = deployment.metadata
@@ -2053,12 +2050,14 @@ class AsyncSandbox(Sandbox):
             )
             deployment = deployment_response.deployment
             status = deployment.status
-            if status in self._DEPLOYMENT_ERROR_STATUSES:
+            classification = classify_deployment_status(status)
+            if classification == "terminal_failure":
+                status_value = getattr(status, "value", status)
                 raise SandboxDeploymentError(
-                    f"Sandbox '{self.name}' deployment reached status {status.value}. "
-                    f"The sandbox will not become ready."
+                    f"Sandbox '{self.name}' deployment reached status {status_value} "
+                    f"— it will not become ready; wake or redeploy the sandbox."
                 )
-            is_healthy = status == DeploymentStatus.HEALTHY
+            is_healthy = classification == "ready"
             if is_healthy and self._sandbox_url is None:
                 metadata = deployment.metadata
                 if metadata and metadata.sandbox:
