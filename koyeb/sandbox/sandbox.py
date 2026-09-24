@@ -661,6 +661,59 @@ class Sandbox:
 
         return sandbox
 
+    @classmethod
+    def list(
+        cls,
+        app_id: Optional[str] = None,
+        name: Optional[str] = None,
+        api_token: Optional[str] = None,
+        host: Optional[str] = None,
+    ) -> List["Sandbox"]:
+        """
+        List sandbox services.
+
+        Paginates services of type SANDBOX (100 per page, mirroring the CLI).
+        Returns lazily-connected handles: they carry no executor secret, so
+        connected operations raise NoSandboxSecretError — use
+        ``Sandbox.get_from_id(handle.id)`` for a connected handle.
+
+        Args:
+            app_id: Optional app filter
+            name: Optional name filter
+            api_token: Koyeb API token (defaults to KOYEB_API_TOKEN env var)
+            host: Koyeb API host (defaults to KOYEB_API_HOST env var)
+
+        Returns:
+            List[Sandbox]: Lazy handles for every sandbox service
+        """
+        clients = get_api_clients(api_token, host)
+        sandboxes: List["Sandbox"] = []
+        limit = 100
+        offset = 0
+        while True:
+            reply = clients.services.list_services(
+                app_id=app_id,
+                name=name,
+                types=["SANDBOX"],
+                limit=str(limit),
+                offset=str(offset),
+            )
+            for service in reply.services or []:
+                sandboxes.append(
+                    cls(
+                        sandbox_id=service.id,
+                        app_id=service.app_id,
+                        service_id=service.id,
+                        name=service.name,
+                        api_token=api_token,
+                        host=host,
+                    )
+                )
+            offset += limit
+            if offset >= (reply.count or 0):
+                break
+        return sandboxes
+
     def snapshot(
         self,
         name: str,
@@ -2124,6 +2177,51 @@ class AsyncSandbox(Sandbox):
                 )
 
         return sandbox
+
+    @classmethod
+    async def list(
+        cls,
+        app_id: Optional[str] = None,
+        name: Optional[str] = None,
+        api_token: Optional[str] = None,
+        host: Optional[str] = None,
+    ) -> List["AsyncSandbox"]:
+        """
+        List sandbox services (async twin of :meth:`Sandbox.list`).
+
+        Returns lazily-connected handles without executor secrets; use
+        ``AsyncSandbox.get_from_id(handle.id)`` for a connected handle.
+        """
+        from .utils import get_async_api_clients
+
+        clients = get_async_api_clients(api_token, host)
+        sandboxes: List["AsyncSandbox"] = []
+        limit = 100
+        offset = 0
+        while True:
+            reply = await clients.services.list_services(
+                app_id=app_id,
+                name=name,
+                types=["SANDBOX"],
+                limit=str(limit),
+                offset=str(offset),
+            )
+            for service in reply.services or []:
+                sandboxes.append(
+                    cls(
+                        sandbox_id=service.id,
+                        app_id=service.app_id,
+                        service_id=service.id,
+                        name=service.name,
+                        api_token=api_token,
+                        host=host,
+                    )
+                )
+            offset += limit
+            if offset >= (reply.count or 0):
+                break
+        return sandboxes
+
 
     async def _async_is_deployment_healthy(self) -> bool:
         """Check deployment health via async API."""

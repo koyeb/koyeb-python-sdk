@@ -15,6 +15,7 @@ import httpx
 
 from .utils import (
     DEFAULT_HTTP_TIMEOUT,
+    NoSandboxSecretError,
     SandboxError,
     SandboxRequestError,
     SandboxServiceError,
@@ -39,7 +40,11 @@ class ConnectionInfo:
         if not self.public_url:
             raise ValueError("Unable to get sandbox URL")
         if not self.secret:
-            raise ValueError("Sandbox secret not available")
+            raise NoSandboxSecretError(
+                "Sandbox secret not available — this handle is not "
+                "executor-connected (e.g. it came from Sandbox.list()); use "
+                "Sandbox.get_from_id(<id>) for a connected handle"
+            )
 
 
 def _build_headers(conn_info: ConnectionInfo) -> Dict[str, str]:
