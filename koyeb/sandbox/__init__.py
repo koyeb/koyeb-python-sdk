@@ -22,6 +22,9 @@ from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
 from .snapshot import DeclarativeSnapshot, Snapshot, SnapshotStatus, SnapshotType
 from .utils import (
     EgressPolicyError,
+    InvalidPortError,
+    MissingApiTokenError,
+    NoSandboxSecretError,
     SandboxDeploymentError,
     SandboxError,
     SandboxServiceError,
@@ -39,6 +42,9 @@ __all__ = [
     "FileInfo",
     "SandboxStatus",
     "EgressPolicyError",
+    "InvalidPortError",
+    "MissingApiTokenError",
+    "NoSandboxSecretError",
     "SandboxDeploymentError",
     "SandboxError",
     "SandboxServiceError",

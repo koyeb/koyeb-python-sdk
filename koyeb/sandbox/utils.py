@@ -177,9 +177,7 @@ def get_api_clients(
     """
     token = api_token or os.getenv("KOYEB_API_TOKEN")
     if not token:
-        raise ValueError(
-            "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
-        )
+        raise MissingApiTokenError()
 
     api_host = os.getenv("KOYEB_API_HOST", host)
     if not api_host:
@@ -258,9 +256,7 @@ def get_async_api_clients(
     """
     token = api_token or os.getenv("KOYEB_API_TOKEN")
     if not token:
-        raise ValueError(
-            "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
-        )
+        raise MissingApiTokenError()
 
     api_host = os.getenv("KOYEB_API_HOST", host)
     if not api_host:
@@ -661,9 +657,7 @@ def validate_port(port: int) -> None:
         ValueError: If port is not in valid range [1, 65535]
     """
     if not isinstance(port, int) or port < MIN_PORT or port > MAX_PORT:
-        raise ValueError(
-            f"Port must be an integer between {MIN_PORT} and {MAX_PORT}, got {port}"
-        )
+        raise InvalidPortError(port)
 
 
 def check_error_message(error_msg: str, error_type: str) -> bool:
@@ -754,6 +748,40 @@ def create_async_sandbox_client(
 
 class SandboxError(Exception):
     """Base exception for sandbox operations"""
+
+
+class MissingApiTokenError(SandboxError, ValueError):
+    """Raised when no API token is provided and KOYEB_API_TOKEN is unset.
+
+    Also inherits ValueError for back-compat with published 1.5.x callers
+    that catch the old plain ValueError from the token gates.
+    """
+
+    DEFAULT_MESSAGE = (
+        "API token is required. Set KOYEB_API_TOKEN environment variable "
+        "or pass api_token parameter"
+    )
+
+    def __init__(self, message: Optional[str] = None):
+        super().__init__(message or self.DEFAULT_MESSAGE)
+
+
+class InvalidPortError(SandboxError, ValueError):
+    """Raised when a port is not an integer in [MIN_PORT, MAX_PORT].
+
+    Also inherits ValueError for back-compat with published 1.5.x callers
+    that catch the old plain ValueError from validate_port.
+    """
+
+    def __init__(self, port: Any):
+        super().__init__(
+            f"Port must be an integer between {MIN_PORT} and {MAX_PORT}, got {port}"
+        )
+
+
+class NoSandboxSecretError(SandboxError):
+    """Raised when a sandbox deployment carries no SANDBOX_SECRET, so the
+    executor connection cannot be established."""
 
 
 class SandboxTimeoutError(SandboxError):

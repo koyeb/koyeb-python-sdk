@@ -26,6 +26,8 @@ from .executor_client import ConnectionInfo
 from .utils import (
     DEFAULT_INSTANCE_WAIT_TIMEOUT,
     DEFAULT_POLL_INTERVAL,
+    MissingApiTokenError,
+    NoSandboxSecretError,
     SandboxDeploymentError,
     SandboxError,
     SandboxTimeoutError,
@@ -236,9 +238,7 @@ class Sandbox:
         if api_token is None:
             api_token = os.getenv("KOYEB_API_TOKEN")
             if not api_token:
-                raise ValueError(
-                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
-                )
+                raise MissingApiTokenError()
 
         # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
         actual_snapshot_id = None
@@ -521,9 +521,7 @@ class Sandbox:
         if api_token is None:
             api_token = os.getenv("KOYEB_API_TOKEN")
             if not api_token:
-                raise ValueError(
-                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
-                )
+                raise MissingApiTokenError()
 
         if not id:
             raise ValueError("id is required")
@@ -565,6 +563,13 @@ class Sandbox:
                     sandbox_metadata = deployment.metadata
             except Exception as e:
                 logger.debug(f"Could not get deployment {deployment_id}: {e}")
+
+        if sandbox_secret is None:
+            raise NoSandboxSecretError(
+                f"Sandbox '{id}' has no SANDBOX_SECRET in its deployment "
+                f"definition — it may not be a Koyeb sandbox service, so the "
+                f"executor connection cannot be established."
+            )
 
         sandbox = cls(
             sandbox_id=service.id,
@@ -1623,9 +1628,7 @@ class AsyncSandbox(Sandbox):
         if api_token is None:
             api_token = os.getenv("KOYEB_API_TOKEN")
             if not api_token:
-                raise ValueError(
-                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
-                )
+                raise MissingApiTokenError()
 
         if not id:
             raise ValueError("id is required")
@@ -1670,6 +1673,13 @@ class AsyncSandbox(Sandbox):
                     sandbox_metadata = deployment.metadata
             except Exception as e:
                 logger.debug(f"Could not get deployment {deployment_id}: {e}")
+
+        if sandbox_secret is None:
+            raise NoSandboxSecretError(
+                f"Sandbox '{id}' has no SANDBOX_SECRET in its deployment "
+                f"definition — it may not be a Koyeb sandbox service, so the "
+                f"executor connection cannot be established."
+            )
 
         sandbox = cls(
             sandbox_id=service.id,
@@ -1798,9 +1808,7 @@ class AsyncSandbox(Sandbox):
         if api_token is None:
             api_token = os.getenv("KOYEB_API_TOKEN")
             if not api_token:
-                raise ValueError(
-                    "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
-                )
+                raise MissingApiTokenError()
 
         # Handle snapshot parameter (can be Snapshot object or snapshot name/ID string)
         actual_snapshot_id = None
