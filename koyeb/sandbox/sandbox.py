@@ -77,6 +77,29 @@ class ExposedPort:
         return f"ExposedPort(port={self.port}, exposed_at='{self.exposed_at}')"
 
 
+def _cleanup_after_failure(sandbox: "Sandbox") -> None:
+    """Best-effort sandbox deletion after a failed create.
+
+    Never raises: the original failure must be preserved and re-raised.
+    """
+    try:
+        sandbox.delete()
+    except Exception as e:
+        logger.warning(
+            f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}"
+        )
+
+
+async def _cleanup_after_failure_async(sandbox: "Sandbox") -> None:
+    """Async twin of _cleanup_after_failure for AsyncSandbox.delete."""
+    try:
+        await sandbox.delete()
+    except Exception as e:
+        logger.warning(
+            f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}"
+        )
+
+
 class Sandbox:
     """
     Synchronous sandbox for running code on Koyeb infrastructure.
@@ -150,6 +173,7 @@ class Sandbox:
         outbound_allowlist: Optional[List[str]] = None,
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
+        cleanup_on_failure: bool = True,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -313,8 +337,21 @@ class Sandbox:
         )
 
         if wait_ready:
-            is_ready = sandbox.wait_ready(timeout=timeout)
+            try:
+                is_ready = sandbox.wait_ready(timeout=timeout)
+            except SandboxError as e:
+                if cleanup_on_failure:
+                    _cleanup_after_failure(sandbox)
+                    e.args = (f"{e} The sandbox was deleted.",)
+                raise
             if not is_ready:
+                if cleanup_on_failure:
+                    _cleanup_after_failure(sandbox)
+                    raise SandboxTimeoutError(
+                        f"Sandbox '{sandbox.name}' did not become ready within {timeout} seconds "
+                        f"and was deleted. Create with cleanup_on_failure=False to keep a "
+                        f"timed-out sandbox for inspection."
+                    )
                 raise SandboxTimeoutError(
                     f"Sandbox '{sandbox.name}' did not become ready within {timeout} seconds. "
                     f"The sandbox was created but may not be ready yet. "
@@ -379,6 +416,7 @@ class Sandbox:
         env["SANDBOX_SECRET"] = sandbox_secret
 
         # Use provided app_id or create a new app
+        created_app = False
         if app_id is None:
             app_name = f"sandbox-app-{name}-{int(time.time())}"
             app_response = apps_api.create_app(
@@ -387,102 +425,121 @@ class Sandbox:
                 )
             )
             app_id = app_response.app.id
+            created_app = True
 
-        env_vars = build_env_vars(env)
-        config_file_objects = build_config_files(config_files)
-        docker_source = create_docker_source(
-            image,
-            privileged=privileged,
-            image_registry_secret=registry_secret,
-            entrypoint=entrypoint,
-            command=command,
-            args=args,
-        )
-
-        deployment_definition = create_deployment_definition(
-            name=name,
-            docker_source=docker_source,
-            env_vars=env_vars,
-            instance_type=instance_type,
-            exposed_port_protocol=exposed_port_protocol,
-            region=region,
-            routes=routes,
-            idle_timeout=idle_timeout,
-            enable_tcp_proxy=enable_tcp_proxy,
-            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-            _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-            enable_mesh=enable_mesh,
-            config_files=config_file_objects if config_file_objects else None,
-            network_policy=network_policy,
-        )
-
-        service_life_cycle = ServiceLifeCycle(
-            delete_after_create=delete_after_delay,
-            delete_after_sleep=delete_after_inactivity_delay,
-        )
-
-        # Build deployment definition - used for both snapshot and non-snapshot cases
-        env_vars = build_env_vars(env)
-        config_file_objects = build_config_files(config_files)
-        docker_source = create_docker_source(
-            image,
-            privileged=privileged,
-            image_registry_secret=registry_secret,
-            entrypoint=entrypoint,
-            command=command,
-            args=args,
-        )
-        deployment_definition = create_deployment_definition(
-            name=name,
-            docker_source=docker_source,
-            env_vars=env_vars,
-            instance_type=instance_type,
-            exposed_port_protocol=exposed_port_protocol,
-            region=region,
-            routes=routes,
-            idle_timeout=idle_timeout,
-            enable_tcp_proxy=enable_tcp_proxy,
-            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-            _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-            enable_mesh=enable_mesh,
-            config_files=config_file_objects if config_file_objects else None,
-            network_policy=network_policy,
-        )
-
-        # Handle snapshot creation based on snapshot type
-        # For FULL snapshots, don't provide definition (API will infer it)
-        # For FILESYSTEM snapshots, always provide definition with snapshot_id
-        if snapshot_id:
-            # Import here to avoid circular import
-            from .snapshot import SnapshotType as ST
-
-            # For FULL snapshots, create service without definition
-            if snapshot_type == ST.FULL:
-                create_service = CreateService(
-                    app_id=app_id,
-                    life_cycle=service_life_cycle,
-                    instance_snapshot_id=snapshot_id,
-                    name=name,
+        def _delete_created_app() -> None:
+            """Delete the app this call created; never masks the real error."""
+            if not created_app:
+                return
+            try:
+                apps_api.delete_app(app_id)
+            except Exception as cleanup_error:
+                logger.warning(
+                    f"Failed to delete app {app_id} after sandbox creation error: {cleanup_error}"
                 )
+
+        try:
+            env_vars = build_env_vars(env)
+            config_file_objects = build_config_files(config_files)
+            docker_source = create_docker_source(
+                image,
+                privileged=privileged,
+                image_registry_secret=registry_secret,
+                entrypoint=entrypoint,
+                command=command,
+                args=args,
+            )
+
+            deployment_definition = create_deployment_definition(
+                name=name,
+                docker_source=docker_source,
+                env_vars=env_vars,
+                instance_type=instance_type,
+                exposed_port_protocol=exposed_port_protocol,
+                region=region,
+                routes=routes,
+                idle_timeout=idle_timeout,
+                enable_tcp_proxy=enable_tcp_proxy,
+                _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+                _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+                enable_mesh=enable_mesh,
+                config_files=config_file_objects if config_file_objects else None,
+                network_policy=network_policy,
+            )
+
+            service_life_cycle = ServiceLifeCycle(
+                delete_after_create=delete_after_delay,
+                delete_after_sleep=delete_after_inactivity_delay,
+            )
+
+            # Build deployment definition - used for both snapshot and non-snapshot cases
+            env_vars = build_env_vars(env)
+            config_file_objects = build_config_files(config_files)
+            docker_source = create_docker_source(
+                image,
+                privileged=privileged,
+                image_registry_secret=registry_secret,
+                entrypoint=entrypoint,
+                command=command,
+                args=args,
+            )
+            deployment_definition = create_deployment_definition(
+                name=name,
+                docker_source=docker_source,
+                env_vars=env_vars,
+                instance_type=instance_type,
+                exposed_port_protocol=exposed_port_protocol,
+                region=region,
+                routes=routes,
+                idle_timeout=idle_timeout,
+                enable_tcp_proxy=enable_tcp_proxy,
+                _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+                _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+                enable_mesh=enable_mesh,
+                config_files=config_file_objects if config_file_objects else None,
+                network_policy=network_policy,
+            )
+
+            # Handle snapshot creation based on snapshot type
+            # For FULL snapshots, don't provide definition (API will infer it)
+            # For FILESYSTEM snapshots, always provide definition with snapshot_id
+            if snapshot_id:
+                # Import here to avoid circular import
+                from .snapshot import SnapshotType as ST
+
+                # For FULL snapshots, create service without definition
+                if snapshot_type == ST.FULL:
+                    create_service = CreateService(
+                        app_id=app_id,
+                        life_cycle=service_life_cycle,
+                        instance_snapshot_id=snapshot_id,
+                        name=name,
+                    )
+                else:
+                    # For FILESYSTEM snapshots (or unknown), provide definition
+                    create_service = CreateService(
+                        app_id=app_id,
+                        definition=deployment_definition,
+                        life_cycle=service_life_cycle,
+                        instance_snapshot_id=snapshot_id,
+                        name=name,
+                    )
             else:
-                # For FILESYSTEM snapshots (or unknown), provide definition
+                # No snapshot, create normally with definition
                 create_service = CreateService(
                     app_id=app_id,
                     definition=deployment_definition,
                     life_cycle=service_life_cycle,
-                    instance_snapshot_id=snapshot_id,
                     name=name,
                 )
-        else:
-            # No snapshot, create normally with definition
-            create_service = CreateService(
-                app_id=app_id,
-                definition=deployment_definition,
-                life_cycle=service_life_cycle,
-                name=name,
-            )
-        service_response = services_api.create_service(service=create_service)
-        service_id = service_response.service.id
+            service_response = services_api.create_service(service=create_service)
+            service_id = service_response.service.id
+        except ApiException as e:
+            _delete_created_app()
+            raise SandboxError(f"Failed to create sandbox '{name}': {e}") from e
+        except Exception:
+            _delete_created_app()
+            raise
 
         return cls(
             sandbox_id=name,
@@ -1744,6 +1801,7 @@ class AsyncSandbox(Sandbox):
         outbound_allowlist: Optional[List[str]] = None,
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
+        cleanup_on_failure: bool = True,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1853,6 +1911,7 @@ class AsyncSandbox(Sandbox):
         from .utils import get_async_api_clients, build_network_policy
         from koyeb.api_async.models.create_app import CreateApp as AsyncCreateApp
         from koyeb.api_async.models.create_app import AppLifeCycle as AsyncAppLifeCycle
+        from koyeb.api_async.exceptions import ApiException as AsyncApiException
         from koyeb.api_async.models.create_service import (
             CreateService as AsyncCreateService,
         )
@@ -1879,6 +1938,7 @@ class AsyncSandbox(Sandbox):
         env["SANDBOX_SECRET"] = sandbox_secret
 
         # Use provided app_id or create a new app
+        created_app = False
         if app_id is None:
             app_name = f"sandbox-app-{name}-{int(time.time())}"
             app_response = await clients.apps.create_app(
@@ -1887,59 +1947,107 @@ class AsyncSandbox(Sandbox):
                 )
             )
             app_id = app_response.app.id
+            created_app = True
 
-        env_vars = build_env_vars(env)
-        config_file_objects = build_config_files(config_files)
-        docker_source = create_docker_source(
-            image,
-            privileged=privileged,
-            image_registry_secret=registry_secret,
-            entrypoint=entrypoint,
-            command=command,
-            args=args,
-        )
-
-        deployment_definition = create_deployment_definition(
-            name=name,
-            docker_source=docker_source,
-            env_vars=env_vars,
-            instance_type=instance_type,
-            exposed_port_protocol=exposed_port_protocol,
-            region=region,
-            routes=routes,
-            idle_timeout=idle_timeout,
-            enable_tcp_proxy=enable_tcp_proxy,
-            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-            _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-            enable_mesh=enable_mesh,
-            config_files=config_file_objects if config_file_objects else None,
-            network_policy=network_policy,
-        )
-
-        service_life_cycle = AsyncServiceLifeCycle(
-            delete_after_create=delete_after_delay,
-            delete_after_sleep=delete_after_inactivity_delay,
-        )
-        # Convert sync DeploymentDefinition to dict so the async Pydantic model
-        # (which expects koyeb.api_async.models.DeploymentDefinition) can coerce it.
-
-        # Handle snapshot creation based on snapshot type
-        # For FULL snapshots, don't provide definition (API will infer it)
-        # For FILESYSTEM snapshots, always provide definition with snapshot_id
-        if actual_snapshot_id:
-            # Import here to avoid circular import
-            from .snapshot import SnapshotType as ST
-
-            # For FULL snapshots, create service without definition
-            if actual_snapshot_type == ST.FULL:
-                create_service = AsyncCreateService(
-                    app_id=app_id,
-                    life_cycle=service_life_cycle,
-                    instance_snapshot_id=actual_snapshot_id,
-                    name=name,
+        async def _delete_created_app() -> None:
+            """Delete the app this call created; never masks the real error."""
+            if not created_app:
+                return
+            try:
+                await clients.apps.delete_app(app_id)
+            except Exception as cleanup_error:
+                logger.warning(
+                    f"Failed to delete app {app_id} after sandbox creation error: {cleanup_error}"
                 )
+
+        try:
+            env_vars = build_env_vars(env)
+            config_file_objects = build_config_files(config_files)
+            docker_source = create_docker_source(
+                image,
+                privileged=privileged,
+                image_registry_secret=registry_secret,
+                entrypoint=entrypoint,
+                command=command,
+                args=args,
+            )
+
+            deployment_definition = create_deployment_definition(
+                name=name,
+                docker_source=docker_source,
+                env_vars=env_vars,
+                instance_type=instance_type,
+                exposed_port_protocol=exposed_port_protocol,
+                region=region,
+                routes=routes,
+                idle_timeout=idle_timeout,
+                enable_tcp_proxy=enable_tcp_proxy,
+                _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+                _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+                enable_mesh=enable_mesh,
+                config_files=config_file_objects if config_file_objects else None,
+                network_policy=network_policy,
+            )
+
+            service_life_cycle = AsyncServiceLifeCycle(
+                delete_after_create=delete_after_delay,
+                delete_after_sleep=delete_after_inactivity_delay,
+            )
+            # Convert sync DeploymentDefinition to dict so the async Pydantic model
+            # (which expects koyeb.api_async.models.DeploymentDefinition) can coerce it.
+
+            # Handle snapshot creation based on snapshot type
+            # For FULL snapshots, don't provide definition (API will infer it)
+            # For FILESYSTEM snapshots, always provide definition with snapshot_id
+            if actual_snapshot_id:
+                # Import here to avoid circular import
+                from .snapshot import SnapshotType as ST
+
+                # For FULL snapshots, create service without definition
+                if actual_snapshot_type == ST.FULL:
+                    create_service = AsyncCreateService(
+                        app_id=app_id,
+                        life_cycle=service_life_cycle,
+                        instance_snapshot_id=actual_snapshot_id,
+                        name=name,
+                    )
+                else:
+                    # For FILESYSTEM snapshots (or unknown), provide definition
+                    env_vars = build_env_vars(env)
+                    config_file_objects = build_config_files(config_files)
+                    docker_source = create_docker_source(
+                        image,
+                        privileged=privileged,
+                        image_registry_secret=registry_secret,
+                        entrypoint=entrypoint,
+                        command=command,
+                        args=args,
+                    )
+                    deployment_definition = create_deployment_definition(
+                        name=name,
+                        docker_source=docker_source,
+                        env_vars=env_vars,
+                        instance_type=instance_type,
+                        exposed_port_protocol=exposed_port_protocol,
+                        region=region,
+                        routes=routes,
+                        idle_timeout=idle_timeout,
+                        enable_tcp_proxy=enable_tcp_proxy,
+                        _experimental_enable_light_sleep=_experimental_enable_light_sleep,
+                        _experimental_deep_sleep_value=_experimental_deep_sleep_value,
+                        enable_mesh=enable_mesh,
+                        config_files=config_file_objects if config_file_objects else None,
+                        network_policy=network_policy,
+                    )
+                    create_service = AsyncCreateService(
+                        app_id=app_id,
+                        definition=deployment_definition.to_dict(),
+                        life_cycle=service_life_cycle,
+                        instance_snapshot_id=actual_snapshot_id,
+                        name=name,
+                    )
             else:
-                # For FILESYSTEM snapshots (or unknown), provide definition
+                # No snapshot, create normally with definition
                 env_vars = build_env_vars(env)
                 config_file_objects = build_config_files(config_files)
                 docker_source = create_docker_source(
@@ -1970,45 +2078,16 @@ class AsyncSandbox(Sandbox):
                     app_id=app_id,
                     definition=deployment_definition.to_dict(),
                     life_cycle=service_life_cycle,
-                    instance_snapshot_id=actual_snapshot_id,
                     name=name,
                 )
-        else:
-            # No snapshot, create normally with definition
-            env_vars = build_env_vars(env)
-            config_file_objects = build_config_files(config_files)
-            docker_source = create_docker_source(
-                image,
-                privileged=privileged,
-                image_registry_secret=registry_secret,
-                entrypoint=entrypoint,
-                command=command,
-                args=args,
-            )
-            deployment_definition = create_deployment_definition(
-                name=name,
-                docker_source=docker_source,
-                env_vars=env_vars,
-                instance_type=instance_type,
-                exposed_port_protocol=exposed_port_protocol,
-                region=region,
-                routes=routes,
-                idle_timeout=idle_timeout,
-                enable_tcp_proxy=enable_tcp_proxy,
-                _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-                _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-                enable_mesh=enable_mesh,
-                config_files=config_file_objects if config_file_objects else None,
-                network_policy=network_policy,
-            )
-            create_service = AsyncCreateService(
-                app_id=app_id,
-                definition=deployment_definition.to_dict(),
-                life_cycle=service_life_cycle,
-                name=name,
-            )
-        service_response = await clients.services.create_service(service=create_service)
-        service_id = service_response.service.id
+            service_response = await clients.services.create_service(service=create_service)
+            service_id = service_response.service.id
+        except AsyncApiException as e:
+            await _delete_created_app()
+            raise SandboxError(f"Failed to create sandbox '{name}': {e}") from e
+        except Exception:
+            await _delete_created_app()
+            raise
 
         sandbox = cls(
             sandbox_id=name,
@@ -2023,8 +2102,21 @@ class AsyncSandbox(Sandbox):
         )
 
         if wait_ready:
-            is_ready = await sandbox.wait_ready(timeout=timeout)
+            try:
+                is_ready = await sandbox.wait_ready(timeout=timeout)
+            except SandboxError as e:
+                if cleanup_on_failure:
+                    await _cleanup_after_failure_async(sandbox)
+                    e.args = (f"{e} The sandbox was deleted.",)
+                raise
             if not is_ready:
+                if cleanup_on_failure:
+                    await _cleanup_after_failure_async(sandbox)
+                    raise SandboxTimeoutError(
+                        f"Sandbox '{sandbox.name}' did not become ready within {timeout} seconds "
+                        f"and was deleted. Create with cleanup_on_failure=False to keep a "
+                        f"timed-out sandbox for inspection."
+                    )
                 raise SandboxTimeoutError(
                     f"Sandbox '{sandbox.name}' did not become ready within {timeout} seconds. "
                     f"The sandbox was created but may not be ready yet. "
