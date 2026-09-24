@@ -27,6 +27,7 @@ from .utils import (
     NoSandboxSecretError,
     SandboxDeploymentError,
     SandboxError,
+    SandboxRequestError,
     SandboxServiceError,
     SandboxTimeoutError,
 )
@@ -47,6 +48,7 @@ __all__ = [
     "NoSandboxSecretError",
     "SandboxDeploymentError",
     "SandboxError",
+    "SandboxRequestError",
     "SandboxServiceError",
     "SandboxTimeoutError",
     "CommandResult",

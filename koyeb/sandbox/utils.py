@@ -792,12 +792,36 @@ class SandboxDeploymentError(SandboxError):
     """Raised when a sandbox deployment reaches an error state"""
 
 
-class SandboxServiceError(SandboxError):
+class SandboxRequestError(SandboxError):
+    """Raised when the sandbox executor returns a non-OK HTTP response.
+
+    Carries the HTTP status code and response body. SandboxServiceError
+    (HTTP 5xx) subclasses this, so `except SandboxRequestError` catches
+    every executor HTTP failure — mirroring the JS SDK's SandboxRequestError.
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        body: Any = None,
+        message: Optional[str] = None,
+    ):
+        self.status_code = status_code
+        self.body = body
+        super().__init__(
+            message or f"Sandbox executor request failed: {status_code} {body}"
+        )
+
+
+class SandboxServiceError(SandboxRequestError):
     """Raised when the sandbox executor returns an HTTP 5xx error"""
 
     def __init__(self, status_code: int, message: str):
-        self.status_code = status_code
-        super().__init__(f"Sandbox service error ({status_code}): {message}")
+        super().__init__(
+            status_code,
+            body=message,
+            message=f"Sandbox service error ({status_code}): {message}",
+        )
 
 
 class EgressPolicyError(SandboxError):
