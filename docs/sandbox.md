@@ -3506,6 +3506,8 @@ class ClaimResult()
 
 A sandbox claimed from a service pool (``service_id`` is always set).
 
+The claimed sandbox is detached from the pool and owned by the caller.
+
 <a id="koyeb.sandbox.pool.claim"></a>
 
 #### claim
@@ -3525,6 +3527,9 @@ On the warm path (``prewarmed=True``) the claimed sandbox is already
 running. On the cold path a sandbox service is created on demand:
 ``service_id`` is returned immediately and the sandbox becomes usable
 once the service is ready — see ``wait_claim_ready``.
+
+The claimed service is detached from the pool and owned by the
+caller: delete it like any other sandbox once you are done with it.
 
 Idempotent: the same ``(pool_id, request_id)`` pair always returns the
 same claim; ``request_id`` defaults to a generated UUID and is preserved
