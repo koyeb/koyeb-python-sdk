@@ -111,7 +111,12 @@ _FAKE_SERVICE = SimpleNamespace(
 
 def _deployment_with_env(env):
     return SimpleNamespace(
-        deployment=SimpleNamespace(definition=SimpleNamespace(env=env), metadata=None)
+        deployment=SimpleNamespace(
+            id="dep-1",
+            status="HEALTHY",
+            definition=SimpleNamespace(env=env),
+            metadata=None,
+        )
     )
 
 
@@ -172,7 +177,7 @@ class TestNoSandboxSecretRaiseSite(unittest.TestCase):
     def test_async_missing_secret_raises(self):
         clients = _fake_async_clients(env=[])
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with self.assertRaises(NoSandboxSecretError) as cm:
                 asyncio.run(AsyncSandbox.get_from_id("svc-1", api_token="tok"))
@@ -182,7 +187,7 @@ class TestNoSandboxSecretRaiseSite(unittest.TestCase):
         env = [SimpleNamespace(key="SANDBOX_SECRET", value="sec")]
         clients = _fake_async_clients(env=env)
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             sb = asyncio.run(AsyncSandbox.get_from_id("svc-1", api_token="tok"))
         self.assertEqual(sb.sandbox_secret, "sec")

@@ -113,10 +113,12 @@ class TestSyncDeploymentHealthWiring(unittest.TestCase):
     @staticmethod
     def _fake_clients(status):
         reply = SimpleNamespace(
-            deployment=SimpleNamespace(status=status, metadata=None)
+            deployment=SimpleNamespace(
+                id="dep-1", status=status, definition=None, metadata=None
+            )
         )
         return SimpleNamespace(
-            deployments=SimpleNamespace(get_deployment=lambda deployment_id: reply),
+            deployments=SimpleNamespace(get_deployment=lambda id: reply),
         )
 
     def _patch_clients(self, status):
@@ -176,16 +178,18 @@ class TestAsyncDeploymentHealthWiring(unittest.TestCase):
     @staticmethod
     def _fake_clients(status):
         class FakeDeployments:
-            async def get_deployment(self, deployment_id):
+            async def get_deployment(self, id):
                 return SimpleNamespace(
-                    deployment=SimpleNamespace(status=status, metadata=None)
+                    deployment=SimpleNamespace(
+                        id="dep-1", status=status, definition=None, metadata=None
+                    )
                 )
 
         return SimpleNamespace(deployments=FakeDeployments())
 
     def _patch_clients(self, status):
         return patch(
-            "koyeb.sandbox.utils.get_async_api_clients",
+            "koyeb.sandbox.sandbox.get_async_api_clients",
             return_value=self._fake_clients(status),
         )
 

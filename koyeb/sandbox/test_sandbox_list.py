@@ -13,6 +13,8 @@ def _service(idx):
         id=f"svc-{idx}",
         app_id=f"app-{idx}",
         name=f"sb-{idx}",
+        active_deployment_id=f"depl-{idx}",
+        latest_deployment_id=f"depl-{idx}",
     )
 
 
@@ -82,7 +84,7 @@ class TestAsyncSandboxList(unittest.TestCase):
     def test_filters_types_and_paginates(self):
         services = FakeAsyncListServicesApi(count=150)
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients",
+            "koyeb.sandbox.sandbox.get_async_api_clients",
             return_value=SimpleNamespace(services=services),
         ):
             found = asyncio.run(AsyncSandbox.list(app_id="app-9", api_token="tok"))

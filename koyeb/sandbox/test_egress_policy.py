@@ -72,7 +72,7 @@ class TestCreateEgressWiring(unittest.TestCase):
         egress = service.definition.network_policy.egress
         self.assertEqual(egress.mode, EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL)
 
-    @patch("koyeb.sandbox.utils.get_async_api_clients")
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
     def test_async_mutually_exclusive_fails_before_any_api_call(self, mock_get_clients):
         with self.assertRaises(EgressPolicyError):
             asyncio.run(
@@ -236,7 +236,7 @@ def _make_async_clients():
 class TestAsyncUpdateNetworkPolicy(unittest.TestCase):
     """Tests for AsyncSandbox.update_network_policy."""
 
-    @patch("koyeb.sandbox.utils.get_async_api_clients")
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
     def test_async_block_network(self, mock_get_clients):
         clients = _make_async_clients()
         mock_get_clients.return_value = clients
@@ -248,7 +248,7 @@ class TestAsyncUpdateNetworkPolicy(unittest.TestCase):
             EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL,
         )
 
-    @patch("koyeb.sandbox.utils.get_async_api_clients")
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
     def test_async_pins_new_deployment_and_resets_cached_state(self, mock_get_clients):
         clients = _make_async_clients()
         clients.services.update_service.return_value.service.latest_deployment_id = (
