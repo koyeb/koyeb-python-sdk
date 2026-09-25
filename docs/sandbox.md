@@ -10,6 +10,18 @@ Koyeb Sandbox - Interactive execution environment for running arbitrary code on 
 
 Koyeb Sandbox - Python SDK for creating and managing Koyeb sandboxes
 
+<a id="koyeb.sandbox.sandbox.DEFAULT_INSTANCE_WAIT_TIMEOUT"></a>
+
+#### DEFAULT\_INSTANCE\_WAIT\_TIMEOUT
+
+seconds
+
+<a id="koyeb.sandbox.sandbox.DEFAULT_POLL_INTERVAL"></a>
+
+#### DEFAULT\_POLL\_INTERVAL
+
+seconds
+
 <a id="koyeb.sandbox.sandbox.ProcessInfo"></a>
 
 ## ProcessInfo Objects
@@ -73,6 +85,25 @@ class ExposedPort()
 ```
 
 Result of exposing a port via TCP proxy.
+
+<a id="koyeb.sandbox.sandbox.validate_port"></a>
+
+#### validate\_port
+
+```python
+def validate_port(port: int) -> None
+```
+
+Validate that a port number is in the valid range.
+
+**Arguments**:
+
+- `port` - Port number to validate
+  
+
+**Raises**:
+
+- `ValueError` - If port is not in valid range [1, 65535]
 
 <a id="koyeb.sandbox.sandbox.Sandbox"></a>
 
@@ -1268,6 +1299,348 @@ async def __aexit__(exc_type, exc_val, exc_tb) -> None
 
 Async context manager exit - automatically deletes the sandbox.
 
+<a id="koyeb.sandbox.spec"></a>
+
+# koyeb.sandbox.spec
+
+SandboxSpec: the create vocabulary for Koyeb sandboxes.
+
+One definition of a sandbox deployment — env/secret injection, mesh
+tri-state, scale-to-zero sleep, ports/routes, snapshot branches. Every
+create flow (sync and async, Sandbox and ServicePool) builds one spec and
+consumes its payloads, so the decision logic lives here exactly once.
+
+<a id="koyeb.sandbox.spec.build_env_vars"></a>
+
+#### build\_env\_vars
+
+```python
+def build_env_vars(env: Optional[Dict[str, Any]]) -> List[DeploymentEnv]
+```
+
+Build environment variables list from dictionary.
+
+**Arguments**:
+
+- `env` - Dictionary of environment variables. Values can be plain strings
+  or ``Secret`` instances. A ``Secret`` value is rendered as
+  ``"{{ secret.<name> }}"`` so the Koyeb API substitutes the secret
+  value at deploy time.
+  
+
+**Returns**:
+
+  List of DeploymentEnv objects
+
+<a id="koyeb.sandbox.spec.build_config_files"></a>
+
+#### build\_config\_files
+
+```python
+def build_config_files(
+        config_files: Optional[Dict[str, Any]]) -> List[ConfigFile]
+```
+
+Build config files list from dictionary.
+
+**Arguments**:
+
+- `config_files` - Dictionary mapping file paths to file contents.
+  Values can be plain strings (default permissions 0644) or
+  ``ConfigFile`` instances (custom permissions). The dict key is
+  always used as the file path.
+  
+
+**Returns**:
+
+  List of ConfigFile objects
+
+<a id="koyeb.sandbox.spec.create_docker_source"></a>
+
+#### create\_docker\_source
+
+```python
+def create_docker_source(image: str,
+                         privileged: Optional[bool] = None,
+                         image_registry_secret: Optional[str] = None,
+                         entrypoint: Optional[List[str]] = None,
+                         command: Optional[str] = None,
+                         args: Optional[List[str]] = None) -> DockerSource
+```
+
+Create Docker source configuration.
+
+**Arguments**:
+
+- `image` - Docker image name
+- `privileged` - If True, run the container in privileged mode (default: None/False)
+- `image_registry_secret` - Name of the secret containing registry credentials
+  for pulling private images
+- `entrypoint` - Override the default entrypoint of the Docker image
+- `command` - Override the default command of the Docker image
+- `args` - Arguments to pass to the command
+  
+
+**Returns**:
+
+  DockerSource object
+
+<a id="koyeb.sandbox.spec.create_koyeb_sandbox_ports"></a>
+
+#### create\_koyeb\_sandbox\_ports
+
+```python
+def create_koyeb_sandbox_ports(protocol: str = "http") -> List[DeploymentPort]
+```
+
+Create port configuration for koyeb/sandbox image.
+
+Creates two ports:
+- Port 3030 exposed on HTTP, mounted on /koyeb-sandbox/
+- Port 3031 exposed with the specified protocol, mounted on /
+
+**Arguments**:
+
+- `protocol` - Protocol to use for port 3031 ("http" or "http2"), defaults to "http"
+  
+
+**Returns**:
+
+  List of DeploymentPort objects configured for koyeb/sandbox
+
+<a id="koyeb.sandbox.spec.create_koyeb_sandbox_proxy_ports"></a>
+
+#### create\_koyeb\_sandbox\_proxy\_ports
+
+```python
+def create_koyeb_sandbox_proxy_ports() -> List[DeploymentProxyPort]
+```
+
+Create TCP proxy port configuration for koyeb/sandbox image.
+
+Creates proxy port for direct TCP access:
+- Port 3031 exposed via TCP proxy
+
+**Returns**:
+
+  List of DeploymentProxyPort objects configured for TCP proxy access
+
+<a id="koyeb.sandbox.spec.create_koyeb_sandbox_routes"></a>
+
+#### create\_koyeb\_sandbox\_routes
+
+```python
+def create_koyeb_sandbox_routes() -> List[DeploymentRoute]
+```
+
+Create route configuration for koyeb/sandbox image to make it publicly accessible.
+
+Creates two routes:
+- Port 3030 accessible at /koyeb-sandbox/
+- Port 3031 accessible at /
+
+**Returns**:
+
+  List of DeploymentRoute objects configured for koyeb/sandbox
+
+<a id="koyeb.sandbox.spec.create_deployment_definition"></a>
+
+#### create\_deployment\_definition
+
+```python
+def create_deployment_definition(
+        name: str,
+        docker_source: DockerSource,
+        env_vars: List[DeploymentEnv],
+        instance_type: str,
+        exposed_port_protocol: Optional[str] = None,
+        region: Optional[str] = None,
+        routes: Optional[List[DeploymentRoute]] = None,
+        idle_timeout: int = 300,
+        enable_tcp_proxy: bool = False,
+        _experimental_enable_light_sleep: bool = False,
+        _experimental_deep_sleep_value: int = 3900,
+        enable_mesh: Optional[bool] = None,
+        config_files: Optional[List[ConfigFile]] = None,
+        network_policy: Optional[NetworkPolicy] = None
+) -> DeploymentDefinition
+```
+
+Create deployment definition for a sandbox service.
+
+**Arguments**:
+
+- `name` - Service name
+- `docker_source` - Docker configuration
+- `env_vars` - Environment variables
+- `instance_type` - Instance type
+- `exposed_port_protocol` - Protocol to expose ports with ("http" or "http2").
+  If None, defaults to "http".
+  If provided, must be one of "http" or "http2".
+- `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
+- `routes` - List of routes for public access
+- `idle_timeout` - Number of seconds to wait before sleeping the instance if it receives no traffic
+- `enable_tcp_proxy` - If True, enables TCP proxy for direct TCP access to port 3031
+- `_experimental_enable_light_sleep` - If True, uses light sleep when reaching idle_timeout.
+  Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for idle_timeout seconds before going into Deep Sleep.
+- `_experimental_deep_sleep_value` - Number of seconds for deep sleep when light sleep is enabled (default: 3900).
+  Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
+- `enable_mesh` - Mesh tri-state: None (default) = auto, True = enabled, False = disabled
+- `network_policy` - Optional network policy restricting egress traffic
+  
+
+**Returns**:
+
+  DeploymentDefinition object
+
+<a id="koyeb.sandbox.spec.SandboxSpec"></a>
+
+## SandboxSpec Objects
+
+```python
+@dataclass
+class SandboxSpec()
+```
+
+The single definition of a sandbox deployment.
+
+Invalid egress or port protocol fails at construction, before any
+API call. Call apply_sandbox_secret() before deployment_definition():
+the secret rides the env.
+
+<a id="koyeb.sandbox.spec.SandboxSpec.apply_sandbox_secret"></a>
+
+#### apply\_sandbox\_secret
+
+```python
+def apply_sandbox_secret(sandbox_secret: Optional[str] = None) -> str
+```
+
+Generate when missing, inject into env, return the secret.
+
+<a id="koyeb.sandbox.spec.SandboxSpec.app_payload"></a>
+
+#### app\_payload
+
+```python
+def app_payload() -> Dict[str, Any]
+```
+
+CreateApp payload for the app a create call owns.
+
+<a id="koyeb.sandbox.spec.SandboxSpec.deployment_definition"></a>
+
+#### deployment\_definition
+
+```python
+def deployment_definition() -> DeploymentDefinition
+```
+
+The deployment definition; the sync model is the wire truth.
+
+<a id="koyeb.sandbox.spec.SandboxSpec.deployment_definition_dict"></a>
+
+#### deployment\_definition\_dict
+
+```python
+def deployment_definition_dict() -> Dict[str, Any]
+```
+
+Wire-format definition; both model flavors coerce this dict.
+
+<a id="koyeb.sandbox.spec.SandboxSpec.service_life_cycle"></a>
+
+#### service\_life\_cycle
+
+```python
+def service_life_cycle() -> Dict[str, Any]
+```
+
+ServiceLifeCycle payload.
+
+<a id="koyeb.sandbox.spec.SandboxSpec.create_service_payload"></a>
+
+#### create\_service\_payload
+
+```python
+def create_service_payload(app_id: str) -> Dict[str, Any]
+```
+
+CreateService payload. FULL snapshots omit the definition (the
+API infers it); every other shape pins one.
+
+<a id="koyeb.sandbox.control_plane"></a>
+
+# koyeb.sandbox.control\_plane
+
+The control-plane seam: the narrow interface between the sandbox layer
+and the Koyeb API.
+
+Two adapters share the orchestration above them — the generated
+koyeb.api (sync) and koyeb.api_async (async) clients — so the sandbox
+twins never touch model flavors again: neutral info types come out,
+payload dicts go in. Errors map to SandboxError exactly where the
+orchestration contract demands it (service lookup); raw ApiException
+propagates where callers clean up (create/delete/update).
+
+<a id="koyeb.sandbox.control_plane.AppInfo"></a>
+
+## AppInfo Objects
+
+```python
+@dataclass(frozen=True)
+class AppInfo()
+```
+
+Neutral app summary.
+
+<a id="koyeb.sandbox.control_plane.ServiceInfo"></a>
+
+## ServiceInfo Objects
+
+```python
+@dataclass(frozen=True)
+class ServiceInfo()
+```
+
+Neutral service summary.
+
+<a id="koyeb.sandbox.control_plane.DeploymentInfo"></a>
+
+## DeploymentInfo Objects
+
+```python
+@dataclass(frozen=True)
+class DeploymentInfo()
+```
+
+Neutral deployment summary.
+
+status stays raw (enum or string) for classify_deployment_status;
+env is flattened for SANDBOX_SECRET extraction. The definition dict
+is its own seam op (deployment_definition) so wait-polling paths
+never pay for serialization.
+
+<a id="koyeb.sandbox.control_plane.SyncControlPlane"></a>
+
+## SyncControlPlane Objects
+
+```python
+class SyncControlPlane()
+```
+
+Control-plane adapter over the generated koyeb.api clients.
+
+<a id="koyeb.sandbox.control_plane.AsyncControlPlane"></a>
+
+## AsyncControlPlane Objects
+
+```python
+class AsyncControlPlane()
+```
+
+Control-plane adapter over the generated koyeb.api_async clients.
+
 <a id="koyeb.sandbox.exec"></a>
 
 # koyeb.sandbox.exec
@@ -1327,6 +1700,29 @@ class SandboxCommandError(SandboxError)
 ```
 
 Raised when a sandbox command fails (opt-in via raise_on_error).
+
+<a id="koyeb.sandbox.exec._EventFold"></a>
+
+## \_EventFold Objects
+
+```python
+class _EventFold()
+```
+
+Folds executor stream events into a CommandResult.
+
+The sync and async exec twins differ only in how events are pulled;
+this class owns what every event means.
+
+<a id="koyeb.sandbox.exec._EventFold.feed"></a>
+
+#### feed
+
+```python
+def feed(event: Dict[str, Any]) -> Optional[CommandResult]
+```
+
+Consume one event; returns a result only for a failed start.
 
 <a id="koyeb.sandbox.exec.SandboxExecutor"></a>
 
@@ -1454,6 +1850,12 @@ Execute a command in a shell asynchronously. Supports streaming output via callb
 Sandbox Executor API Client
 
 Sync and async Python clients for interacting with the Sandbox Executor API.
+
+<a id="koyeb.sandbox.executor_client.DEFAULT_HTTP_TIMEOUT"></a>
+
+#### DEFAULT\_HTTP\_TIMEOUT
+
+seconds for HTTP requests
 
 <a id="koyeb.sandbox.executor_client.ConnectionInfo"></a>
 
@@ -2332,6 +2734,46 @@ processes. This includes both active processes and processes that have completed
 
 Filesystem operations for Koyeb Sandbox instances
 Using SandboxClient HTTP API
+
+<a id="koyeb.sandbox.filesystem.check_error_message"></a>
+
+#### check\_error\_message
+
+```python
+def check_error_message(error_msg: str, error_type: str) -> bool
+```
+
+Check if an error message matches a specific error type.
+Uses case-insensitive matching against known error patterns.
+
+**Arguments**:
+
+- `error_msg` - The error message to check
+- `error_type` - The type of error to check for (key in ERROR_MESSAGES)
+  
+
+**Returns**:
+
+  True if error message matches the error type
+
+<a id="koyeb.sandbox.filesystem.escape_shell_arg"></a>
+
+#### escape\_shell\_arg
+
+```python
+def escape_shell_arg(arg: str) -> str
+```
+
+Escape a shell argument for safe use in shell commands.
+
+**Arguments**:
+
+- `arg` - The argument to escape
+  
+
+**Returns**:
+
+  Properly escaped shell argument
 
 <a id="koyeb.sandbox.filesystem.SandboxFilesystemError"></a>
 
@@ -3585,37 +4027,152 @@ def get_operations() -> List[str]
 
 Get list of operations recorded during build.
 
-<a id="koyeb.sandbox.utils"></a>
+<a id="koyeb.sandbox.errors"></a>
 
-# koyeb.sandbox.utils
+# koyeb.sandbox.errors
 
-Utility functions for Koyeb Sandbox
+The SDK error taxonomy: every failure the sandbox layer raises is a
+SandboxError subclass, so callers catch one family.
 
-<a id="koyeb.sandbox.utils.DEFAULT_INSTANCE_WAIT_TIMEOUT"></a>
+<a id="koyeb.sandbox.errors.SandboxError"></a>
 
-#### DEFAULT\_INSTANCE\_WAIT\_TIMEOUT
+## SandboxError Objects
 
-seconds
+```python
+class SandboxError(Exception)
+```
 
-<a id="koyeb.sandbox.utils.DEFAULT_POLL_INTERVAL"></a>
+Base exception for sandbox operations
 
-#### DEFAULT\_POLL\_INTERVAL
+<a id="koyeb.sandbox.errors.MissingApiTokenError"></a>
 
-seconds
+## MissingApiTokenError Objects
 
-<a id="koyeb.sandbox.utils.DEFAULT_COMMAND_TIMEOUT"></a>
+```python
+class MissingApiTokenError(SandboxError, ValueError)
+```
 
-#### DEFAULT\_COMMAND\_TIMEOUT
+Raised when no API token is provided and KOYEB_API_TOKEN is unset.
 
-seconds
+Also inherits ValueError for back-compat with published 1.5.x callers
+that catch the old plain ValueError from the token gates.
 
-<a id="koyeb.sandbox.utils.DEFAULT_HTTP_TIMEOUT"></a>
+<a id="koyeb.sandbox.errors.InvalidPortError"></a>
 
-#### DEFAULT\_HTTP\_TIMEOUT
+## InvalidPortError Objects
 
-seconds for HTTP requests
+```python
+class InvalidPortError(SandboxError, ValueError)
+```
 
-<a id="koyeb.sandbox.utils.classify_service_status"></a>
+Raised when a port is not an integer in [MIN_PORT, MAX_PORT].
+
+Also inherits ValueError for back-compat with published 1.5.x callers
+that catch the old plain ValueError from validate_port.
+
+<a id="koyeb.sandbox.errors.NoSandboxSecretError"></a>
+
+## NoSandboxSecretError Objects
+
+```python
+class NoSandboxSecretError(SandboxError)
+```
+
+Raised when a sandbox deployment carries no SANDBOX_SECRET, so the
+executor connection cannot be established.
+
+<a id="koyeb.sandbox.errors.SandboxTimeoutError"></a>
+
+## SandboxTimeoutError Objects
+
+```python
+class SandboxTimeoutError(SandboxError)
+```
+
+Raised when a sandbox operation times out
+
+<a id="koyeb.sandbox.errors.SandboxDeploymentError"></a>
+
+## SandboxDeploymentError Objects
+
+```python
+class SandboxDeploymentError(SandboxError)
+```
+
+Raised when a sandbox deployment reaches an error state
+
+<a id="koyeb.sandbox.errors.SandboxRequestError"></a>
+
+## SandboxRequestError Objects
+
+```python
+class SandboxRequestError(SandboxError)
+```
+
+Raised when the sandbox executor returns a non-OK HTTP response.
+
+Carries the HTTP status code and response body. SandboxServiceError
+(HTTP 5xx) subclasses this, so `except SandboxRequestError` catches
+every executor HTTP failure — mirroring the JS SDK's SandboxRequestError.
+
+<a id="koyeb.sandbox.errors.SandboxServiceError"></a>
+
+## SandboxServiceError Objects
+
+```python
+class SandboxServiceError(SandboxRequestError)
+```
+
+Raised when the sandbox executor returns an HTTP 5xx error
+
+<a id="koyeb.sandbox.errors.EgressPolicyError"></a>
+
+## EgressPolicyError Objects
+
+```python
+class EgressPolicyError(SandboxError)
+```
+
+Raised when egress policy arguments are invalid or conflicting
+
+<a id="koyeb.sandbox.errors.PoolClaimError"></a>
+
+## PoolClaimError Objects
+
+```python
+class PoolClaimError(SandboxError)
+```
+
+Raised when claiming a sandbox from a service pool fails
+
+<a id="koyeb.sandbox.errors.ServicePoolError"></a>
+
+## ServicePoolError Objects
+
+```python
+class ServicePoolError(SandboxError)
+```
+
+Raised when a service pool operation fails
+
+<a id="koyeb.sandbox.errors.ServiceTerminalStateError"></a>
+
+## ServiceTerminalStateError Objects
+
+```python
+class ServiceTerminalStateError(SandboxError)
+```
+
+Raised when a service reaches a state that will never become ready
+
+<a id="koyeb.sandbox.status"></a>
+
+# koyeb.sandbox.status
+
+Status classification for readiness polling, failing closed on
+unknown or terminal states.
+
+<a id="koyeb.sandbox.status.classify_service_status"></a>
 
 #### classify\_service\_status
 
@@ -3631,7 +4188,7 @@ progress, and every other state — including unknown forward-compat
 values — is a terminal failure. Mirrors the JS SDK's
 classifyServiceStatus (src/claim.ts).
 
-<a id="koyeb.sandbox.utils.classify_deployment_status"></a>
+<a id="koyeb.sandbox.status.classify_deployment_status"></a>
 
 #### classify\_deployment\_status
 
@@ -3647,7 +4204,14 @@ PROVISIONING, SCHEDULED, ALLOCATING, STARTING) are in progress, and every
 other state — including SLEEPING, STASHED, and unknown forward-compat
 values — is terminal: it will not become ready on its own during a wait.
 
-<a id="koyeb.sandbox.utils.ApiClients"></a>
+<a id="koyeb.sandbox.clients"></a>
+
+# koyeb.sandbox.clients
+
+Control-plane client bundles, their (token, host) caches, and the
+sandbox executor client factories.
+
+<a id="koyeb.sandbox.clients.ApiClients"></a>
 
 ## ApiClients Objects
 
@@ -3658,7 +4222,7 @@ class ApiClients()
 
 Bundle of Koyeb API clients sharing a single underlying ApiClient.
 
-<a id="koyeb.sandbox.utils.get_api_clients"></a>
+<a id="koyeb.sandbox.clients.get_api_clients"></a>
 
 #### get\_api\_clients
 
@@ -3686,7 +4250,7 @@ Caches clients by (token, host) to reuse the underlying HTTP connection pool.
 
 - `ValueError` - If API token is not provided
 
-<a id="koyeb.sandbox.utils.AsyncApiClients"></a>
+<a id="koyeb.sandbox.clients.AsyncApiClients"></a>
 
 ## AsyncApiClients Objects
 
@@ -3697,7 +4261,7 @@ class AsyncApiClients()
 
 Bundle of async Koyeb API clients sharing a single underlying AsyncApiClient.
 
-<a id="koyeb.sandbox.utils.get_async_api_clients"></a>
+<a id="koyeb.sandbox.clients.get_async_api_clients"></a>
 
 #### get\_async\_api\_clients
 
@@ -3725,190 +4289,71 @@ Caches clients by (token, host) to reuse the underlying HTTP connection pool.
 
 - `ValueError` - If API token is not provided
 
-<a id="koyeb.sandbox.utils.build_env_vars"></a>
+<a id="koyeb.sandbox.clients.create_sandbox_client"></a>
 
-#### build\_env\_vars
+#### create\_sandbox\_client
 
 ```python
-def build_env_vars(env: Optional[Dict[str, Any]]) -> List[DeploymentEnv]
+def create_sandbox_client(conn_info: Optional["ConnectionInfo"],
+                          existing_client: Optional[Any] = None) -> Any
 ```
 
-Build environment variables list from dictionary.
+Create or return existing SandboxClient instance with validation.
+
+Helper function to create SandboxClient instances with consistent validation.
+Used by Sandbox, SandboxExecutor, and SandboxFilesystem to avoid duplication.
 
 **Arguments**:
 
-- `env` - Dictionary of environment variables. Values can be plain strings
-  or ``Secret`` instances. A ``Secret`` value is rendered as
-  ``"{{ secret.<name> }}"`` so the Koyeb API substitutes the secret
-  value at deploy time.
+- `conn_info` - The information needed to connect to the sandbox executor API
+- `existing_client` - Existing client instance to return if not None
   
 
 **Returns**:
 
-  List of DeploymentEnv objects
+- `SandboxClient` - Configured client instance
+  
 
-<a id="koyeb.sandbox.utils.build_config_files"></a>
+**Raises**:
 
-#### build\_config\_files
+- `SandboxError` - If sandbox URL or secret is not available
+
+<a id="koyeb.sandbox.clients.create_async_sandbox_client"></a>
+
+#### create\_async\_sandbox\_client
 
 ```python
-def build_config_files(
-        config_files: Optional[Dict[str, Any]]) -> List[ConfigFile]
+def create_async_sandbox_client(conn_info: Optional["ConnectionInfo"],
+                                existing_client: Optional[Any] = None) -> Any
 ```
 
-Build config files list from dictionary.
+Create or return existing AsyncSandboxClient instance with validation.
+
+Helper function to create AsyncSandboxClient instances with consistent validation.
+Used by AsyncSandbox to avoid duplication.
 
 **Arguments**:
 
-- `config_files` - Dictionary mapping file paths to file contents.
-  Values can be plain strings (default permissions 0644) or
-  ``ConfigFile`` instances (custom permissions). The dict key is
-  always used as the file path.
+- `conn_info` - The information needed to connect to the sandbox executor API
+- `existing_client` - Existing client instance to return if not None
   
 
 **Returns**:
 
-  List of ConfigFile objects
-
-<a id="koyeb.sandbox.utils.create_docker_source"></a>
-
-#### create\_docker\_source
-
-```python
-def create_docker_source(image: str,
-                         privileged: Optional[bool] = None,
-                         image_registry_secret: Optional[str] = None,
-                         entrypoint: Optional[List[str]] = None,
-                         command: Optional[str] = None,
-                         args: Optional[List[str]] = None) -> DockerSource
-```
-
-Create Docker source configuration.
-
-**Arguments**:
-
-- `image` - Docker image name
-- `privileged` - If True, run the container in privileged mode (default: None/False)
-- `image_registry_secret` - Name of the secret containing registry credentials
-  for pulling private images
-- `entrypoint` - Override the default entrypoint of the Docker image
-- `command` - Override the default command of the Docker image
-- `args` - Arguments to pass to the command
+- `AsyncSandboxClient` - Configured async client instance
   
 
-**Returns**:
+**Raises**:
 
-  DockerSource object
+- `SandboxError` - If sandbox URL or secret is not available
 
-<a id="koyeb.sandbox.utils.create_koyeb_sandbox_ports"></a>
+<a id="koyeb.sandbox.egress"></a>
 
-#### create\_koyeb\_sandbox\_ports
+# koyeb.sandbox.egress
 
-```python
-def create_koyeb_sandbox_ports(protocol: str = "http") -> List[DeploymentPort]
-```
+Outbound egress policy building and destination normalization.
 
-Create port configuration for koyeb/sandbox image.
-
-Creates two ports:
-- Port 3030 exposed on HTTP, mounted on /koyeb-sandbox/
-- Port 3031 exposed with the specified protocol, mounted on /
-
-**Arguments**:
-
-- `protocol` - Protocol to use for port 3031 ("http" or "http2"), defaults to "http"
-  
-
-**Returns**:
-
-  List of DeploymentPort objects configured for koyeb/sandbox
-
-<a id="koyeb.sandbox.utils.create_koyeb_sandbox_proxy_ports"></a>
-
-#### create\_koyeb\_sandbox\_proxy\_ports
-
-```python
-def create_koyeb_sandbox_proxy_ports() -> List[DeploymentProxyPort]
-```
-
-Create TCP proxy port configuration for koyeb/sandbox image.
-
-Creates proxy port for direct TCP access:
-- Port 3031 exposed via TCP proxy
-
-**Returns**:
-
-  List of DeploymentProxyPort objects configured for TCP proxy access
-
-<a id="koyeb.sandbox.utils.create_koyeb_sandbox_routes"></a>
-
-#### create\_koyeb\_sandbox\_routes
-
-```python
-def create_koyeb_sandbox_routes() -> List[DeploymentRoute]
-```
-
-Create route configuration for koyeb/sandbox image to make it publicly accessible.
-
-Creates two routes:
-- Port 3030 accessible at /koyeb-sandbox/
-- Port 3031 accessible at /
-
-**Returns**:
-
-  List of DeploymentRoute objects configured for koyeb/sandbox
-
-<a id="koyeb.sandbox.utils.create_deployment_definition"></a>
-
-#### create\_deployment\_definition
-
-```python
-def create_deployment_definition(
-        name: str,
-        docker_source: DockerSource,
-        env_vars: List[DeploymentEnv],
-        instance_type: str,
-        exposed_port_protocol: Optional[str] = None,
-        region: Optional[str] = None,
-        routes: Optional[List[DeploymentRoute]] = None,
-        idle_timeout: int = 300,
-        enable_tcp_proxy: bool = False,
-        _experimental_enable_light_sleep: bool = False,
-        _experimental_deep_sleep_value: int = 3900,
-        enable_mesh: Optional[bool] = None,
-        config_files: Optional[List[ConfigFile]] = None,
-        network_policy: Optional[NetworkPolicy] = None
-) -> DeploymentDefinition
-```
-
-Create deployment definition for a sandbox service.
-
-**Arguments**:
-
-- `name` - Service name
-- `docker_source` - Docker configuration
-- `env_vars` - Environment variables
-- `instance_type` - Instance type
-- `exposed_port_protocol` - Protocol to expose ports with ("http" or "http2").
-  If None, defaults to "http".
-  If provided, must be one of "http" or "http2".
-- `region` - Region to deploy to. Defaults to KOYEB_REGION env var, or "na" if not set.
-- `routes` - List of routes for public access
-- `idle_timeout` - Number of seconds to wait before sleeping the instance if it receives no traffic
-- `enable_tcp_proxy` - If True, enables TCP proxy for direct TCP access to port 3031
-- `_experimental_enable_light_sleep` - If True, uses light sleep when reaching idle_timeout.
-  Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for idle_timeout seconds before going into Deep Sleep.
-- `_experimental_deep_sleep_value` - Number of seconds for deep sleep when light sleep is enabled (default: 3900).
-  Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
-- `enable_mesh` - Mesh tri-state: None (default) = auto, True = enabled, False = disabled
-- `network_policy` - Optional network policy restricting egress traffic
-  
-
-**Returns**:
-
-  DeploymentDefinition object
-
-<a id="koyeb.sandbox.utils.build_network_policy"></a>
+<a id="koyeb.sandbox.egress.build_network_policy"></a>
 
 #### build\_network\_policy
 
@@ -3940,252 +4385,4 @@ Build a NetworkPolicy from sandbox network policy arguments.
 
 - `EgressPolicyError` - If both arguments are passed, or an allowlist
   entry is not a valid IP address or CIDR
-
-<a id="koyeb.sandbox.utils.escape_shell_arg"></a>
-
-#### escape\_shell\_arg
-
-```python
-def escape_shell_arg(arg: str) -> str
-```
-
-Escape a shell argument for safe use in shell commands.
-
-**Arguments**:
-
-- `arg` - The argument to escape
-  
-
-**Returns**:
-
-  Properly escaped shell argument
-
-<a id="koyeb.sandbox.utils.validate_port"></a>
-
-#### validate\_port
-
-```python
-def validate_port(port: int) -> None
-```
-
-Validate that a port number is in the valid range.
-
-**Arguments**:
-
-- `port` - Port number to validate
-  
-
-**Raises**:
-
-- `ValueError` - If port is not in valid range [1, 65535]
-
-<a id="koyeb.sandbox.utils.check_error_message"></a>
-
-#### check\_error\_message
-
-```python
-def check_error_message(error_msg: str, error_type: str) -> bool
-```
-
-Check if an error message matches a specific error type.
-Uses case-insensitive matching against known error patterns.
-
-**Arguments**:
-
-- `error_msg` - The error message to check
-- `error_type` - The type of error to check for (key in ERROR_MESSAGES)
-  
-
-**Returns**:
-
-  True if error message matches the error type
-
-<a id="koyeb.sandbox.utils.create_sandbox_client"></a>
-
-#### create\_sandbox\_client
-
-```python
-def create_sandbox_client(conn_info: Optional["ConnectionInfo"],
-                          existing_client: Optional[Any] = None) -> Any
-```
-
-Create or return existing SandboxClient instance with validation.
-
-Helper function to create SandboxClient instances with consistent validation.
-Used by Sandbox, SandboxExecutor, and SandboxFilesystem to avoid duplication.
-
-**Arguments**:
-
-- `conn_info` - The information needed to connect to the sandbox executor API
-- `existing_client` - Existing client instance to return if not None
-  
-
-**Returns**:
-
-- `SandboxClient` - Configured client instance
-  
-
-**Raises**:
-
-- `SandboxError` - If sandbox URL or secret is not available
-
-<a id="koyeb.sandbox.utils.create_async_sandbox_client"></a>
-
-#### create\_async\_sandbox\_client
-
-```python
-def create_async_sandbox_client(conn_info: Optional["ConnectionInfo"],
-                                existing_client: Optional[Any] = None) -> Any
-```
-
-Create or return existing AsyncSandboxClient instance with validation.
-
-Helper function to create AsyncSandboxClient instances with consistent validation.
-Used by AsyncSandbox to avoid duplication.
-
-**Arguments**:
-
-- `conn_info` - The information needed to connect to the sandbox executor API
-- `existing_client` - Existing client instance to return if not None
-  
-
-**Returns**:
-
-- `AsyncSandboxClient` - Configured async client instance
-  
-
-**Raises**:
-
-- `SandboxError` - If sandbox URL or secret is not available
-
-<a id="koyeb.sandbox.utils.SandboxError"></a>
-
-## SandboxError Objects
-
-```python
-class SandboxError(Exception)
-```
-
-Base exception for sandbox operations
-
-<a id="koyeb.sandbox.utils.MissingApiTokenError"></a>
-
-## MissingApiTokenError Objects
-
-```python
-class MissingApiTokenError(SandboxError, ValueError)
-```
-
-Raised when no API token is provided and KOYEB_API_TOKEN is unset.
-
-Also inherits ValueError for back-compat with published 1.5.x callers
-that catch the old plain ValueError from the token gates.
-
-<a id="koyeb.sandbox.utils.InvalidPortError"></a>
-
-## InvalidPortError Objects
-
-```python
-class InvalidPortError(SandboxError, ValueError)
-```
-
-Raised when a port is not an integer in [MIN_PORT, MAX_PORT].
-
-Also inherits ValueError for back-compat with published 1.5.x callers
-that catch the old plain ValueError from validate_port.
-
-<a id="koyeb.sandbox.utils.NoSandboxSecretError"></a>
-
-## NoSandboxSecretError Objects
-
-```python
-class NoSandboxSecretError(SandboxError)
-```
-
-Raised when a sandbox deployment carries no SANDBOX_SECRET, so the
-executor connection cannot be established.
-
-<a id="koyeb.sandbox.utils.SandboxTimeoutError"></a>
-
-## SandboxTimeoutError Objects
-
-```python
-class SandboxTimeoutError(SandboxError)
-```
-
-Raised when a sandbox operation times out
-
-<a id="koyeb.sandbox.utils.SandboxDeploymentError"></a>
-
-## SandboxDeploymentError Objects
-
-```python
-class SandboxDeploymentError(SandboxError)
-```
-
-Raised when a sandbox deployment reaches an error state
-
-<a id="koyeb.sandbox.utils.SandboxRequestError"></a>
-
-## SandboxRequestError Objects
-
-```python
-class SandboxRequestError(SandboxError)
-```
-
-Raised when the sandbox executor returns a non-OK HTTP response.
-
-Carries the HTTP status code and response body. SandboxServiceError
-(HTTP 5xx) subclasses this, so `except SandboxRequestError` catches
-every executor HTTP failure — mirroring the JS SDK's SandboxRequestError.
-
-<a id="koyeb.sandbox.utils.SandboxServiceError"></a>
-
-## SandboxServiceError Objects
-
-```python
-class SandboxServiceError(SandboxRequestError)
-```
-
-Raised when the sandbox executor returns an HTTP 5xx error
-
-<a id="koyeb.sandbox.utils.EgressPolicyError"></a>
-
-## EgressPolicyError Objects
-
-```python
-class EgressPolicyError(SandboxError)
-```
-
-Raised when egress policy arguments are invalid or conflicting
-
-<a id="koyeb.sandbox.utils.PoolClaimError"></a>
-
-## PoolClaimError Objects
-
-```python
-class PoolClaimError(SandboxError)
-```
-
-Raised when claiming a sandbox from a service pool fails
-
-<a id="koyeb.sandbox.utils.ServicePoolError"></a>
-
-## ServicePoolError Objects
-
-```python
-class ServicePoolError(SandboxError)
-```
-
-Raised when a service pool operation fails
-
-<a id="koyeb.sandbox.utils.ServiceTerminalStateError"></a>
-
-## ServiceTerminalStateError Objects
-
-```python
-class ServiceTerminalStateError(SandboxError)
-```
-
-Raised when a service reaches a state that will never become ready
 
