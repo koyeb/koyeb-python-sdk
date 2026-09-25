@@ -13,7 +13,8 @@ from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from .sandbox import Sandbox
-from .utils import SandboxError, get_api_clients
+from .clients import get_api_clients
+from .errors import MissingApiTokenError, SandboxError
 
 
 class SnapshotType(Enum):
@@ -91,7 +92,7 @@ class Snapshot:
         if not api_token:
             api_token = os.getenv("KOYEB_API_TOKEN")
         if not api_token:
-            raise SandboxError(
+            raise MissingApiTokenError(
                 "API token is required. Set KOYEB_API_TOKEN environment variable."
             )
 
@@ -141,7 +142,7 @@ class Snapshot:
         if not api_token:
             api_token = os.getenv("KOYEB_API_TOKEN")
         if not api_token:
-            raise SandboxError(
+            raise MissingApiTokenError(
                 "API token is required. Set KOYEB_API_TOKEN environment variable."
             )
 
@@ -397,7 +398,7 @@ class DeclarativeSnapshot:
         if not api_token:
             api_token = os.getenv("KOYEB_API_TOKEN")
         if not api_token:
-            raise SandboxError(
+            raise MissingApiTokenError(
                 "API token is required. Set KOYEB_API_TOKEN environment variable."
             )
 

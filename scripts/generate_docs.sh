@@ -1,3 +1,19 @@
 uv run pydoc-markdown -p koyeb/api >docs/api.md
 uv run pydoc-markdown -p koyeb/api_async >docs/api_async.md
-uv run pydoc-markdown -p koyeb/sandbox >docs/sandbox.md
+# Explicit module list so test modules and fakes stay out of the docs.
+# PYTHONPATH is required: the module loader imports instead of walking paths.
+PYTHONPATH=. uv run pydoc-markdown \
+  -m koyeb.sandbox \
+  -m koyeb.sandbox.sandbox \
+  -m koyeb.sandbox.spec \
+  -m koyeb.sandbox.control_plane \
+  -m koyeb.sandbox.exec \
+  -m koyeb.sandbox.executor_client \
+  -m koyeb.sandbox.filesystem \
+  -m koyeb.sandbox.pool \
+  -m koyeb.sandbox.snapshot \
+  -m koyeb.sandbox.errors \
+  -m koyeb.sandbox.status \
+  -m koyeb.sandbox.clients \
+  -m koyeb.sandbox.egress \
+  >docs/sandbox.md

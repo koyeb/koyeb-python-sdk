@@ -10,7 +10,7 @@ from koyeb.sandbox.executor_client import (
     SandboxClient,
 )
 from koyeb.sandbox.sandbox import AsyncSandbox, Sandbox
-from koyeb.sandbox.utils import SandboxError
+from koyeb.sandbox.errors import SandboxError
 
 
 class TestGetClientWhenUrlUnavailable(unittest.TestCase):

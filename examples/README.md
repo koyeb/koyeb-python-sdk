@@ -41,6 +41,13 @@ uv run python examples/01_create_sandbox.py
 - **25_full_snapshot_and_spawn.py** - Full snapshots with process state preservation
 - **26_snapshot_boot_benchmark.py** - Benchmark snapshot boot times (sync)
 - **27_docker_in_docker.py** - Run containers inside a sandbox (docker-in-docker), building an image from scratch with no registry pull
+- **28_service_pool.py** - Service pool lifecycle: create, list, update, and delete a pool
+- **29_pool_claim.py** - Spawn a pool, claim a sandbox (idempotent by request_id), inspect the claim, run code, clean up both
+- **29_pool_claim_async.py** - Spawn a pool, claim a sandbox, clean up both (async variant)
+- **30_sandbox_list.py** - List sandbox services with lazy handles, connect one via get_from_id
+- **30_sandbox_list_async.py** - List sandbox services with lazy handles (async variant)
+- **31_raise_on_error.py** - Opt-in exec errors: SandboxCommandError carries the failed CommandResult
+- **31_raise_on_error_async.py** - Opt-in exec errors (async variant)
 
 ## Basic Usage
 
