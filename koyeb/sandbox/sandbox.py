@@ -127,6 +127,9 @@ class Sandbox:
         self.poll_interval = poll_interval
         self.host = host
         self.snapshot_id = snapshot_id
+        # Owned apps are deleted with the sandbox; caller-provided apps keep
+        # their unrelated services, so delete() removes only the service.
+        self._owns_app = True
         self._created_at = time.time()
         self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
         self._domain: Optional[str] = None
@@ -163,7 +166,7 @@ class Sandbox:
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
-        enable_mesh: bool = None,
+        enable_mesh: Optional[bool] = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         entrypoint: Optional[List[str]] = None,
         command: Optional[str] = None,
@@ -210,7 +213,7 @@ class Sandbox:
                 delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
-                enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
+                enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
@@ -372,7 +375,7 @@ class Sandbox:
         region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
-        idle_timeout: int = 0,
+        idle_timeout: int = 300,
         enable_tcp_proxy: bool = False,
         privileged: bool = False,
         registry_secret: Optional[str] = None,
@@ -381,7 +384,7 @@ class Sandbox:
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
-        enable_mesh: bool = None,
+        enable_mesh: Optional[bool] = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         entrypoint: Optional[List[str]] = None,
         command: Optional[str] = None,
@@ -541,7 +544,7 @@ class Sandbox:
             _delete_created_app()
             raise
 
-        return cls(
+        sandbox = cls(
             sandbox_id=name,
             app_id=app_id,
             service_id=service_id,
@@ -552,6 +555,8 @@ class Sandbox:
             host=host,
             snapshot_id=snapshot_id,
         )
+        sandbox._owns_app = created_app
+        return sandbox
 
     @classmethod
     def get_from_id(
@@ -717,7 +722,7 @@ class Sandbox:
     def snapshot(
         self,
         name: str,
-        snapshot_type: "SnapshotType" = None,
+        snapshot_type: Optional["SnapshotType"] = None,
         wait_available: bool = True,
         timeout: int = 600,
     ) -> "Snapshot":
@@ -1076,7 +1081,11 @@ class Sandbox:
     def delete(self) -> None:
         """Delete the sandbox instance."""
         clients = get_api_clients(self.api_token, self.host)
-        clients.apps.delete_app(self.app_id)
+        if self._owns_app:
+            clients.apps.delete_app(self.app_id)
+        else:
+            # Caller-provided app: deleting it would destroy unrelated services.
+            clients.services.delete_service(id=self.service_id)
 
     def _get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
         """
@@ -1295,7 +1304,11 @@ class Sandbox:
             return False
 
     def is_healthy(self) -> bool:
-        """Check if sandbox is healthy and ready for operations"""
+        """Check if sandbox is healthy and ready for operations.
+
+        Raises SandboxDeploymentError when the deployment reached a terminal
+        state (e.g. STOPPED) — classification fails closed.
+        """
         # Check deployment status first to avoid sending traffic to a non-ready sandbox
         if not self._is_deployment_healthy():
             return False
@@ -1634,7 +1647,7 @@ class Sandbox:
                 egress=EgressPolicy(mode=EgressPolicyMode.EGRESS_POLICY_MODE_DEFAULT)
             )
         try:
-            clients = get_api_clients(self.api_token)
+            clients = get_api_clients(self.api_token, self.host)
             services_api = clients.services
             deployments_api = clients.deployments
             service_response = services_api.get_service(self.service_id)
@@ -1835,7 +1848,7 @@ class AsyncSandbox(Sandbox):
         region: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 300,
-        idle_timeout: int = 0,
+        idle_timeout: int = 300,
         enable_tcp_proxy: bool = False,
         privileged: bool = False,
         registry_secret: Optional[str] = None,
@@ -1844,7 +1857,7 @@ class AsyncSandbox(Sandbox):
         delete_after_delay: int = 0,
         delete_after_inactivity_delay: int = 0,
         app_id: Optional[str] = None,
-        enable_mesh: bool = False,
+        enable_mesh: Optional[bool] = None,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         entrypoint: Optional[List[str]] = None,
         command: Optional[str] = None,
@@ -1893,7 +1906,7 @@ class AsyncSandbox(Sandbox):
                 delete_after_inactivity_delay: If >0, automatically delete the sandbox if service sleeps due to inactivity
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
-                enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
+                enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
@@ -2153,6 +2166,7 @@ class AsyncSandbox(Sandbox):
             host=host,
             snapshot_id=actual_snapshot_id,
         )
+        sandbox._owns_app = created_app
 
         if wait_ready:
             try:
@@ -2221,7 +2235,6 @@ class AsyncSandbox(Sandbox):
             if offset >= (reply.count or 0):
                 break
         return sandboxes
-
 
     async def _async_is_deployment_healthy(self) -> bool:
         """Check deployment health via async API."""
@@ -2350,9 +2363,6 @@ class AsyncSandbox(Sandbox):
 
         while time.time() - start_time < timeout:
             from .utils import get_async_api_clients
-            from koyeb.api_async.api.deployments_api import (
-                DeploymentsApi as AsyncDeploymentsApi,
-            )
 
             try:
                 clients = get_async_api_clients(self.api_token, self.host)
@@ -2386,12 +2396,16 @@ class AsyncSandbox(Sandbox):
         from .utils import get_async_api_clients
 
         clients = get_async_api_clients(self.api_token, self.host)
-        await clients.apps.delete_app(self.app_id)
+        if self._owns_app:
+            await clients.apps.delete_app(self.app_id)
+        else:
+            # Caller-provided app: deleting it would destroy unrelated services.
+            await clients.services.delete_service(id=self.service_id)
 
     async def snapshot(
         self,
         name: str,
-        snapshot_type: "SnapshotType" = None,
+        snapshot_type: Optional["SnapshotType"] = None,
         wait_available: bool = True,
         timeout: int = 600,
     ) -> "Snapshot":
@@ -2546,7 +2560,11 @@ class AsyncSandbox(Sandbox):
         return await cls.create(**create_params)
 
     async def is_healthy(self) -> bool:
-        """Check if sandbox is healthy and ready for operations asynchronously."""
+        """Check if sandbox is healthy and ready for operations asynchronously.
+
+        Raises SandboxDeploymentError when the deployment reached a terminal
+        state (e.g. STOPPED) — classification fails closed.
+        """
         if not await self._async_is_deployment_healthy():
             return False
         return await self._async_check_executor_health()

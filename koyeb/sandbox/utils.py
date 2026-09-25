@@ -468,7 +468,7 @@ def create_deployment_definition(
     enable_tcp_proxy: bool = False,
     _experimental_enable_light_sleep: bool = False,
     _experimental_deep_sleep_value: int = 3900,
-    enable_mesh: bool = None,
+    enable_mesh: Optional[bool] = None,
     config_files: Optional[List[ConfigFile]] = None,
     network_policy: Optional[NetworkPolicy] = None,
 ) -> DeploymentDefinition:

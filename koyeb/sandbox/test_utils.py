@@ -1,9 +1,11 @@
 import unittest
 
+from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.egress_policy_mode import EgressPolicyMode
 from koyeb.sandbox.utils import (
     EgressPolicyError,
     build_network_policy,
+    create_deployment_definition,
     create_docker_source,
 )
 
@@ -63,6 +65,50 @@ class TestCreateDockerSource(unittest.TestCase):
         self.assertEqual(ds.image_registry_secret, "my-secret")
         self.assertEqual(ds.entrypoint, ["/entrypoint.sh"])
         self.assertEqual(ds.command, "serve")
+
+
+class TestDeploymentDefinitionMapping(unittest.TestCase):
+    """Pins the enable_mesh and idle_timeout semantics the sync/async
+    default alignment depends on."""
+
+    def _definition(self, **kwargs):
+        return create_deployment_definition(
+            name="svc",
+            docker_source=create_docker_source("koyeb/sandbox"),
+            env_vars=[],
+            instance_type="micro",
+            **kwargs,
+        )
+
+    def test_enable_mesh_tri_state(self):
+        self.assertEqual(
+            self._definition(enable_mesh=None).mesh, DeploymentMesh.DEPLOYMENT_MESH_AUTO
+        )
+        self.assertEqual(
+            self._definition(enable_mesh=True).mesh,
+            DeploymentMesh.DEPLOYMENT_MESH_ENABLED,
+        )
+        self.assertEqual(
+            self._definition(enable_mesh=False).mesh,
+            DeploymentMesh.DEPLOYMENT_MESH_DISABLED,
+        )
+
+    def test_default_idle_timeout_scales_to_zero(self):
+        scaling = self._definition().scalings[0]
+        self.assertEqual(scaling.min, 0)
+        self.assertEqual(scaling.targets[0].sleep_idle_delay.deep_sleep_value, 300)
+
+    def test_idle_timeout_zero_is_always_on(self):
+        scaling = self._definition(idle_timeout=0).scalings[0]
+        self.assertEqual(scaling.min, 1)
+        self.assertIsNone(scaling.targets)
+
+    def test_light_sleep_mode(self):
+        delay = self._definition(
+            idle_timeout=120, _experimental_enable_light_sleep=True
+        ).scalings[0].targets[0].sleep_idle_delay
+        self.assertEqual(delay.light_sleep_value, 120)
+        self.assertEqual(delay.deep_sleep_value, 3900)
 
 
 class TestBuildEgressPolicy(unittest.TestCase):

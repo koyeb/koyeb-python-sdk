@@ -113,11 +113,29 @@ class TestRaiseOnErrorAsyncMirror(unittest.TestCase):
         with self.assertRaises(SandboxCommandError) as cm:
             _exec_async(client, raise_on_error=True)
         self.assertEqual(cm.exception.result.exit_code, 1)
+        self.assertIn("exit code 1", str(cm.exception))
 
     def test_raise_on_error_non_streaming(self):
         client = FakeAsyncClient(run_response={"stdout": "", "stderr": "x", "code": 3})
         with self.assertRaises(SandboxCommandError):
             _exec_async(client, stream=False, raise_on_error=True)
+
+    def test_default_non_streaming_returns_failed_result(self):
+        client = FakeAsyncClient(run_response={"stdout": "", "stderr": "boom", "code": 2})
+        result = _exec_async(client, stream=False)
+        self.assertEqual(result.status, CommandStatus.FAILED)
+
+    def test_raise_on_error_error_event(self):
+        client = FakeAsyncClient(events=[{"error": "failed to start"}])
+        with self.assertRaises(SandboxCommandError):
+            _exec_async(client, raise_on_error=True)
+
+    def test_raise_on_error_success_does_not_raise(self):
+        client = FakeAsyncClient(
+            events=[{"stream": "stdout", "data": "hi"}, {"code": 0}]
+        )
+        result = _exec_async(client, raise_on_error=True)
+        self.assertTrue(result.success)
 
 
 if __name__ == "__main__":
