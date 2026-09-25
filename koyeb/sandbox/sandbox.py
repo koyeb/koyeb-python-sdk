@@ -821,7 +821,6 @@ class Sandbox:
                 pass
             self._client = None
 
-
     def _deployment_health(self, deployment: "DeploymentInfo") -> bool:
         """Shared health classification and URL caching for both twins."""
         classification = classify_deployment_status(deployment.status)

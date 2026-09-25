@@ -4,10 +4,8 @@ error mapping exactly where the orchestration contract demands it."""
 import asyncio
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
 
 from koyeb.api.exceptions import ApiException, NotFoundException
-from koyeb.api_async.exceptions import ApiException as AsyncApiException
 from koyeb.api_async.exceptions import (
     NotFoundException as AsyncNotFoundException,
 )

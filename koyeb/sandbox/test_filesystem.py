@@ -14,7 +14,6 @@ from koyeb.sandbox.exec import CommandResult, CommandStatus
 from koyeb.sandbox.filesystem import (
     AsyncSandboxFilesystem,
     FileInfo,
-    SandboxFileIO,
     SandboxFilesystem,
     SandboxFilesystemError,
     SandboxFileExistsError,

@@ -54,7 +54,6 @@ class ClaimResult:
 
     The claimed sandbox is detached from the pool and owned by the caller."""
 
-
     claim_id: str
     pool_id: str
     request_id: str
