@@ -44,6 +44,10 @@ class GitSource(BaseModel):
     workdir: Optional[StrictStr] = None
     buildpack: Optional[BuildpackBuilder] = None
     docker: Optional[DockerBuilder] = None
+    credential_source: Optional[StrictStr] = Field(
+        default=None,
+        description='Credentials can come from a specific source or default to using Github (when unset or set to "github").',
+    )
     __properties: ClassVar[List[str]] = [
         "repository",
         "branch",
@@ -55,6 +59,7 @@ class GitSource(BaseModel):
         "workdir",
         "buildpack",
         "docker",
+        "credential_source",
     ]
 
     model_config = ConfigDict(
@@ -127,6 +132,7 @@ class GitSource(BaseModel):
                 "docker": DockerBuilder.from_dict(obj["docker"])
                 if obj.get("docker") is not None
                 else None,
+                "credential_source": obj.get("credential_source"),
             }
         )
         return _obj
