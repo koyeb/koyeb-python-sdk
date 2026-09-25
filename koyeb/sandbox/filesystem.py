@@ -74,6 +74,27 @@ class SandboxFileExistsError(SandboxFilesystemError):
     """Raised when file already exists"""
 
 
+def _executor_error(
+    error_msg: str,
+    what: str,
+    not_found_msg: Optional[str] = None,
+    exists_msg: Optional[str] = None,
+    not_empty_msg: Optional[str] = None,
+) -> SandboxFilesystemError:
+    """The one place executor error strings classify into the SDK taxonomy.
+
+    Typed subclasses map only where the operation makes sense; message
+    text stays the historical wording.
+    """
+    if not_found_msg and check_error_message(error_msg, "NO_SUCH_FILE"):
+        return SandboxFileNotFoundError(not_found_msg)
+    if exists_msg and check_error_message(error_msg, "FILE_EXISTS"):
+        return SandboxFileExistsError(exists_msg)
+    if not_empty_msg and check_error_message(error_msg, "DIR_NOT_EMPTY"):
+        return SandboxFilesystemError(not_empty_msg)
+    return SandboxFilesystemError(f"Failed to {what}: {error_msg}")
+
+
 @dataclass
 class FileInfo:
     """File information"""
@@ -132,8 +153,7 @@ class SandboxFilesystem:
         try:
             response = client.write_file(path, content_str)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                raise SandboxFilesystemError(f"Failed to write file: {error_msg}")
+                raise _executor_error(response.get("error", "Unknown error"), "write file")
         except (SandboxServiceError, SandboxFilesystemError):
             raise
         except Exception as e:
@@ -158,10 +178,11 @@ class SandboxFilesystem:
         try:
             response = client.read_file(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "NO_SUCH_FILE"):
-                    raise SandboxFileNotFoundError(f"File not found: {path}")
-                raise SandboxFilesystemError(f"Failed to read file: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "read file",
+                    not_found_msg=f"File not found: {path}",
+                )
             content_str = response.get("content", "")
             if encoding == "base64":
                 content: Union[str, bytes] = base64_module.b64decode(content_str)
@@ -171,10 +192,9 @@ class SandboxFilesystem:
         except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {path}") from e
-            raise SandboxFilesystemError(f"Failed to read file: {error_msg}") from e
+            raise _executor_error(
+                str(e), "read file", not_found_msg=f"File not found: {path}"
+            ) from e
 
     def mkdir(self, path: str) -> None:
         """
@@ -190,18 +210,16 @@ class SandboxFilesystem:
         try:
             response = client.make_dir(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "FILE_EXISTS"):
-                    raise SandboxFileExistsError(f"Directory already exists: {path}")
-                raise SandboxFilesystemError(f"Failed to create directory: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "create directory",
+                    exists_msg=f"Directory already exists: {path}",
+                )
         except (SandboxServiceError, SandboxFileExistsError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "FILE_EXISTS"):
-                raise SandboxFileExistsError(f"Directory already exists: {path}") from e
-            raise SandboxFilesystemError(
-                f"Failed to create directory: {error_msg}"
+            raise _executor_error(
+                str(e), "create directory", exists_msg=f"Directory already exists: {path}"
             ) from e
 
     def list_dir(self, path: str = ".") -> List[str]:
@@ -219,20 +237,18 @@ class SandboxFilesystem:
         try:
             response = client.list_dir(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "NO_SUCH_FILE"):
-                    raise SandboxFileNotFoundError(f"Directory not found: {path}")
-                raise SandboxFilesystemError(f"Failed to list directory: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "list directory",
+                    not_found_msg=f"Directory not found: {path}",
+                )
             entries = response.get("entries", [])
             return entries
         except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"Directory not found: {path}") from e
-            raise SandboxFilesystemError(
-                f"Failed to list directory: {error_msg}"
+            raise _executor_error(
+                str(e), "list directory", not_found_msg=f"Directory not found: {path}"
             ) from e
 
     def delete_file(self, path: str) -> None:
@@ -247,17 +263,17 @@ class SandboxFilesystem:
         try:
             response = client.delete_file(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "NO_SUCH_FILE"):
-                    raise SandboxFileNotFoundError(f"File not found: {path}")
-                raise SandboxFilesystemError(f"Failed to delete file: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "delete file",
+                    not_found_msg=f"File not found: {path}",
+                )
         except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {path}") from e
-            raise SandboxFilesystemError(f"Failed to delete file: {error_msg}") from e
+            raise _executor_error(
+                str(e), "delete file", not_found_msg=f"File not found: {path}"
+            ) from e
 
     def delete_dir(self, path: str) -> None:
         """
@@ -271,22 +287,20 @@ class SandboxFilesystem:
         try:
             response = client.delete_dir(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "NO_SUCH_FILE"):
-                    raise SandboxFileNotFoundError(f"Directory not found: {path}")
-                if check_error_message(error_msg, "DIR_NOT_EMPTY"):
-                    raise SandboxFilesystemError(f"Directory not empty: {path}")
-                raise SandboxFilesystemError(f"Failed to delete directory: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "delete directory",
+                    not_found_msg=f"Directory not found: {path}",
+                    not_empty_msg=f"Directory not empty: {path}",
+                )
         except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"Directory not found: {path}") from e
-            if check_error_message(error_msg, "DIR_NOT_EMPTY"):
-                raise SandboxFilesystemError(f"Directory not empty: {path}") from e
-            raise SandboxFilesystemError(
-                f"Failed to delete directory: {error_msg}"
+            raise _executor_error(
+                str(e),
+                "delete directory",
+                not_found_msg=f"Directory not found: {path}",
+                not_empty_msg=f"Directory not empty: {path}",
             ) from e
 
     def rename_file(self, old_path: str, new_path: str) -> None:
@@ -305,9 +319,9 @@ class SandboxFilesystem:
         result = executor(f"mv {old_path_escaped} {new_path_escaped}")
 
         if not result.success:
-            if check_error_message(result.stderr, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {old_path}")
-            raise SandboxFilesystemError(f"Failed to rename file: {result.stderr}")
+            raise _executor_error(
+                result.stderr, "rename file", not_found_msg=f"File not found: {old_path}"
+            )
 
     def move_file(self, source_path: str, destination_path: str) -> None:
         """
@@ -325,9 +339,11 @@ class SandboxFilesystem:
         result = executor(f"mv {source_path_escaped} {destination_path_escaped}")
 
         if not result.success:
-            if check_error_message(result.stderr, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {source_path}")
-            raise SandboxFilesystemError(f"Failed to move file: {result.stderr}")
+            raise _executor_error(
+                result.stderr,
+                "move file",
+                not_found_msg=f"File not found: {source_path}",
+            )
 
     def write_files(self, files: List[Dict[str, str]]) -> None:
         """
@@ -441,9 +457,9 @@ class SandboxFilesystem:
             result = executor(f"rm {path_escaped}")
 
         if not result.success:
-            if check_error_message(result.stderr, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {path}")
-            raise SandboxFilesystemError(f"Failed to remove: {result.stderr}")
+            raise _executor_error(
+                result.stderr, "remove", not_found_msg=f"File not found: {path}"
+            )
 
     def open(
         self, path: str, mode: str = "r", encoding: str = "utf-8"
@@ -506,8 +522,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         try:
             response = await client.write_file(path, content_str)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                raise SandboxFilesystemError(f"Failed to write file: {error_msg}")
+                raise _executor_error(response.get("error", "Unknown error"), "write file")
         except (SandboxServiceError, SandboxFilesystemError):
             raise
         except Exception as e:
@@ -532,10 +547,11 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         try:
             response = await client.read_file(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "NO_SUCH_FILE"):
-                    raise SandboxFileNotFoundError(f"File not found: {path}")
-                raise SandboxFilesystemError(f"Failed to read file: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "read file",
+                    not_found_msg=f"File not found: {path}",
+                )
             content_str = response.get("content", "")
             if encoding == "base64":
                 content: Union[str, bytes] = base64_module.b64decode(content_str)
@@ -545,10 +561,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {path}") from e
-            raise SandboxFilesystemError(f"Failed to read file: {error_msg}") from e
+            raise _executor_error(
+                str(e), "read file", not_found_msg=f"File not found: {path}"
+            ) from e
 
     async def mkdir(self, path: str) -> None:
         """
@@ -564,18 +579,16 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         try:
             response = await client.make_dir(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "FILE_EXISTS"):
-                    raise SandboxFileExistsError(f"Directory already exists: {path}")
-                raise SandboxFilesystemError(f"Failed to create directory: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "create directory",
+                    exists_msg=f"Directory already exists: {path}",
+                )
         except (SandboxServiceError, SandboxFileExistsError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "FILE_EXISTS"):
-                raise SandboxFileExistsError(f"Directory already exists: {path}") from e
-            raise SandboxFilesystemError(
-                f"Failed to create directory: {error_msg}"
+            raise _executor_error(
+                str(e), "create directory", exists_msg=f"Directory already exists: {path}"
             ) from e
 
     async def list_dir(self, path: str = ".") -> List[str]:
@@ -593,20 +606,18 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         try:
             response = await client.list_dir(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "NO_SUCH_FILE"):
-                    raise SandboxFileNotFoundError(f"Directory not found: {path}")
-                raise SandboxFilesystemError(f"Failed to list directory: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "list directory",
+                    not_found_msg=f"Directory not found: {path}",
+                )
             entries = response.get("entries", [])
             return entries
         except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"Directory not found: {path}") from e
-            raise SandboxFilesystemError(
-                f"Failed to list directory: {error_msg}"
+            raise _executor_error(
+                str(e), "list directory", not_found_msg=f"Directory not found: {path}"
             ) from e
 
     async def delete_file(self, path: str) -> None:
@@ -621,17 +632,17 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         try:
             response = await client.delete_file(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "NO_SUCH_FILE"):
-                    raise SandboxFileNotFoundError(f"File not found: {path}")
-                raise SandboxFilesystemError(f"Failed to delete file: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "delete file",
+                    not_found_msg=f"File not found: {path}",
+                )
         except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {path}") from e
-            raise SandboxFilesystemError(f"Failed to delete file: {error_msg}") from e
+            raise _executor_error(
+                str(e), "delete file", not_found_msg=f"File not found: {path}"
+            ) from e
 
     async def delete_dir(self, path: str) -> None:
         """
@@ -645,22 +656,20 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         try:
             response = await client.delete_dir(path)
             if response.get("error"):
-                error_msg = response.get("error", "Unknown error")
-                if check_error_message(error_msg, "NO_SUCH_FILE"):
-                    raise SandboxFileNotFoundError(f"Directory not found: {path}")
-                if check_error_message(error_msg, "DIR_NOT_EMPTY"):
-                    raise SandboxFilesystemError(f"Directory not empty: {path}")
-                raise SandboxFilesystemError(f"Failed to delete directory: {error_msg}")
+                raise _executor_error(
+                    response.get("error", "Unknown error"),
+                    "delete directory",
+                    not_found_msg=f"Directory not found: {path}",
+                    not_empty_msg=f"Directory not empty: {path}",
+                )
         except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
-            error_msg = str(e)
-            if check_error_message(error_msg, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"Directory not found: {path}") from e
-            if check_error_message(error_msg, "DIR_NOT_EMPTY"):
-                raise SandboxFilesystemError(f"Directory not empty: {path}") from e
-            raise SandboxFilesystemError(
-                f"Failed to delete directory: {error_msg}"
+            raise _executor_error(
+                str(e),
+                "delete directory",
+                not_found_msg=f"Directory not found: {path}",
+                not_empty_msg=f"Directory not empty: {path}",
             ) from e
 
     async def rename_file(self, old_path: str, new_path: str) -> None:
@@ -677,9 +686,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         result = await executor(f"mv {old_path_escaped} {new_path_escaped}")
 
         if not result.success:
-            if check_error_message(result.stderr, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {old_path}")
-            raise SandboxFilesystemError(f"Failed to rename file: {result.stderr}")
+            raise _executor_error(
+                result.stderr, "rename file", not_found_msg=f"File not found: {old_path}"
+            )
 
     async def move_file(self, source_path: str, destination_path: str) -> None:
         """
@@ -695,9 +704,11 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         result = await executor(f"mv {source_path_escaped} {destination_path_escaped}")
 
         if not result.success:
-            if check_error_message(result.stderr, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {source_path}")
-            raise SandboxFilesystemError(f"Failed to move file: {result.stderr}")
+            raise _executor_error(
+                result.stderr,
+                "move file",
+                not_found_msg=f"File not found: {source_path}",
+            )
 
     async def write_files(self, files: List[Dict[str, str]]) -> None:
         """
@@ -809,9 +820,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             result = await executor(f"rm {path_escaped}")
 
         if not result.success:
-            if check_error_message(result.stderr, "NO_SUCH_FILE"):
-                raise SandboxFileNotFoundError(f"File not found: {path}")
-            raise SandboxFilesystemError(f"Failed to remove: {result.stderr}")
+            raise _executor_error(
+                result.stderr, "remove", not_found_msg=f"File not found: {path}"
+            )
 
     def open(
         self, path: str, mode: str = "r", encoding: str = "utf-8"
