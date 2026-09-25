@@ -56,7 +56,7 @@ class TestCreateEgressWiring(unittest.TestCase):
             )
         mock_get_clients.assert_not_called()
 
-    @patch("koyeb.sandbox.utils.get_async_api_clients")
+    @patch("koyeb.sandbox.sandbox.get_async_api_clients")
     def test_async_create_forwards_egress_kwargs(self, mock_get_clients):
         clients = MagicMock()
         clients.apps.create_app = AsyncMock()

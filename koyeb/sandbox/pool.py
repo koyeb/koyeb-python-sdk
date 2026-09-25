@@ -8,7 +8,6 @@ same ``request_id`` returns the same claim), retrying transient failures
 """
 
 import asyncio
-import secrets
 import time
 import uuid
 from dataclasses import dataclass
@@ -30,17 +29,12 @@ from koyeb.api_async.models.update_service_pool import (
     UpdateServicePool as AsyncUpdateServicePool,
 )
 
+from .spec import SandboxSpec
 from .utils import (
     PoolClaimError,
     ServicePoolError,
     ServiceTerminalStateError,
-    build_config_files,
-    build_env_vars,
-    build_network_policy,
     classify_service_status,
-    create_deployment_definition,
-    create_docker_source,
-    create_koyeb_sandbox_routes,
     get_api_clients,
     get_async_api_clients,
     logger,
@@ -365,36 +359,29 @@ class ServicePool:
         """Create a pool of ``size`` pre-warmed sandboxes built from the same
         definition options as ``Sandbox.create`` (minus sandbox-specific
         entrypoint/command overrides)."""
-        network_policy = build_network_policy(block_network, outbound_allowlist)
-        env = dict(env) if env else {}
-        env["SANDBOX_SECRET"] = secrets.token_urlsafe(32)
-        env_vars = build_env_vars(env)
-        config_file_objects = build_config_files(config_files)
-        docker_source = create_docker_source(
-            image,
-            privileged=privileged,
-            image_registry_secret=registry_secret,
-        )
-        definition = create_deployment_definition(
+        spec = SandboxSpec(
             name=name,
-            docker_source=docker_source,
-            env_vars=env_vars,
+            image=image,
             instance_type=instance_type,
-            exposed_port_protocol=exposed_port_protocol,
             region=region,
-            routes=create_koyeb_sandbox_routes(),
-            idle_timeout=idle_timeout,
+            env=env,
+            config_files=config_files,
+            privileged=privileged,
+            registry_secret=registry_secret,
+            exposed_port_protocol=exposed_port_protocol,
             enable_tcp_proxy=enable_tcp_proxy,
-            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-            enable_mesh=None,
-            config_files=config_file_objects if config_file_objects else None,
-            network_policy=network_policy,
+            idle_timeout=idle_timeout,
+            enable_light_sleep=_experimental_enable_light_sleep,
+            block_network=block_network,
+            outbound_allowlist=outbound_allowlist,
         )
+        # Pools generate their own executor secret; mesh stays auto.
+        spec.apply_sandbox_secret()
         clients = get_api_clients(api_token, host)
         try:
             reply = clients.service_pools.create_service_pool(
                 service_pool=CreateServicePool(
-                    name=name, size=size, definition=definition
+                    name=name, size=size, definition=spec.deployment_definition()
                 )
             )
         except ApiException as e:
@@ -553,36 +540,29 @@ class AsyncServicePool:
         api_token: Optional[str] = None,
         host: Optional[str] = None,
     ) -> "AsyncServicePool":
-        network_policy = build_network_policy(block_network, outbound_allowlist)
-        env = dict(env) if env else {}
-        env["SANDBOX_SECRET"] = secrets.token_urlsafe(32)
-        env_vars = build_env_vars(env)
-        config_file_objects = build_config_files(config_files)
-        docker_source = create_docker_source(
-            image,
-            privileged=privileged,
-            image_registry_secret=registry_secret,
-        )
-        definition = create_deployment_definition(
+        spec = SandboxSpec(
             name=name,
-            docker_source=docker_source,
-            env_vars=env_vars,
+            image=image,
             instance_type=instance_type,
-            exposed_port_protocol=exposed_port_protocol,
             region=region,
-            routes=create_koyeb_sandbox_routes(),
-            idle_timeout=idle_timeout,
+            env=env,
+            config_files=config_files,
+            privileged=privileged,
+            registry_secret=registry_secret,
+            exposed_port_protocol=exposed_port_protocol,
             enable_tcp_proxy=enable_tcp_proxy,
-            _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-            enable_mesh=None,
-            config_files=config_file_objects if config_file_objects else None,
-            network_policy=network_policy,
+            idle_timeout=idle_timeout,
+            enable_light_sleep=_experimental_enable_light_sleep,
+            block_network=block_network,
+            outbound_allowlist=outbound_allowlist,
         )
+        # Pools generate their own executor secret; mesh stays auto.
+        spec.apply_sandbox_secret()
         clients = get_async_api_clients(api_token, host)
         try:
             reply = await clients.service_pools.create_service_pool(
                 service_pool=AsyncCreateServicePool(
-                    name=name, size=size, definition=definition.to_dict()
+                    name=name, size=size, definition=spec.deployment_definition_dict()
                 )
             )
         except AsyncApiException as e:

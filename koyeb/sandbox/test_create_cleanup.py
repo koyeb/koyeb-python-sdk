@@ -112,7 +112,7 @@ class TestCreateServiceFailureCleanup(unittest.TestCase):
             exc=AsyncApiException(status=500, reason="Internal Server Error")
         )
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with self.assertRaises(SandboxError) as cm:
                 asyncio.run(AsyncSandbox.create(api_token="tok", wait_ready=False))
@@ -200,7 +200,7 @@ class TestWaitReadyCleanup(unittest.TestCase):
     def test_async_cleanup_on_failure_false_keeps_sandbox(self):
         clients = _fake_async_clients()
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with patch.object(AsyncSandbox, "wait_ready", return_value=False):
                 with patch.object(AsyncSandbox, "delete") as delete:
@@ -216,7 +216,7 @@ class TestWaitReadyCleanup(unittest.TestCase):
     def test_async_cleanup_failure_preserves_original_error(self):
         clients = _fake_async_clients()
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with patch.object(AsyncSandbox, "wait_ready", return_value=False):
                 with patch.object(
@@ -231,7 +231,7 @@ class TestWaitReadyCleanup(unittest.TestCase):
     def test_async_success_does_not_delete(self):
         clients = _fake_async_clients()
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with patch.object(AsyncSandbox, "wait_ready", return_value=True):
                 with patch.object(AsyncSandbox, "delete") as delete:
@@ -242,7 +242,7 @@ class TestWaitReadyCleanup(unittest.TestCase):
     def test_async_timeout_deletes_and_says_so(self):
         clients = _fake_async_clients()
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with patch.object(AsyncSandbox, "wait_ready", return_value=False):
                 with patch.object(AsyncSandbox, "delete") as delete:
@@ -259,7 +259,7 @@ class TestWaitReadyCleanup(unittest.TestCase):
             "— it will not become ready; wake or redeploy the sandbox."
         )
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with patch.object(AsyncSandbox, "wait_ready", side_effect=terminal):
                 with patch.object(AsyncSandbox, "delete") as delete:
@@ -301,7 +301,7 @@ class TestCallerAppCleanup(unittest.TestCase):
     def test_async_timeout_keeps_caller_app_deletes_service(self):
         clients = _fake_async_clients()
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with patch.object(AsyncSandbox, "wait_ready", return_value=False):
                 with self.assertRaises(SandboxTimeoutError):
@@ -316,7 +316,7 @@ class TestCallerAppCleanup(unittest.TestCase):
     def test_async_timeout_deletes_app_created_by_call(self):
         clients = _fake_async_clients()
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with patch.object(AsyncSandbox, "wait_ready", return_value=False):
                 with self.assertRaises(SandboxTimeoutError):
@@ -350,7 +350,7 @@ class TestCallerAppCleanup(unittest.TestCase):
             "— it will not become ready; wake or redeploy the sandbox."
         )
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with patch.object(AsyncSandbox, "wait_ready", side_effect=terminal):
                 with self.assertRaises(SandboxDeploymentError) as cm:
@@ -389,7 +389,7 @@ class TestCallerAppCleanup(unittest.TestCase):
 
         clients.services.delete_service = boom
         with patch(
-            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
             with patch.object(AsyncSandbox, "wait_ready", return_value=False):
                 with self.assertRaises(SandboxTimeoutError) as cm:
