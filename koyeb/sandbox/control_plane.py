@@ -29,7 +29,7 @@ from koyeb.api_async.models.create_app import CreateApp as AsyncCreateApp
 from koyeb.api_async.models.create_service import CreateService as AsyncCreateService
 from koyeb.api_async.models.update_service import UpdateService as AsyncUpdateService
 
-from .utils import SandboxError
+from .errors import SandboxError
 
 
 @dataclass(frozen=True)

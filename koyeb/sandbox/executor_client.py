@@ -13,14 +13,15 @@ from typing import Any, AsyncIterator, Dict, Iterator, Optional
 
 import httpx
 
-from .utils import (
-    DEFAULT_HTTP_TIMEOUT,
+from .errors import (
     NoSandboxSecretError,
     SandboxError,
     SandboxRequestError,
     SandboxServiceError,
     SandboxTimeoutError,
 )
+
+DEFAULT_HTTP_TIMEOUT = 30  # seconds for HTTP requests
 
 logger = logging.getLogger(__name__)
 

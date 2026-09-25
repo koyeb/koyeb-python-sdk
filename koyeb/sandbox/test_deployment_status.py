@@ -6,10 +6,7 @@ from unittest.mock import patch
 from koyeb.api.models.deployment_status import DeploymentStatus
 from koyeb.api.models.service_status import ServiceStatus
 from koyeb.sandbox.sandbox import AsyncSandbox, Sandbox, SandboxDeploymentError
-from koyeb.sandbox.utils import (
-    classify_deployment_status,
-    classify_service_status,
-)
+from koyeb.sandbox.status import classify_deployment_status, classify_service_status
 
 
 class TestClassifyServiceStatus(unittest.TestCase):

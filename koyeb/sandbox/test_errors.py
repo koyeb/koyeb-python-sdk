@@ -6,15 +6,14 @@ from unittest.mock import patch
 
 from koyeb.sandbox.snapshot import Snapshot
 from koyeb.sandbox.sandbox import AsyncSandbox, Sandbox
-from koyeb.sandbox.utils import (
+from koyeb.sandbox.clients import get_api_clients, get_async_api_clients
+from koyeb.sandbox.errors import (
     InvalidPortError,
     MissingApiTokenError,
     NoSandboxSecretError,
     SandboxError,
-    get_api_clients,
-    get_async_api_clients,
-    validate_port,
 )
+from koyeb.sandbox.sandbox import validate_port
 
 
 def _no_token_env():

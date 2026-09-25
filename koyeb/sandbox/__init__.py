@@ -33,7 +33,7 @@ from .pool import (
 )
 from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
 from .snapshot import DeclarativeSnapshot, Snapshot, SnapshotStatus, SnapshotType
-from .utils import (
+from .errors import (
     EgressPolicyError,
     PoolClaimError,
     ServicePoolError,

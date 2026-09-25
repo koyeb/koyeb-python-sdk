@@ -13,7 +13,8 @@ from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from .sandbox import Sandbox
-from .utils import MissingApiTokenError, SandboxError, get_api_clients
+from .clients import get_api_clients
+from .errors import MissingApiTokenError, SandboxError
 
 
 class SnapshotType(Enum):

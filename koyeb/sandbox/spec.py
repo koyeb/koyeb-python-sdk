@@ -36,7 +36,7 @@ from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.proxy_port_protocol import ProxyPortProtocol
 from koyeb.api.models.secret import Secret
 
-from .utils import build_network_policy
+from .egress import build_network_policy
 
 if TYPE_CHECKING:
     from .snapshot import SnapshotType

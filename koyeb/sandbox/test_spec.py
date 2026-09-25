@@ -12,7 +12,7 @@ from koyeb.sandbox.spec import (
     create_deployment_definition,
     create_docker_source,
 )
-from koyeb.sandbox.utils import EgressPolicyError
+from koyeb.sandbox.errors import EgressPolicyError
 
 
 def _spec(**kwargs):

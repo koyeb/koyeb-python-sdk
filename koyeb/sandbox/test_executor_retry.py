@@ -9,7 +9,7 @@ from koyeb.sandbox.executor_client import (
     ConnectionInfo,
     SandboxClient,
 )
-from koyeb.sandbox.utils import (
+from koyeb.sandbox.errors import (
     SandboxError,
     SandboxRequestError,
     SandboxServiceError,

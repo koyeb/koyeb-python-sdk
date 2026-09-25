@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 from koyeb.sandbox.executor_client import ConnectionInfo
 from koyeb.sandbox.sandbox import AsyncSandbox, Sandbox
-from koyeb.sandbox.utils import NoSandboxSecretError, SandboxError, create_sandbox_client
+from koyeb.sandbox.clients import create_sandbox_client
+from koyeb.sandbox.errors import NoSandboxSecretError, SandboxError
 
 
 def _service(idx):

@@ -12,16 +12,54 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Union
 
 from .executor_client import AsyncSandboxClient, SandboxClient
-from .utils import (
-    SandboxError,
-    SandboxServiceError,
-    check_error_message,
-    escape_shell_arg,
-)
+from .errors import SandboxError, SandboxServiceError
 
 if TYPE_CHECKING:
     from .exec import AsyncSandboxExecutor, SandboxExecutor
     from .sandbox import Sandbox
+
+
+import shlex
+
+
+ERROR_MESSAGES = {
+    "NO_SUCH_FILE": ["No such file", "not found", "No such file or directory"],
+    "FILE_EXISTS": ["exists", "already exists"],
+    "DIR_NOT_EMPTY": ["not empty", "Directory not empty"],
+}
+
+
+def check_error_message(error_msg: str, error_type: str) -> bool:
+    """
+    Check if an error message matches a specific error type.
+    Uses case-insensitive matching against known error patterns.
+
+    Args:
+        error_msg: The error message to check
+        error_type: The type of error to check for (key in ERROR_MESSAGES)
+
+    Returns:
+        True if error message matches the error type
+    """
+    if error_type not in ERROR_MESSAGES:
+        return False
+
+    error_msg_lower = error_msg.lower()
+    patterns = ERROR_MESSAGES[error_type]
+    return any(pattern.lower() in error_msg_lower for pattern in patterns)
+
+
+def escape_shell_arg(arg: str) -> str:
+    """
+    Escape a shell argument for safe use in shell commands.
+
+    Args:
+        arg: The argument to escape
+
+    Returns:
+        Properly escaped shell argument
+    """
+    return shlex.quote(arg)
 
 
 class SandboxFilesystemError(SandboxError):

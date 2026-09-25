@@ -8,6 +8,7 @@ same ``request_id`` returns the same claim), retrying transient failures
 """
 
 import asyncio
+import logging
 import time
 import uuid
 from dataclasses import dataclass
@@ -30,15 +31,15 @@ from koyeb.api_async.models.update_service_pool import (
 )
 
 from .spec import SandboxSpec
-from .utils import (
+from .clients import get_api_clients, get_async_api_clients
+from .errors import (
     PoolClaimError,
     ServicePoolError,
     ServiceTerminalStateError,
-    classify_service_status,
-    get_api_clients,
-    get_async_api_clients,
-    logger,
 )
+from .status import classify_service_status
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_POOL_SIZE = 1
 DEFAULT_CLAIM_ATTEMPTS = 3

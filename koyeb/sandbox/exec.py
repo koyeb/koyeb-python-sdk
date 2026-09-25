@@ -13,7 +13,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from .executor_client import AsyncSandboxClient, SandboxClient
-from .utils import SandboxError
+from .errors import SandboxError
 
 if TYPE_CHECKING:
     from .sandbox import Sandbox

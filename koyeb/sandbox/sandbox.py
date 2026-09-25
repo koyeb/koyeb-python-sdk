@@ -7,6 +7,7 @@ Koyeb Sandbox - Python SDK for creating and managing Koyeb sandboxes
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -23,22 +24,28 @@ from koyeb.api.models.update_service import UpdateService
 from .executor_client import ConnectionInfo
 from .control_plane import AsyncControlPlane, DeploymentInfo, ServiceInfo, SyncControlPlane
 from .spec import SandboxSpec
-from .utils import (
-    DEFAULT_INSTANCE_WAIT_TIMEOUT,
-    DEFAULT_POLL_INTERVAL,
+from .clients import (
+    create_sandbox_client,
+    get_api_clients,
+    get_async_api_clients,
+)
+from .egress import build_network_policy
+from .errors import (
+    MAX_PORT,
+    MIN_PORT,
+    InvalidPortError,
     MissingApiTokenError,
     NoSandboxSecretError,
     SandboxDeploymentError,
     SandboxError,
     SandboxTimeoutError,
-    build_network_policy,
-    classify_deployment_status,
-    create_sandbox_client,
-    get_api_clients,
-    get_async_api_clients,
-    logger,
-    validate_port,
 )
+from .status import classify_deployment_status
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_INSTANCE_WAIT_TIMEOUT = 60  # seconds
+DEFAULT_POLL_INTERVAL = 0.5  # seconds
 
 if TYPE_CHECKING:
     from .exec import AsyncSandboxExecutor, SandboxExecutor
@@ -99,6 +106,20 @@ async def _cleanup_after_failure_async(sandbox: "Sandbox") -> bool:
             f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}"
         )
         return False
+
+
+def validate_port(port: int) -> None:
+    """
+    Validate that a port number is in the valid range.
+
+    Args:
+        port: Port number to validate
+
+    Raises:
+        ValueError: If port is not in valid range [1, 65535]
+    """
+    if not isinstance(port, int) or port < MIN_PORT or port > MAX_PORT:
+        raise InvalidPortError(port)
 
 
 def _resolve_snapshot_reference(
@@ -952,7 +973,7 @@ class Sandbox:
             if not deployment_id:
                 return None
 
-            from .utils import get_api_clients
+            from .clients import get_api_clients
 
             clients = get_api_clients(self.api_token, self.host)
             deployment = clients.deployments.get_deployment(deployment_id)
@@ -979,7 +1000,7 @@ class Sandbox:
             if not self.app_id:
                 return None
 
-            from .utils import get_api_clients
+            from .clients import get_api_clients
 
             clients = get_api_clients(self.api_token, self.host)
             app_response = clients.apps.get_app(self.app_id)
@@ -1044,7 +1065,7 @@ class Sandbox:
         try:
             from koyeb.api.exceptions import ApiException
 
-            from .utils import get_api_clients
+            from .clients import get_api_clients
 
             clients = get_api_clients(self.api_token, self.host)
             services_api = clients.services
@@ -1557,7 +1578,7 @@ class AsyncSandbox(Sandbox):
             SandboxError: If the sandbox URL is not available.
         """
         if self._async_client is None:
-            from .utils import create_async_sandbox_client
+            from .clients import create_async_sandbox_client
 
             self._async_client = create_async_sandbox_client(self._get_conn_info())
         return self._async_client
@@ -2031,7 +2052,7 @@ class AsyncSandbox(Sandbox):
             from koyeb.api_async.models.create_instance_snapshot_request import (
                 CreateInstanceSnapshotRequest,
             )
-            from .utils import get_async_api_clients
+            from .clients import get_async_api_clients
             from .snapshot import SnapshotStatus
 
             # Get async API clients
@@ -2277,7 +2298,7 @@ class AsyncSandbox(Sandbox):
     ) -> None:
         """Update the sandbox's life cycle settings asynchronously."""
         try:
-            from .utils import get_async_api_clients
+            from .clients import get_async_api_clients
             from koyeb.api_async.models.create_service import (
                 ServiceLifeCycle as AsyncServiceLifeCycle,
             )

@@ -35,7 +35,7 @@ from koyeb.sandbox.sandbox import (
     _cleanup_after_failure,
     _cleanup_after_failure_async,
 )
-from koyeb.sandbox.utils import (
+from koyeb.sandbox.clients import (
     create_async_sandbox_client,
     create_sandbox_client,
     get_api_clients,

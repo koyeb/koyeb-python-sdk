@@ -24,7 +24,7 @@ from koyeb.sandbox.pool import (
     wait_claim_ready,
     wait_claim_ready_async,
 )
-from koyeb.sandbox.utils import (
+from koyeb.sandbox.errors import (
     PoolClaimError,
     SandboxError,
     ServicePoolError,

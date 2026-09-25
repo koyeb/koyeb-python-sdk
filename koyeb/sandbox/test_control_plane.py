@@ -18,7 +18,7 @@ from koyeb.sandbox.control_plane import (
     ServiceInfo,
     SyncControlPlane,
 )
-from koyeb.sandbox.utils import SandboxError
+from koyeb.sandbox.errors import SandboxError
 
 
 def _fake_service():
