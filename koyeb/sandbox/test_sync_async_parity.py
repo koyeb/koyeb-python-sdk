@@ -12,7 +12,9 @@ import unittest
 from koyeb.sandbox.exec import AsyncSandboxExecutor, SandboxExecutor
 from koyeb.sandbox.executor_client import AsyncSandboxClient, SandboxClient
 from koyeb.sandbox.filesystem import (
+    AsyncSandboxFileIO,
     AsyncSandboxFilesystem,
+    SandboxFileIO,
     SandboxFilesystem,
 )
 from koyeb.sandbox.pool import (
@@ -45,6 +47,7 @@ CLASS_PAIRS = [
     ("ServicePool", ServicePool, AsyncServicePool),
     ("SandboxExecutor", SandboxExecutor, AsyncSandboxExecutor),
     ("SandboxFilesystem", SandboxFilesystem, AsyncSandboxFilesystem),
+    ("SandboxFileIO", SandboxFileIO, AsyncSandboxFileIO),
     ("SandboxClient", SandboxClient, AsyncSandboxClient),
 ]
 
@@ -61,8 +64,16 @@ FUNCTION_PAIRS = [
 # AsyncSandbox.__init__ forwards to Sandbox.__init__ via *args/**kwargs.
 STRUCTURAL_ALLOWLIST = {("Sandbox", "__init__")}
 
-# Sync-only public surface; async either inlines these or lacks a twin.
-SYNC_ONLY_PUBLIC_ALLOWLIST = {"get_domain", "get_tcp_proxy_info", "template"}
+# Sync-only public surface per class; async either inlines these or lacks
+# a twin. New entries are deliberate decisions, not accidents.
+SYNC_ONLY_PUBLIC_ALLOWLIST = {
+    "Sandbox": {"get_domain", "get_tcp_proxy_info", "template"},
+    "ServicePool": set(),
+    "SandboxExecutor": set(),
+    "SandboxFilesystem": set(),
+    "SandboxFileIO": set(),
+    "SandboxClient": set(),
+}
 
 
 def _params(fn):
@@ -135,9 +146,14 @@ class TestSyncAsyncSignatureParity(unittest.TestCase):
     def test_sync_only_public_methods_are_pinned(self):
         # Methods without an async override are invisible to the twins
         # check; adding one requires an explicit decision recorded here.
-        sync_only = _own_callable_names(Sandbox) - _own_callable_names(AsyncSandbox)
-        sync_only = {name for name in sync_only if not name.startswith("_")}
-        self.assertEqual(SYNC_ONLY_PUBLIC_ALLOWLIST, sync_only)
+        for name, sync_cls, async_cls in CLASS_PAIRS:
+            sync_only = _own_callable_names(sync_cls) - _own_callable_names(async_cls)
+            sync_only = {n for n in sync_only if not n.startswith("_")}
+            self.assertEqual(
+                SYNC_ONLY_PUBLIC_ALLOWLIST[name],
+                sync_only,
+                f"{name}: sync-only public methods",
+            )
 
 
 class TestNoneDefaultsAreOptional(unittest.TestCase):

@@ -110,6 +110,20 @@ class TestDeploymentDefinitionMapping(unittest.TestCase):
         self.assertEqual(delay.light_sleep_value, 120)
         self.assertEqual(delay.deep_sleep_value, 3900)
 
+    def test_custom_idle_timeout_deep_sleep_only(self):
+        delay = self._definition(idle_timeout=90).scalings[0].targets[0].sleep_idle_delay
+        self.assertEqual(delay.deep_sleep_value, 90)
+        self.assertIsNone(delay.light_sleep_value)
+
+    def test_light_sleep_deep_sleep_override(self):
+        delay = self._definition(
+            idle_timeout=90,
+            _experimental_enable_light_sleep=True,
+            _experimental_deep_sleep_value=600,
+        ).scalings[0].targets[0].sleep_idle_delay
+        self.assertEqual(delay.light_sleep_value, 90)
+        self.assertEqual(delay.deep_sleep_value, 600)
+
 
 class TestBuildEgressPolicy(unittest.TestCase):
     """Tests for build_network_policy validation and normalization."""
