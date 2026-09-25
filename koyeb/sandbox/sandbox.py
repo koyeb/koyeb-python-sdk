@@ -442,39 +442,6 @@ class Sandbox:
                 )
 
         try:
-            env_vars = build_env_vars(env)
-            config_file_objects = build_config_files(config_files)
-            docker_source = create_docker_source(
-                image,
-                privileged=privileged,
-                image_registry_secret=registry_secret,
-                entrypoint=entrypoint,
-                command=command,
-                args=args,
-            )
-
-            deployment_definition = create_deployment_definition(
-                name=name,
-                docker_source=docker_source,
-                env_vars=env_vars,
-                instance_type=instance_type,
-                exposed_port_protocol=exposed_port_protocol,
-                region=region,
-                routes=routes,
-                idle_timeout=idle_timeout,
-                enable_tcp_proxy=enable_tcp_proxy,
-                _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-                _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-                enable_mesh=enable_mesh,
-                config_files=config_file_objects if config_file_objects else None,
-                network_policy=network_policy,
-            )
-
-            service_life_cycle = ServiceLifeCycle(
-                delete_after_create=delete_after_delay,
-                delete_after_sleep=delete_after_inactivity_delay,
-            )
-
             # Build deployment definition - used for both snapshot and non-snapshot cases
             env_vars = build_env_vars(env)
             config_file_objects = build_config_files(config_files)
@@ -501,6 +468,11 @@ class Sandbox:
                 enable_mesh=enable_mesh,
                 config_files=config_file_objects if config_file_objects else None,
                 network_policy=network_policy,
+            )
+
+            service_life_cycle = ServiceLifeCycle(
+                delete_after_create=delete_after_delay,
+                delete_after_sleep=delete_after_inactivity_delay,
             )
 
             # Handle snapshot creation based on snapshot type
@@ -2079,32 +2051,6 @@ class AsyncSandbox(Sandbox):
                     )
                 else:
                     # For FILESYSTEM snapshots (or unknown), provide definition
-                    env_vars = build_env_vars(env)
-                    config_file_objects = build_config_files(config_files)
-                    docker_source = create_docker_source(
-                        image,
-                        privileged=privileged,
-                        image_registry_secret=registry_secret,
-                        entrypoint=entrypoint,
-                        command=command,
-                        args=args,
-                    )
-                    deployment_definition = create_deployment_definition(
-                        name=name,
-                        docker_source=docker_source,
-                        env_vars=env_vars,
-                        instance_type=instance_type,
-                        exposed_port_protocol=exposed_port_protocol,
-                        region=region,
-                        routes=routes,
-                        idle_timeout=idle_timeout,
-                        enable_tcp_proxy=enable_tcp_proxy,
-                        _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-                        _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-                        enable_mesh=enable_mesh,
-                        config_files=config_file_objects if config_file_objects else None,
-                        network_policy=network_policy,
-                    )
                     create_service = AsyncCreateService(
                         app_id=app_id,
                         definition=deployment_definition.to_dict(),
@@ -2114,32 +2060,6 @@ class AsyncSandbox(Sandbox):
                     )
             else:
                 # No snapshot, create normally with definition
-                env_vars = build_env_vars(env)
-                config_file_objects = build_config_files(config_files)
-                docker_source = create_docker_source(
-                    image,
-                    privileged=privileged,
-                    image_registry_secret=registry_secret,
-                    entrypoint=entrypoint,
-                    command=command,
-                    args=args,
-                )
-                deployment_definition = create_deployment_definition(
-                    name=name,
-                    docker_source=docker_source,
-                    env_vars=env_vars,
-                    instance_type=instance_type,
-                    exposed_port_protocol=exposed_port_protocol,
-                    region=region,
-                    routes=routes,
-                    idle_timeout=idle_timeout,
-                    enable_tcp_proxy=enable_tcp_proxy,
-                    _experimental_enable_light_sleep=_experimental_enable_light_sleep,
-                    _experimental_deep_sleep_value=_experimental_deep_sleep_value,
-                    enable_mesh=enable_mesh,
-                    config_files=config_file_objects if config_file_objects else None,
-                    network_policy=network_policy,
-                )
                 create_service = AsyncCreateService(
                     app_id=app_id,
                     definition=deployment_definition.to_dict(),

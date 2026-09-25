@@ -70,10 +70,6 @@ def _claim_error_retryable(status: Any) -> bool:
     return status == 429 or (isinstance(status, int) and status >= 500)
 
 
-def _status_value(status: Any) -> Any:
-    return getattr(status, "value", status)
-
-
 def claim(
     pool_id: str,
     request_id: Optional[str] = None,

@@ -491,7 +491,7 @@ def create_deployment_definition(
             Light Sleep reduces cold starts to ~200ms. After scaling to zero, the service stays in Light Sleep for idle_timeout seconds before going into Deep Sleep.
         _experimental_deep_sleep_value: Number of seconds for deep sleep when light sleep is enabled (default: 3900).
             Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
-        enable_mesh: Enable or disable mesh for this sandbox. Disabled by default
+        enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
         network_policy: Optional network policy restricting egress traffic
 
     Returns:
@@ -544,13 +544,12 @@ def create_deployment_definition(
     scalings = [DeploymentScaling(min=min_scale, max=1, targets=targets)]
 
     # Set mesh configuration
-    mesh = DeploymentMesh.DEPLOYMENT_MESH_AUTO
     if enable_mesh is None:
         mesh = DeploymentMesh.DEPLOYMENT_MESH_AUTO
-    elif not enable_mesh:
-        mesh = DeploymentMesh.DEPLOYMENT_MESH_DISABLED
     elif enable_mesh:
         mesh = DeploymentMesh.DEPLOYMENT_MESH_ENABLED
+    else:
+        mesh = DeploymentMesh.DEPLOYMENT_MESH_DISABLED
 
     return DeploymentDefinition(
         name=name,
