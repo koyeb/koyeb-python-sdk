@@ -73,7 +73,6 @@ def _check_result(result: CommandResult, raise_on_error: bool) -> CommandResult:
     return result
 
 
-
 class SandboxExecutor:
     """
     Synchronous command execution interface for Koyeb Sandbox instances.
