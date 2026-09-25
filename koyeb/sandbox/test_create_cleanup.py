@@ -184,6 +184,7 @@ class TestWaitReadyCleanup(unittest.TestCase):
                         Sandbox.create(api_token="tok", timeout=1)
         delete.assert_called_once()
         self.assertNotIsInstance(cm.exception, RuntimeError)
+        self.assertIn("could not be deleted", str(cm.exception))
 
     def test_sync_success_does_not_delete(self):
         clients = self._create_ok_clients()
@@ -225,6 +226,7 @@ class TestWaitReadyCleanup(unittest.TestCase):
                         asyncio.run(AsyncSandbox.create(api_token="tok", timeout=1))
         self.assertEqual(delete.await_count, 1)
         self.assertNotIsInstance(cm.exception, RuntimeError)
+        self.assertIn("could not be deleted", str(cm.exception))
 
     def test_async_success_does_not_delete(self):
         clients = _fake_async_clients()
@@ -320,6 +322,97 @@ class TestCallerAppCleanup(unittest.TestCase):
                 with self.assertRaises(SandboxTimeoutError):
                     asyncio.run(AsyncSandbox.create(api_token="tok", timeout=1))
         self.assertEqual(clients.apps.deleted, ["app-1"])
+        self.assertEqual(clients.services.deleted, [])
+
+    def test_sync_terminal_error_keeps_caller_app_deletes_service(self):
+        # The except-branch cleanup, unlike the timeout branch pinned above.
+        clients = _fake_sync_clients()
+        terminal = SandboxDeploymentError(
+            "Sandbox 'quick-sandbox' deployment reached status STOPPED "
+            "— it will not become ready; wake or redeploy the sandbox."
+        )
+        with patch(
+            "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
+        ):
+            with patch.object(Sandbox, "wait_ready", side_effect=terminal):
+                with self.assertRaises(SandboxDeploymentError) as cm:
+                    Sandbox.create(
+                        api_token="tok", app_id="existing-app", timeout=1
+                    )
+        self.assertEqual(clients.apps.deleted, [])
+        self.assertEqual(clients.services.deleted, ["svc-1"])
+        self.assertIn("The sandbox was deleted.", str(cm.exception))
+
+    def test_async_terminal_error_keeps_caller_app_deletes_service(self):
+        clients = _fake_async_clients()
+        terminal = SandboxDeploymentError(
+            "Sandbox 'quick-sandbox' deployment reached status STOPPED "
+            "— it will not become ready; wake or redeploy the sandbox."
+        )
+        with patch(
+            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+        ):
+            with patch.object(AsyncSandbox, "wait_ready", side_effect=terminal):
+                with self.assertRaises(SandboxDeploymentError) as cm:
+                    asyncio.run(
+                        AsyncSandbox.create(
+                            api_token="tok", app_id="existing-app", timeout=1
+                        )
+                    )
+        self.assertEqual(clients.apps.deleted, [])
+        self.assertEqual(clients.services.deleted, ["svc-1"])
+        self.assertIn("The sandbox was deleted.", str(cm.exception))
+
+    def test_sync_cleanup_failure_keeps_caller_app_and_tells_truth(self):
+        clients = _fake_sync_clients()
+
+        def boom(id):
+            raise RuntimeError("api down")
+
+        clients.services.delete_service = boom
+        with patch(
+            "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
+        ):
+            with patch.object(Sandbox, "wait_ready", return_value=False):
+                with self.assertRaises(SandboxTimeoutError) as cm:
+                    Sandbox.create(
+                        api_token="tok", app_id="existing-app", timeout=1
+                    )
+        self.assertEqual(clients.apps.deleted, [])
+        self.assertIn("could not be deleted", str(cm.exception))
+
+    def test_async_cleanup_failure_keeps_caller_app_and_tells_truth(self):
+        clients = _fake_async_clients()
+
+        async def boom(id):
+            raise RuntimeError("api down")
+
+        clients.services.delete_service = boom
+        with patch(
+            "koyeb.sandbox.utils.get_async_api_clients", return_value=clients
+        ):
+            with patch.object(AsyncSandbox, "wait_ready", return_value=False):
+                with self.assertRaises(SandboxTimeoutError) as cm:
+                    asyncio.run(
+                        AsyncSandbox.create(
+                            api_token="tok", app_id="existing-app", timeout=1
+                        )
+                    )
+        self.assertEqual(clients.apps.deleted, [])
+        self.assertIn("could not be deleted", str(cm.exception))
+
+    def test_handle_built_from_id_keeps_app_delete_default(self):
+        # get_from_id()/list() handles have unknown provenance and keep the
+        # historical whole-app delete.
+        clients = _fake_sync_clients()
+        sandbox = Sandbox(
+            sandbox_id="s", app_id="app-x", service_id="svc-x", api_token="tok"
+        )
+        with patch(
+            "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
+        ):
+            sandbox.delete()
+        self.assertEqual(clients.apps.deleted, ["app-x"])
         self.assertEqual(clients.services.deleted, [])
 
 

@@ -77,27 +77,32 @@ class ExposedPort:
         return f"ExposedPort(port={self.port}, exposed_at='{self.exposed_at}')"
 
 
-def _cleanup_after_failure(sandbox: "Sandbox") -> None:
+def _cleanup_after_failure(sandbox: "Sandbox") -> bool:
     """Best-effort sandbox deletion after a failed create.
 
     Never raises: the original failure must be preserved and re-raised.
+    Returns whether the deletion actually happened.
     """
     try:
         sandbox.delete()
+        return True
     except Exception as e:
         logger.warning(
             f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}"
         )
+        return False
 
 
-async def _cleanup_after_failure_async(sandbox: "Sandbox") -> None:
+async def _cleanup_after_failure_async(sandbox: "Sandbox") -> bool:
     """Async twin of _cleanup_after_failure for AsyncSandbox.delete."""
     try:
         await sandbox.delete()
+        return True
     except Exception as e:
         logger.warning(
             f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}"
         )
+        return False
 
 
 class Sandbox:
@@ -201,7 +206,6 @@ class Sandbox:
                     - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep=3900)
                     - If _experimental_enable_light_sleep is False: sets deep_sleep value
                     - If 0: disables scale-to-zero (keep always-on)
-                    - If None: uses default values
                 enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
                 privileged: If True, run the container in privileged mode (default: False)
                 registry_secret: Name of a Koyeb secret containing registry credentials for
@@ -344,15 +348,25 @@ class Sandbox:
                 is_ready = sandbox.wait_ready(timeout=timeout)
             except SandboxError as e:
                 if cleanup_on_failure:
-                    _cleanup_after_failure(sandbox)
-                    e.args = (f"{e} The sandbox was deleted.",)
+                    deleted = _cleanup_after_failure(sandbox)
+                    outcome = (
+                        "The sandbox was deleted."
+                        if deleted
+                        else "The sandbox could not be deleted and may still exist."
+                    )
+                    e.args = (f"{e} {outcome}",)
                 raise
             if not is_ready:
                 if cleanup_on_failure:
-                    _cleanup_after_failure(sandbox)
+                    deleted = _cleanup_after_failure(sandbox)
+                    outcome = (
+                        "and was deleted"
+                        if deleted
+                        else "but could not be deleted and may still exist"
+                    )
                     raise SandboxTimeoutError(
                         f"Sandbox '{sandbox.name}' did not become ready within {timeout} seconds "
-                        f"and was deleted. Create with cleanup_on_failure=False to keep a "
+                        f"{outcome}. Create with cleanup_on_failure=False to keep a "
                         f"timed-out sandbox for inspection."
                     )
                 raise SandboxTimeoutError(
@@ -396,10 +410,7 @@ class Sandbox:
         snapshot_type: Optional["SnapshotType"] = None,
         sandbox_secret: Optional[str] = None,
     ) -> Sandbox:
-        """
-        Synchronous creation method that returns creation parameters.
-        Subclasses can override to return their own type.
-        """
+        """Create the sandbox service and return the sandbox instance."""
         network_policy = build_network_policy(block_network, outbound_allowlist)
 
         clients = get_api_clients(api_token, host)
@@ -1051,7 +1062,11 @@ class Sandbox:
         return False
 
     def delete(self) -> None:
-        """Delete the sandbox instance."""
+        """Delete the sandbox instance.
+
+        Deletes the whole app for SDK-created sandboxes; only the service
+        when the sandbox lives in a caller-provided app.
+        """
         clients = get_api_clients(self.api_token, self.host)
         if self._owns_app:
             clients.apps.delete_app(self.app_id)
@@ -1864,7 +1879,6 @@ class AsyncSandbox(Sandbox):
                     - If _experimental_enable_light_sleep is True: sets light_sleep value (deep_sleep uses _experimental_deep_sleep_value)
                     - If _experimental_enable_light_sleep is False: sets deep_sleep value
                     - If 0: disables scale-to-zero (keep always-on)
-                    - If None: uses default values
                 enable_tcp_proxy: If True, enables TCP proxy for direct TCP access to port 3031
                 privileged: If True, run the container in privileged mode (default: False)
                 registry_secret: Name of a Koyeb secret containing registry credentials for
@@ -2093,15 +2107,25 @@ class AsyncSandbox(Sandbox):
                 is_ready = await sandbox.wait_ready(timeout=timeout)
             except SandboxError as e:
                 if cleanup_on_failure:
-                    await _cleanup_after_failure_async(sandbox)
-                    e.args = (f"{e} The sandbox was deleted.",)
+                    deleted = await _cleanup_after_failure_async(sandbox)
+                    outcome = (
+                        "The sandbox was deleted."
+                        if deleted
+                        else "The sandbox could not be deleted and may still exist."
+                    )
+                    e.args = (f"{e} {outcome}",)
                 raise
             if not is_ready:
                 if cleanup_on_failure:
-                    await _cleanup_after_failure_async(sandbox)
+                    deleted = await _cleanup_after_failure_async(sandbox)
+                    outcome = (
+                        "and was deleted"
+                        if deleted
+                        else "but could not be deleted and may still exist"
+                    )
                     raise SandboxTimeoutError(
                         f"Sandbox '{sandbox.name}' did not become ready within {timeout} seconds "
-                        f"and was deleted. Create with cleanup_on_failure=False to keep a "
+                        f"{outcome}. Create with cleanup_on_failure=False to keep a "
                         f"timed-out sandbox for inspection."
                     )
                 raise SandboxTimeoutError(
@@ -2312,7 +2336,11 @@ class AsyncSandbox(Sandbox):
         return False
 
     async def delete(self) -> None:
-        """Delete the sandbox instance asynchronously."""
+        """Delete the sandbox instance asynchronously.
+
+        Deletes the whole app for SDK-created sandboxes; only the service
+        when the sandbox lives in a caller-provided app.
+        """
         from .utils import get_async_api_clients
 
         clients = get_async_api_clients(self.api_token, self.host)
