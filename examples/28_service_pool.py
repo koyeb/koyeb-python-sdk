@@ -8,6 +8,7 @@ service instead of provisioning one on demand.
 
 import os
 import sys
+import uuid
 
 from koyeb.sandbox import ServicePool
 
@@ -18,26 +19,41 @@ def main() -> int:
         print("KOYEB_API_TOKEN is not set", file=sys.stderr)
         return 1
 
-    # Create a pool of 3 warm sandboxes. Definition options mirror
-    # Sandbox.create (image, instance_type, env, region, ...).
-    pool = ServicePool.create(name="my-pool", size=3, api_token=api_token)
-    print(f"✓ Created {pool}")
+    # Use a unique name so concurrent or repeated runs don't collide on the
+    # server-side unique (name, workspace) index.
+    pool_name = f"my-pool-{uuid.uuid4().hex[:8]}"
 
-    # List every pool the caller can see.
-    pools = ServicePool.list(api_token=api_token)
-    print(f"✓ Listed {len(pools)} pool(s)")
+    pool = None
+    try:
+        # Create a pool of 3 warm sandboxes. Definition options mirror
+        # Sandbox.create (image, instance_type, env, region, ...).
+        pool = ServicePool.create(name=pool_name, size=3, api_token=api_token)
+        print(f"✓ Created {pool}")
 
-    # Update the pool's target size.
-    pool.update(size=5)
-    print("✓ Updated: size=5")
+        # List every pool the caller can see.
+        pools = ServicePool.list(api_token=api_token)
+        print(f"✓ Listed {len(pools)} pool(s)")
 
-    # Refresh re-fetches the pool (status, ready_count, ...).
-    pool.refresh()
-    print(f"✓ Refreshed, ready_count={pool.ready_count}, status={pool.status}")
+        # Update the pool's target size.
+        pool.update(size=5)
+        print("✓ Updated: size=5")
 
-    # Delete the pool. The server fences it until outstanding claims drain.
-    pool.delete()
-    print("✓ Deleted")
+        # Refresh re-fetches the pool (status, ready_count, ...).
+        pool.refresh()
+        print(f"✓ Refreshed, ready_count={pool.ready_count}, status={pool.status}")
+    except Exception as e:  # noqa: BLE001 - surface any failure but still clean up
+        print(f"✗ Service pool example failed: {e}", file=sys.stderr)
+        return 1
+    finally:
+        # Delete the pool no matter what. The server fences it until
+        # outstanding claims drain.
+        if pool is not None:
+            try:
+                pool.delete()
+                print("✓ Deleted")
+            except Exception as e:  # noqa: BLE001 - best-effort cleanup
+                print(f"⚠ Could not delete pool {pool.id}: {e}", file=sys.stderr)
+
     return 0
 
 
