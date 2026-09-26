@@ -437,10 +437,12 @@ class ServicePool:
 
         ``type`` selects the definition type: WEB, WORKER, or SANDBOX (the
         default). SANDBOX pools keep the sandbox auto-wiring (ports 3030/3031
-        and the sandbox routes). WEB and WORKER pools carry exactly the declared
-        ``ports`` and ``routes`` — no auto ports. The docker overrides
-        (``entrypoint``, ``command``, ``args``) apply to every pool type. Mesh
-        stays AUTO: there is no pool-level mesh option."""
+        and the sandbox routes); the platform mints their executor secret, and
+        an explicit ``SANDBOX_SECRET`` in ``env`` wins over minting. WEB and
+        WORKER pools carry exactly the declared ``ports`` and ``routes`` — no
+        secret, no auto ports. The docker overrides (``entrypoint``,
+        ``command``, ``args``) apply to every pool type. Mesh stays AUTO:
+        there is no pool-level mesh option."""
         _validate_pool_create_args(
             type, ports, routes, exposed_port_protocol, enable_tcp_proxy
         )
@@ -466,8 +468,7 @@ class ServicePool:
             block_network=block_network,
             outbound_allowlist=outbound_allowlist,
         )
-        # Pools generate their own executor secret; mesh stays auto.
-        spec.apply_sandbox_secret()
+        # The platform mints the executor secret for SANDBOX pools; mesh stays auto.
         clients = get_api_clients(api_token, host)
         try:
             reply = clients.service_pools.create_service_pool(
@@ -669,8 +670,7 @@ class AsyncServicePool:
             block_network=block_network,
             outbound_allowlist=outbound_allowlist,
         )
-        # Pools generate their own executor secret; mesh stays auto.
-        spec.apply_sandbox_secret()
+        # The platform mints the executor secret for SANDBOX pools; mesh stays auto.
         clients = get_async_api_clients(api_token, host)
         try:
             reply = await clients.service_pools.create_service_pool(

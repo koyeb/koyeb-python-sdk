@@ -193,14 +193,15 @@ class TestServicePoolCreate(unittest.TestCase):
         self.assertEqual(body.name, "my-pool")
         self.assertEqual(body.size, 1)
         self.assertEqual(body.definition.type, DeploymentDefinitionType.SANDBOX)
-        # SANDBOX auto-wiring: the sandbox pair owns ports and routes.
+        # SANDBOX auto-wiring: the sandbox pair owns ports and routes, and the
+        # platform mints the executor secret — the definition carries none.
         self.assertEqual([p.port for p in body.definition.ports], [3030, 3031])
         self.assertEqual(
             [(r.port, r.path) for r in body.definition.routes],
             [(3030, "/koyeb-sandbox/"), (3031, "/")],
         )
         env_keys = [e.key for e in body.definition.env]
-        self.assertIn("SANDBOX_SECRET", env_keys)
+        self.assertNotIn("SANDBOX_SECRET", env_keys)
         self.assertEqual(pool.id, "pool-1")
         self.assertEqual(pool.name, "my-pool")
         self.assertEqual(pool.ready_count, 1)
@@ -239,6 +240,21 @@ class TestServicePoolCreate(unittest.TestCase):
                     self.assertIn("sandbox", str(cm.exception).lower())
                     self.assertIn("WEB", str(cm.exception))
         self.assertEqual(pools.created, [])
+
+    def test_create_explicit_sandbox_secret_rides_env_verbatim(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="sbx-pool",
+                env={"SANDBOX_SECRET": "tok-1", "A": "b"},
+                api_token="tok",
+            )
+        env = {e.key: e.value for e in pools.created[0].definition.env}
+        self.assertEqual(env["SANDBOX_SECRET"], "tok-1")
+        self.assertEqual(env["A"], "b")
 
     def test_create_explicit_size(self):
         pools = FakeServicePoolsApi()
@@ -282,6 +298,8 @@ class TestServicePoolCreate(unittest.TestCase):
         self.assertEqual(len(definition.routes), 1)
         self.assertEqual(definition.routes[0].port, 8080)
         self.assertEqual(definition.routes[0].path, "/api")
+        env_keys = [e.key for e in definition.env]
+        self.assertNotIn("SANDBOX_SECRET", env_keys)
 
     def test_create_docker_overrides_pass_through(self):
         pools = FakeServicePoolsApi()
@@ -699,6 +717,19 @@ class TestAsyncPoolMirror(unittest.TestCase):
         self.assertIn("DATABASE", str(cm.exception))
         self.assertIn("WEB", str(cm.exception))
         self.assertEqual(pools.created, [])
+
+    def test_async_create_sandbox_defaults_no_client_secret(self):
+        pools = FakeAsyncServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            asyncio.run(AsyncServicePool.create(name="p", api_token="tok"))
+        definition = pools.created[0].definition
+        self.assertEqual(definition.type, DeploymentDefinitionType.SANDBOX)
+        self.assertEqual([p.port for p in definition.ports], [3030, 3031])
+        env_keys = [e.key for e in definition.env]
+        self.assertNotIn("SANDBOX_SECRET", env_keys)
 
     def test_async_claim_retry_preserves_request_id(self):
         claims = FakeAsyncPoolClaimsApi(

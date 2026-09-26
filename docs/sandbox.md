@@ -1515,8 +1515,9 @@ The single definition of a sandbox deployment.
 ``definition_type`` defaults to SANDBOX, which keeps the sandbox
 auto-wiring; pool flows set WEB/WORKER and carry their own ports and
 routes. Invalid egress or port protocol fails at construction, before
-any API call. Call apply_sandbox_secret() before deployment_definition():
-the secret rides the env.
+any API call. Sandbox flows call apply_sandbox_secret() before
+deployment_definition(): the secret rides the env. Pool flows never
+inject one — the platform mints the executor secret.
 
 <a id="koyeb.sandbox.spec.SandboxSpec.apply_sandbox_secret"></a>
 
@@ -3696,10 +3697,12 @@ definition.
 
 ``type`` selects the definition type: WEB, WORKER, or SANDBOX (the
 default). SANDBOX pools keep the sandbox auto-wiring (ports 3030/3031
-and the sandbox routes). WEB and WORKER pools carry exactly the declared
-``ports`` and ``routes`` — no auto ports. The docker overrides
-(``entrypoint``, ``command``, ``args``) apply to every pool type. Mesh
-stays AUTO: there is no pool-level mesh option.
+and the sandbox routes); the platform mints their executor secret, and
+an explicit ``SANDBOX_SECRET`` in ``env`` wins over minting. WEB and
+WORKER pools carry exactly the declared ``ports`` and ``routes`` — no
+secret, no auto ports. The docker overrides (``entrypoint``,
+``command``, ``args``) apply to every pool type. Mesh stays AUTO:
+there is no pool-level mesh option.
 
 <a id="koyeb.sandbox.pool.ServicePool.update"></a>
 

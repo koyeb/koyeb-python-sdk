@@ -360,8 +360,9 @@ class SandboxSpec:
     ``definition_type`` defaults to SANDBOX, which keeps the sandbox
     auto-wiring; pool flows set WEB/WORKER and carry their own ports and
     routes. Invalid egress or port protocol fails at construction, before
-    any API call. Call apply_sandbox_secret() before deployment_definition():
-    the secret rides the env.
+    any API call. Sandbox flows call apply_sandbox_secret() before
+    deployment_definition(): the secret rides the env. Pool flows never
+    inject one — the platform mints the executor secret.
     """
 
     name: str
