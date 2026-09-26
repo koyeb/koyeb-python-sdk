@@ -17,6 +17,8 @@ from typing import Any, List, Optional, Union
 from koyeb.api.exceptions import ApiException
 from koyeb.api.models.create_service_pool import CreateServicePool
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
+from koyeb.api.models.deployment_port import DeploymentPort
+from koyeb.api.models.deployment_route import DeploymentRoute
 from koyeb.api.models.pool_claim import PoolClaim
 from koyeb.api.models.pool_claim_request import PoolClaimRequest
 from koyeb.api.models.update_service_pool import UpdateServicePool
@@ -82,6 +84,45 @@ def _pool_definition_type(pool_type: str) -> DeploymentDefinitionType:
     raise ServicePoolError(
         f"Invalid pool type {pool_type!r}: must be one of " "'WEB', 'WORKER', 'SANDBOX'"
     )
+
+
+def _validate_pool_create_args(
+    pool_type: str,
+    ports: Optional[List[Any]],
+    routes: Optional[List[Any]],
+    exposed_port_protocol: Optional[str] = None,
+    enable_tcp_proxy: bool = False,
+) -> None:
+    """Fail-fast on type/wiring mismatches, before any API call."""
+    if pool_type == "SANDBOX" and (ports or routes):
+        raise ServicePoolError(
+            "SANDBOX pools do not accept explicit ports or routes: the "
+            "sandbox wiring owns ports 3030/3031, and user ports would "
+            "break executor connectivity"
+        )
+    if pool_type != "SANDBOX" and (
+        exposed_port_protocol is not None or enable_tcp_proxy
+    ):
+        raise ServicePoolError(
+            "exposed_port_protocol and enable_tcp_proxy are sandbox-only "
+            f"options and cannot be used on {pool_type} pools"
+        )
+
+
+def _coerce_ports(ports: Optional[List[Any]]) -> Optional[List[DeploymentPort]]:
+    """Accept DeploymentPort models or ``{port, protocol}`` dicts; verbatim."""
+    if ports is None:
+        return None
+    return [p if isinstance(p, DeploymentPort) else DeploymentPort(**p) for p in ports]
+
+
+def _coerce_routes(routes: Optional[List[Any]]) -> Optional[List[DeploymentRoute]]:
+    """Accept DeploymentRoute models or ``{port, path}`` dicts; verbatim."""
+    if routes is None:
+        return None
+    return [
+        r if isinstance(r, DeploymentRoute) else DeploymentRoute(**r) for r in routes
+    ]
 
 
 def _claim_error_retryable(status: Any) -> bool:
@@ -378,6 +419,8 @@ class ServicePool:
         entrypoint: Optional[List[str]] = None,
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
+        ports: Optional[List[Any]] = None,
+        routes: Optional[List[Any]] = None,
         privileged: bool = False,
         registry_secret: Optional[str] = None,
         exposed_port_protocol: Optional[str] = None,
@@ -394,10 +437,13 @@ class ServicePool:
 
         ``type`` selects the definition type: WEB, WORKER, or SANDBOX (the
         default). SANDBOX pools keep the sandbox auto-wiring (ports 3030/3031
-        and the sandbox routes). WEB and WORKER pools carry no auto wiring.
-        The docker overrides (``entrypoint``, ``command``, ``args``) apply to
-        every pool type. Mesh stays AUTO: there is no pool-level mesh
-        option."""
+        and the sandbox routes). WEB and WORKER pools carry exactly the declared
+        ``ports`` and ``routes`` — no auto ports. The docker overrides
+        (``entrypoint``, ``command``, ``args``) apply to every pool type. Mesh
+        stays AUTO: there is no pool-level mesh option."""
+        _validate_pool_create_args(
+            type, ports, routes, exposed_port_protocol, enable_tcp_proxy
+        )
         spec = SandboxSpec(
             name=name,
             image=image,
@@ -409,6 +455,8 @@ class ServicePool:
             entrypoint=entrypoint,
             command=command,
             args=args,
+            ports=_coerce_ports(ports),
+            routes=_coerce_routes(routes),
             privileged=privileged,
             registry_secret=registry_secret,
             exposed_port_protocol=exposed_port_protocol,
@@ -583,6 +631,8 @@ class AsyncServicePool:
         entrypoint: Optional[List[str]] = None,
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
+        ports: Optional[List[Any]] = None,
+        routes: Optional[List[Any]] = None,
         privileged: bool = False,
         registry_secret: Optional[str] = None,
         exposed_port_protocol: Optional[str] = None,
@@ -594,6 +644,9 @@ class AsyncServicePool:
         api_token: Optional[str] = None,
         host: Optional[str] = None,
     ) -> "AsyncServicePool":
+        _validate_pool_create_args(
+            type, ports, routes, exposed_port_protocol, enable_tcp_proxy
+        )
         spec = SandboxSpec(
             name=name,
             image=image,
@@ -605,6 +658,8 @@ class AsyncServicePool:
             entrypoint=entrypoint,
             command=command,
             args=args,
+            ports=_coerce_ports(ports),
+            routes=_coerce_routes(routes),
             privileged=privileged,
             registry_secret=registry_secret,
             exposed_port_protocol=exposed_port_protocol,

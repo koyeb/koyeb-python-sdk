@@ -240,6 +240,7 @@ def create_deployment_definition(
     env_vars: List[DeploymentEnv],
     instance_type: str,
     definition_type: DeploymentDefinitionType = DeploymentDefinitionType.SANDBOX,
+    ports: Optional[List[DeploymentPort]] = None,
     exposed_port_protocol: Optional[str] = None,
     region: Optional[str] = None,
     routes: Optional[List[DeploymentRoute]] = None,
@@ -262,6 +263,8 @@ def create_deployment_definition(
         definition_type: Deployment definition type. SANDBOX (the default) keeps
             the sandbox auto-wiring (ports 3030/3031 and the sandbox routes);
             every other type carries only caller-supplied ports/routes.
+        ports: Caller-supplied ports (non-SANDBOX definitions); SANDBOX always
+            wires its own 3030/3031 pair.
         exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
             If None, defaults to "http".
             If provided, must be one of "http" or "http2".
@@ -293,9 +296,6 @@ def create_deployment_definition(
         protocol = _validate_port_protocol(protocol)
         ports = create_koyeb_sandbox_ports(protocol)
         routes = create_koyeb_sandbox_routes()
-    else:
-        ports = None
-        routes = None
 
     # Create TCP proxy ports if enabled
     proxy_ports = None
@@ -384,6 +384,8 @@ class SandboxSpec:
     entrypoint: Optional[List[str]] = None
     command: Optional[str] = None
     args: Optional[List[str]] = None
+    ports: Optional[List[DeploymentPort]] = None
+    routes: Optional[List[DeploymentRoute]] = None
     block_network: bool = False
     outbound_allowlist: Optional[List[str]] = None
     snapshot_id: Optional[str] = None
@@ -429,9 +431,10 @@ class SandboxSpec:
             env_vars=build_env_vars(self.env),
             instance_type=self.instance_type,
             definition_type=self.definition_type,
+            ports=self.ports,
             exposed_port_protocol=self.exposed_port_protocol,
             region=self.region,
-            routes=None,
+            routes=self.routes,
             idle_timeout=self.idle_timeout,
             enable_tcp_proxy=self.enable_tcp_proxy,
             _experimental_enable_light_sleep=self.enable_light_sleep,

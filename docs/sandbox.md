@@ -1455,6 +1455,7 @@ def create_deployment_definition(
         instance_type: str,
         definition_type: DeploymentDefinitionType = DeploymentDefinitionType.
     SANDBOX,
+        ports: Optional[List[DeploymentPort]] = None,
         exposed_port_protocol: Optional[str] = None,
         region: Optional[str] = None,
         routes: Optional[List[DeploymentRoute]] = None,
@@ -1479,6 +1480,8 @@ Create deployment definition for a sandbox service.
 - `definition_type` - Deployment definition type. SANDBOX (the default) keeps
   the sandbox auto-wiring (ports 3030/3031 and the sandbox routes);
   every other type carries only caller-supplied ports/routes.
+- `ports` - Caller-supplied ports (non-SANDBOX definitions); SANDBOX always
+  wires its own 3030/3031 pair.
 - `exposed_port_protocol` - Protocol to expose ports with ("http" or "http2").
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
@@ -3674,6 +3677,8 @@ def create(cls,
            entrypoint: Optional[List[str]] = None,
            command: Optional[str] = None,
            args: Optional[List[str]] = None,
+           ports: Optional[List[Any]] = None,
+           routes: Optional[List[Any]] = None,
            privileged: bool = False,
            registry_secret: Optional[str] = None,
            exposed_port_protocol: Optional[str] = None,
@@ -3691,10 +3696,10 @@ definition.
 
 ``type`` selects the definition type: WEB, WORKER, or SANDBOX (the
 default). SANDBOX pools keep the sandbox auto-wiring (ports 3030/3031
-and the sandbox routes). WEB and WORKER pools carry no auto wiring.
-The docker overrides (``entrypoint``, ``command``, ``args``) apply to
-every pool type. Mesh stays AUTO: there is no pool-level mesh
-option.
+and the sandbox routes). WEB and WORKER pools carry exactly the declared
+``ports`` and ``routes`` — no auto ports. The docker overrides
+(``entrypoint``, ``command``, ``args``) apply to every pool type. Mesh
+stays AUTO: there is no pool-level mesh option.
 
 <a id="koyeb.sandbox.pool.ServicePool.update"></a>
 
