@@ -226,6 +226,25 @@ class TestServicePoolCreate(unittest.TestCase):
         self.assertIsNone(definition.routes)
         self.assertEqual(definition.mesh, DeploymentMesh.DEPLOYMENT_MESH_AUTO)
 
+    def test_create_docker_overrides_pass_through(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="web-pool",
+                type="WEB",
+                entrypoint=["/bin/sh", "-c"],
+                command="python app.py",
+                args=["--port", "8080"],
+                api_token="tok",
+            )
+        docker = pools.created[0].definition.docker
+        self.assertEqual(docker.entrypoint, ["/bin/sh", "-c"])
+        self.assertEqual(docker.command, "python app.py")
+        self.assertEqual(docker.args, ["--port", "8080"])
+
     def test_create_type_database_rejected_before_api_call(self):
         pools = FakeServicePoolsApi()
         with patch(

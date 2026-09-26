@@ -3671,6 +3671,9 @@ def create(cls,
            env: Optional[dict] = None,
            config_files: Optional[dict] = None,
            type: str = "SANDBOX",
+           entrypoint: Optional[List[str]] = None,
+           command: Optional[str] = None,
+           args: Optional[List[str]] = None,
            privileged: bool = False,
            registry_secret: Optional[str] = None,
            exposed_port_protocol: Optional[str] = None,
@@ -3689,7 +3692,9 @@ definition.
 ``type`` selects the definition type: WEB, WORKER, or SANDBOX (the
 default). SANDBOX pools keep the sandbox auto-wiring (ports 3030/3031
 and the sandbox routes). WEB and WORKER pools carry no auto wiring.
-Mesh stays AUTO: there is no pool-level mesh option.
+The docker overrides (``entrypoint``, ``command``, ``args``) apply to
+every pool type. Mesh stays AUTO: there is no pool-level mesh
+option.
 
 <a id="koyeb.sandbox.pool.ServicePool.update"></a>
 

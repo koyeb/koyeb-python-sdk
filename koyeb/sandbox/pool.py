@@ -375,6 +375,9 @@ class ServicePool:
         env: Optional[dict] = None,
         config_files: Optional[dict] = None,
         type: str = "SANDBOX",
+        entrypoint: Optional[List[str]] = None,
+        command: Optional[str] = None,
+        args: Optional[List[str]] = None,
         privileged: bool = False,
         registry_secret: Optional[str] = None,
         exposed_port_protocol: Optional[str] = None,
@@ -392,7 +395,9 @@ class ServicePool:
         ``type`` selects the definition type: WEB, WORKER, or SANDBOX (the
         default). SANDBOX pools keep the sandbox auto-wiring (ports 3030/3031
         and the sandbox routes). WEB and WORKER pools carry no auto wiring.
-        Mesh stays AUTO: there is no pool-level mesh option."""
+        The docker overrides (``entrypoint``, ``command``, ``args``) apply to
+        every pool type. Mesh stays AUTO: there is no pool-level mesh
+        option."""
         spec = SandboxSpec(
             name=name,
             image=image,
@@ -401,6 +406,9 @@ class ServicePool:
             region=region,
             env=env,
             config_files=config_files,
+            entrypoint=entrypoint,
+            command=command,
+            args=args,
             privileged=privileged,
             registry_secret=registry_secret,
             exposed_port_protocol=exposed_port_protocol,
@@ -572,6 +580,9 @@ class AsyncServicePool:
         env: Optional[dict] = None,
         config_files: Optional[dict] = None,
         type: str = "SANDBOX",
+        entrypoint: Optional[List[str]] = None,
+        command: Optional[str] = None,
+        args: Optional[List[str]] = None,
         privileged: bool = False,
         registry_secret: Optional[str] = None,
         exposed_port_protocol: Optional[str] = None,
@@ -591,6 +602,9 @@ class AsyncServicePool:
             region=region,
             env=env,
             config_files=config_files,
+            entrypoint=entrypoint,
+            command=command,
+            args=args,
             privileged=privileged,
             registry_secret=registry_secret,
             exposed_port_protocol=exposed_port_protocol,
