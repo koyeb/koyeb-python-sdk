@@ -58,9 +58,7 @@ def main() -> int:
 
             # Replay demo: the same (pool_id, request_id) returns the same
             # claim — safe to retry after a network failure.
-            replay = claim(
-                pool.id, request_id=result.request_id, api_token=api_token
-            )
+            replay = claim(pool.id, request_id=result.request_id, api_token=api_token)
             assert replay.service_id == result.service_id
             print("✓ Replay with the same request_id returned the same service")
         finally:

@@ -32,9 +32,7 @@ async def main() -> int:
             print("✓ Lazy handle has no secret, as documented")
 
         # ...so connect through get_from_id before running commands.
-        connected = await AsyncSandbox.get_from_id(
-            ours.service_id, api_token=api_token
-        )
+        connected = await AsyncSandbox.get_from_id(ours.service_id, api_token=api_token)
         out = await connected.exec("echo hello from the list demo")
         print(f"✓ Connected handle output: {out.stdout.strip()}")
     finally:

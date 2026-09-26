@@ -123,7 +123,9 @@ class _EventFold:
             stdout="".join(self.stdout),
             stderr="".join(self.stderr),
             exit_code=self.exit_code,
-            status=(CommandStatus.FINISHED if self.exit_code == 0 else CommandStatus.FAILED),
+            status=(
+                CommandStatus.FINISHED if self.exit_code == 0 else CommandStatus.FAILED
+            ),
             duration=time.time() - self.start_time,
             command=self.command,
         )
@@ -209,7 +211,9 @@ class SandboxExecutor:
                 stdout=stdout,
                 stderr=stderr,
                 exit_code=exit_code,
-                status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
+                status=(
+                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                ),
                 duration=time.time() - start_time,
                 command=command,
             ),
@@ -297,7 +301,9 @@ class AsyncSandboxExecutor(SandboxExecutor):
                 stdout=stdout,
                 stderr=stderr,
                 exit_code=exit_code,
-                status=(CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED),
+                status=(
+                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                ),
                 duration=time.time() - start_time,
                 command=command,
             ),
