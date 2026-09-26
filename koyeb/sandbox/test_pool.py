@@ -7,6 +7,9 @@ from unittest.mock import patch
 from koyeb.api.exceptions import ApiException
 from koyeb.api_async.exceptions import ApiException as AsyncApiException
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
+from koyeb.api.models.deployment_mesh import DeploymentMesh
+from koyeb.api.models.deployment_port import DeploymentPort
+from koyeb.api.models.deployment_route import DeploymentRoute
 from koyeb.api.models.pool_claim_status import PoolClaimStatus
 from koyeb.api.models.service_pool_status import ServicePoolStatus
 from koyeb.api.models.service_status import ServiceStatus
@@ -146,7 +149,9 @@ class FakeAsyncServicePoolsApi(FakeServicePoolsApi):
         return FakeServicePoolsApi.list_service_pools(self, **kwargs)
 
     async def update_service_pool(self, id, service_pool, update_mask=None):
-        return FakeServicePoolsApi.update_service_pool(self, id, service_pool, update_mask)
+        return FakeServicePoolsApi.update_service_pool(
+            self, id, service_pool, update_mask
+        )
 
     async def delete_service_pool(self, id):
         return FakeServicePoolsApi.delete_service_pool(self, id)
@@ -188,12 +193,68 @@ class TestServicePoolCreate(unittest.TestCase):
         self.assertEqual(body.name, "my-pool")
         self.assertEqual(body.size, 1)
         self.assertEqual(body.definition.type, DeploymentDefinitionType.SANDBOX)
+        # SANDBOX auto-wiring: the sandbox pair owns ports and routes, and the
+        # platform mints the executor secret — the definition carries none.
+        self.assertEqual([p.port for p in body.definition.ports], [3030, 3031])
+        self.assertEqual(
+            [(r.port, r.path) for r in body.definition.routes],
+            [(3030, "/koyeb-sandbox/"), (3031, "/")],
+        )
         env_keys = [e.key for e in body.definition.env]
-        self.assertIn("SANDBOX_SECRET", env_keys)
+        self.assertNotIn("SANDBOX_SECRET", env_keys)
         self.assertEqual(pool.id, "pool-1")
         self.assertEqual(pool.name, "my-pool")
         self.assertEqual(pool.ready_count, 1)
         self.assertEqual(pool.status, ServicePoolStatus.READY)
+
+    def test_create_sandbox_pool_rejects_explicit_ports_and_routes(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            for kwargs in (
+                {"ports": [{"port": 8080, "protocol": "http"}]},
+                {"routes": [{"port": 8080, "path": "/"}]},
+            ):
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(ServicePoolError) as cm:
+                        ServicePool.create(name="p", api_token="tok", **kwargs)
+                    self.assertIn("SANDBOX", str(cm.exception))
+                    self.assertIn("3030", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_create_non_sandbox_pool_rejects_sandbox_only_options(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            for kwargs in (
+                {"type": "WEB", "exposed_port_protocol": "http2"},
+                {"type": "WEB", "enable_tcp_proxy": True},
+            ):
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(ServicePoolError) as cm:
+                        ServicePool.create(name="p", api_token="tok", **kwargs)
+                    self.assertIn("sandbox", str(cm.exception).lower())
+                    self.assertIn("WEB", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_create_explicit_sandbox_secret_rides_env_verbatim(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="sbx-pool",
+                env={"SANDBOX_SECRET": "tok-1", "A": "b"},
+                api_token="tok",
+            )
+        env = {e.key: e.value for e in pools.created[0].definition.env}
+        self.assertEqual(env["SANDBOX_SECRET"], "tok-1")
+        self.assertEqual(env["A"], "b")
 
     def test_create_explicit_size(self):
         pools = FakeServicePoolsApi()
@@ -203,6 +264,85 @@ class TestServicePoolCreate(unittest.TestCase):
         ):
             ServicePool.create(name="p", size=3, api_token="tok")
         self.assertEqual(pools.created[0].size, 3)
+
+    def test_create_type_web_has_no_sandbox_wiring(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(name="web-pool", type="WEB", api_token="tok")
+        definition = pools.created[0].definition
+        self.assertEqual(definition.type, DeploymentDefinitionType.WEB)
+        self.assertIsNone(definition.ports)
+        self.assertIsNone(definition.routes)
+        self.assertEqual(definition.mesh, DeploymentMesh.DEPLOYMENT_MESH_AUTO)
+
+    def test_create_web_pool_carries_user_ports_and_routes_verbatim(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="web-pool",
+                type="WEB",
+                ports=[{"port": 8080, "protocol": "http"}],
+                routes=[{"port": 8080, "path": "/api"}],
+                api_token="tok",
+            )
+        definition = pools.created[0].definition
+        self.assertEqual(len(definition.ports), 1)
+        self.assertEqual(definition.ports[0].port, 8080)
+        self.assertEqual(definition.ports[0].protocol, "http")
+        self.assertEqual(len(definition.routes), 1)
+        self.assertEqual(definition.routes[0].port, 8080)
+        self.assertEqual(definition.routes[0].path, "/api")
+        env_keys = [e.key for e in definition.env]
+        self.assertNotIn("SANDBOX_SECRET", env_keys)
+
+    def test_create_docker_overrides_pass_through(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="web-pool",
+                type="WEB",
+                entrypoint=["/bin/sh", "-c"],
+                command="python app.py",
+                args=["--port", "8080"],
+                api_token="tok",
+            )
+        docker = pools.created[0].definition.docker
+        self.assertEqual(docker.entrypoint, ["/bin/sh", "-c"])
+        self.assertEqual(docker.command, "python app.py")
+        self.assertEqual(docker.args, ["--port", "8080"])
+
+    def test_create_type_database_rejected_before_api_call(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                ServicePool.create(name="db-pool", type="DATABASE", api_token="tok")
+        self.assertIn("DATABASE", str(cm.exception))
+        self.assertIn("WEB", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_create_unknown_type_rejected(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                ServicePool.create(name="p", type="SIDEKICK", api_token="tok")
+        self.assertIn("SIDEKICK", str(cm.exception))
+        self.assertIn("WEB", str(cm.exception))
+        self.assertEqual(pools.created, [])
 
 
 class TestServicePoolCrud(unittest.TestCase):
@@ -266,8 +406,12 @@ class TestServicePoolCrud(unittest.TestCase):
                 raise ApiException(status=500, reason="boom")
 
         pool = ServicePool(
-            id="pool-1", name="p", size=1, ready_count=0,
-            status=ServicePoolStatus.READY, api_token="tok",
+            id="pool-1",
+            name="p",
+            size=1,
+            ready_count=0,
+            status=ServicePoolStatus.READY,
+            api_token="tok",
         )
         with patch(
             "koyeb.sandbox.pool.get_api_clients",
@@ -393,7 +537,9 @@ class TestClaimHelpers(unittest.TestCase):
             "koyeb.sandbox.pool.get_api_clients",
             return_value=_fake_sync_clients(claims_api=claims),
         ):
-            found = list_claims("pool-1", status="PENDING", limit=5, offset=0, api_token="tok")
+            found = list_claims(
+                "pool-1", status="PENDING", limit=5, offset=0, api_token="tok"
+            )
         self.assertEqual(claims.last_list.get("pool_id"), "pool-1")
         self.assertEqual(claims.last_list.get("status"), "PENDING")
         self.assertEqual(claims.last_list.get("limit"), "5")
@@ -411,7 +557,9 @@ class TestWaitClaimReady(unittest.TestCase):
             return_value=_fake_sync_clients(services_api=services),
         ):
             with patch("koyeb.sandbox.pool.time.sleep") as sleep:
-                ready = wait_claim_ready("svc-1", timeout=10, poll_interval=2, api_token="tok")
+                ready = wait_claim_ready(
+                    "svc-1", timeout=10, poll_interval=2, api_token="tok"
+                )
         self.assertTrue(ready)
         self.assertEqual(services.calls, 2)
         sleep.assert_called_once_with(2)
@@ -419,13 +567,19 @@ class TestWaitClaimReady(unittest.TestCase):
     def test_accepts_claim_result(self):
         services = FakeServicesApi(statuses=[ServiceStatus.HEALTHY])
         result = ClaimResult(
-            claim_id="c", pool_id="pool-1", request_id="r", service_id="svc-9", prewarmed=False
+            claim_id="c",
+            pool_id="pool-1",
+            request_id="r",
+            service_id="svc-9",
+            prewarmed=False,
         )
         with patch(
             "koyeb.sandbox.pool.get_api_clients",
             return_value=_fake_sync_clients(services_api=services),
         ):
-            ready = wait_claim_ready(result, timeout=10, poll_interval=1, api_token="tok")
+            ready = wait_claim_ready(
+                result, timeout=10, poll_interval=1, api_token="tok"
+            )
         self.assertTrue(ready)
 
     def test_terminal_state_raises(self):
@@ -449,7 +603,9 @@ class TestWaitClaimReady(unittest.TestCase):
             return_value=_fake_sync_clients(services_api=services),
         ):
             with patch("koyeb.sandbox.pool.time.sleep"):
-                ready = wait_claim_ready("svc-1", timeout=10, poll_interval=1, api_token="tok")
+                ready = wait_claim_ready(
+                    "svc-1", timeout=10, poll_interval=1, api_token="tok"
+                )
         self.assertTrue(ready)
 
     def test_timeout_returns_false(self):
@@ -459,7 +615,9 @@ class TestWaitClaimReady(unittest.TestCase):
             return_value=_fake_sync_clients(services_api=services),
         ):
             with patch("koyeb.sandbox.pool.time.sleep"):
-                with patch("koyeb.sandbox.pool.time.time", side_effect=list(range(0, 1000))):
+                with patch(
+                    "koyeb.sandbox.pool.time.time", side_effect=list(range(0, 1000))
+                ):
                     ready = wait_claim_ready(
                         "svc-1", timeout=10, poll_interval=1, api_token="tok"
                     )
@@ -478,6 +636,100 @@ class TestAsyncPoolMirror(unittest.TestCase):
         self.assertEqual(body.size, 1)
         self.assertEqual(body.name, "p")
         self.assertEqual(pool.id, "pool-1")
+
+    def test_async_create_type_worker_has_no_sandbox_wiring(self):
+        pools = FakeAsyncServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            asyncio.run(
+                AsyncServicePool.create(name="p", type="WORKER", api_token="tok")
+            )
+        definition = pools.created[0].definition
+        self.assertEqual(definition.type, DeploymentDefinitionType.WORKER)
+        self.assertIsNone(definition.ports)
+        self.assertIsNone(definition.routes)
+
+    def test_async_create_worker_pool_carries_user_ports_and_routes_verbatim(self):
+        pools = FakeAsyncServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            asyncio.run(
+                AsyncServicePool.create(
+                    name="p",
+                    type="WORKER",
+                    ports=[DeploymentPort(port=9000, protocol="http")],
+                    routes=[DeploymentRoute(port=9000, path="/w")],
+                    api_token="tok",
+                )
+            )
+        definition = pools.created[0].definition
+        self.assertEqual(definition.ports[0].port, 9000)
+        self.assertEqual(definition.routes[0].path, "/w")
+
+    def test_async_create_sandbox_pool_rejects_explicit_ports(self):
+        pools = FakeAsyncServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                asyncio.run(
+                    AsyncServicePool.create(
+                        name="p",
+                        ports=[{"port": 8080, "protocol": "http"}],
+                        api_token="tok",
+                    )
+                )
+        self.assertIn("SANDBOX", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_async_create_non_sandbox_pool_rejects_tcp_proxy(self):
+        pools = FakeAsyncServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError):
+                asyncio.run(
+                    AsyncServicePool.create(
+                        name="p",
+                        type="WORKER",
+                        enable_tcp_proxy=True,
+                        api_token="tok",
+                    )
+                )
+        self.assertEqual(pools.created, [])
+
+    def test_async_create_type_database_rejected_before_api_call(self):
+        pools = FakeAsyncServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                asyncio.run(
+                    AsyncServicePool.create(name="p", type="DATABASE", api_token="tok")
+                )
+        self.assertIn("DATABASE", str(cm.exception))
+        self.assertIn("WEB", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_async_create_sandbox_defaults_no_client_secret(self):
+        pools = FakeAsyncServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            asyncio.run(AsyncServicePool.create(name="p", api_token="tok"))
+        definition = pools.created[0].definition
+        self.assertEqual(definition.type, DeploymentDefinitionType.SANDBOX)
+        self.assertEqual([p.port for p in definition.ports], [3030, 3031])
+        env_keys = [e.key for e in definition.env]
+        self.assertNotIn("SANDBOX_SECRET", env_keys)
 
     def test_async_claim_retry_preserves_request_id(self):
         claims = FakeAsyncPoolClaimsApi(

@@ -1453,6 +1453,9 @@ def create_deployment_definition(
         docker_source: DockerSource,
         env_vars: List[DeploymentEnv],
         instance_type: str,
+        definition_type: DeploymentDefinitionType = DeploymentDefinitionType.
+    SANDBOX,
+        ports: Optional[List[DeploymentPort]] = None,
         exposed_port_protocol: Optional[str] = None,
         region: Optional[str] = None,
         routes: Optional[List[DeploymentRoute]] = None,
@@ -1474,6 +1477,11 @@ Create deployment definition for a sandbox service.
 - `docker_source` - Docker configuration
 - `env_vars` - Environment variables
 - `instance_type` - Instance type
+- `definition_type` - Deployment definition type. SANDBOX (the default) keeps
+  the sandbox auto-wiring (ports 3030/3031 and the sandbox routes);
+  every other type carries only caller-supplied ports/routes.
+- `ports` - Caller-supplied ports (non-SANDBOX definitions); SANDBOX always
+  wires its own 3030/3031 pair.
 - `exposed_port_protocol` - Protocol to expose ports with ("http" or "http2").
   If None, defaults to "http".
   If provided, must be one of "http" or "http2".
@@ -1504,9 +1512,12 @@ class SandboxSpec()
 
 The single definition of a sandbox deployment.
 
-Invalid egress or port protocol fails at construction, before any
-API call. Call apply_sandbox_secret() before deployment_definition():
-the secret rides the env.
+``definition_type`` defaults to SANDBOX, which keeps the sandbox
+auto-wiring; pool flows set WEB/WORKER and carry their own ports and
+routes. Invalid egress or port protocol fails at construction, before
+any API call. Sandbox flows call apply_sandbox_secret() before
+deployment_definition(): the secret rides the env. Pool flows never
+inject one — the platform mints the executor secret.
 
 <a id="koyeb.sandbox.spec.SandboxSpec.apply_sandbox_secret"></a>
 
@@ -3485,7 +3496,7 @@ Close the file
 Koyeb service pools: pre-warmed sandbox pools and claims.
 
 Mirrors the JS SDK's service-pool.ts / claim.ts: a pool keeps ``size``
-pre-warmed sandboxes ready; ``claim()`` hands one out idempotently (the
+pre-warmed services ready; ``claim()`` hands one out idempotently (the
 same ``request_id`` returns the same claim), retrying transient failures
 (429/5xx) with linear backoff. Sync and async are fully mirrored.
 
@@ -3663,6 +3674,12 @@ def create(cls,
            region: Optional[str] = None,
            env: Optional[dict] = None,
            config_files: Optional[dict] = None,
+           type: str = "SANDBOX",
+           entrypoint: Optional[List[str]] = None,
+           command: Optional[str] = None,
+           args: Optional[List[str]] = None,
+           ports: Optional[List[Any]] = None,
+           routes: Optional[List[Any]] = None,
            privileged: bool = False,
            registry_secret: Optional[str] = None,
            exposed_port_protocol: Optional[str] = None,
@@ -3675,9 +3692,17 @@ def create(cls,
            host: Optional[str] = None) -> "ServicePool"
 ```
 
-Create a pool of ``size`` pre-warmed sandboxes built from the same
-definition options as ``Sandbox.create`` (minus sandbox-specific
-entrypoint/command overrides).
+Create a pool of ``size`` pre-warmed services built from one
+definition.
+
+``type`` selects the definition type: WEB, WORKER, or SANDBOX (the
+default). SANDBOX pools keep the sandbox auto-wiring (ports 3030/3031
+and the sandbox routes); the platform mints their executor secret, and
+an explicit ``SANDBOX_SECRET`` in ``env`` wins over minting. WEB and
+WORKER pools carry exactly the declared ``ports`` and ``routes`` — no
+secret, no auto ports. The docker overrides (``entrypoint``,
+``command``, ``args``) apply to every pool type. Mesh stays AUTO:
+there is no pool-level mesh option.
 
 <a id="koyeb.sandbox.pool.ServicePool.update"></a>
 

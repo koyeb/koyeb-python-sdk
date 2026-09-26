@@ -239,6 +239,8 @@ def create_deployment_definition(
     docker_source: DockerSource,
     env_vars: List[DeploymentEnv],
     instance_type: str,
+    definition_type: DeploymentDefinitionType = DeploymentDefinitionType.SANDBOX,
+    ports: Optional[List[DeploymentPort]] = None,
     exposed_port_protocol: Optional[str] = None,
     region: Optional[str] = None,
     routes: Optional[List[DeploymentRoute]] = None,
@@ -258,6 +260,11 @@ def create_deployment_definition(
         docker_source: Docker configuration
         env_vars: Environment variables
         instance_type: Instance type
+        definition_type: Deployment definition type. SANDBOX (the default) keeps
+            the sandbox auto-wiring (ports 3030/3031 and the sandbox routes);
+            every other type carries only caller-supplied ports/routes.
+        ports: Caller-supplied ports (non-SANDBOX definitions); SANDBOX always
+            wires its own 3030/3031 pair.
         exposed_port_protocol: Protocol to expose ports with ("http" or "http2").
             If None, defaults to "http".
             If provided, must be one of "http" or "http2".
@@ -281,19 +288,19 @@ def create_deployment_definition(
     # Convert single region string to list for API
     regions_list = [region]
 
-    # Always create ports with protocol (default to "http" if not specified)
-    protocol = exposed_port_protocol if exposed_port_protocol is not None else "http"
-    # Validate protocol using API model structure
-    protocol = _validate_port_protocol(protocol)
-    ports = create_koyeb_sandbox_ports(protocol)
+    if definition_type == DeploymentDefinitionType.SANDBOX:
+        # The sandbox wiring owns its ports (3030/3031) and routes.
+        protocol = (
+            exposed_port_protocol if exposed_port_protocol is not None else "http"
+        )
+        protocol = _validate_port_protocol(protocol)
+        ports = create_koyeb_sandbox_ports(protocol)
+        routes = create_koyeb_sandbox_routes()
 
     # Create TCP proxy ports if enabled
     proxy_ports = None
     if enable_tcp_proxy:
         proxy_ports = create_koyeb_sandbox_proxy_ports()
-
-    # Always use SANDBOX type
-    deployment_type = DeploymentDefinitionType.SANDBOX
 
     # Process idle_timeout
     if idle_timeout == 0:
@@ -331,7 +338,7 @@ def create_deployment_definition(
 
     return DeploymentDefinition(
         name=name,
-        type=deployment_type,
+        type=definition_type,
         docker=docker_source,
         env=env_vars,
         ports=ports,
@@ -350,14 +357,18 @@ def create_deployment_definition(
 class SandboxSpec:
     """The single definition of a sandbox deployment.
 
-    Invalid egress or port protocol fails at construction, before any
-    API call. Call apply_sandbox_secret() before deployment_definition():
-    the secret rides the env.
+    ``definition_type`` defaults to SANDBOX, which keeps the sandbox
+    auto-wiring; pool flows set WEB/WORKER and carry their own ports and
+    routes. Invalid egress or port protocol fails at construction, before
+    any API call. Sandbox flows call apply_sandbox_secret() before
+    deployment_definition(): the secret rides the env. Pool flows never
+    inject one — the platform mints the executor secret.
     """
 
     name: str
     image: str = "koyeb/sandbox"
     instance_type: str = "micro"
+    definition_type: DeploymentDefinitionType = DeploymentDefinitionType.SANDBOX
     exposed_port_protocol: Optional[str] = None
     env: Optional[Dict[str, Any]] = None
     config_files: Optional[Dict[str, Any]] = None
@@ -374,6 +385,8 @@ class SandboxSpec:
     entrypoint: Optional[List[str]] = None
     command: Optional[str] = None
     args: Optional[List[str]] = None
+    ports: Optional[List[DeploymentPort]] = None
+    routes: Optional[List[DeploymentRoute]] = None
     block_network: bool = False
     outbound_allowlist: Optional[List[str]] = None
     snapshot_id: Optional[str] = None
@@ -418,9 +431,11 @@ class SandboxSpec:
             ),
             env_vars=build_env_vars(self.env),
             instance_type=self.instance_type,
+            definition_type=self.definition_type,
+            ports=self.ports,
             exposed_port_protocol=self.exposed_port_protocol,
             region=self.region,
-            routes=create_koyeb_sandbox_routes(),
+            routes=self.routes,
             idle_timeout=self.idle_timeout,
             enable_tcp_proxy=self.enable_tcp_proxy,
             _experimental_enable_light_sleep=self.enable_light_sleep,
