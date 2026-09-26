@@ -146,7 +146,9 @@ class FakeAsyncServicePoolsApi(FakeServicePoolsApi):
         return FakeServicePoolsApi.list_service_pools(self, **kwargs)
 
     async def update_service_pool(self, id, service_pool, update_mask=None):
-        return FakeServicePoolsApi.update_service_pool(self, id, service_pool, update_mask)
+        return FakeServicePoolsApi.update_service_pool(
+            self, id, service_pool, update_mask
+        )
 
     async def delete_service_pool(self, id):
         return FakeServicePoolsApi.delete_service_pool(self, id)
@@ -266,8 +268,12 @@ class TestServicePoolCrud(unittest.TestCase):
                 raise ApiException(status=500, reason="boom")
 
         pool = ServicePool(
-            id="pool-1", name="p", size=1, ready_count=0,
-            status=ServicePoolStatus.READY, api_token="tok",
+            id="pool-1",
+            name="p",
+            size=1,
+            ready_count=0,
+            status=ServicePoolStatus.READY,
+            api_token="tok",
         )
         with patch(
             "koyeb.sandbox.pool.get_api_clients",
@@ -393,7 +399,9 @@ class TestClaimHelpers(unittest.TestCase):
             "koyeb.sandbox.pool.get_api_clients",
             return_value=_fake_sync_clients(claims_api=claims),
         ):
-            found = list_claims("pool-1", status="PENDING", limit=5, offset=0, api_token="tok")
+            found = list_claims(
+                "pool-1", status="PENDING", limit=5, offset=0, api_token="tok"
+            )
         self.assertEqual(claims.last_list.get("pool_id"), "pool-1")
         self.assertEqual(claims.last_list.get("status"), "PENDING")
         self.assertEqual(claims.last_list.get("limit"), "5")
@@ -411,7 +419,9 @@ class TestWaitClaimReady(unittest.TestCase):
             return_value=_fake_sync_clients(services_api=services),
         ):
             with patch("koyeb.sandbox.pool.time.sleep") as sleep:
-                ready = wait_claim_ready("svc-1", timeout=10, poll_interval=2, api_token="tok")
+                ready = wait_claim_ready(
+                    "svc-1", timeout=10, poll_interval=2, api_token="tok"
+                )
         self.assertTrue(ready)
         self.assertEqual(services.calls, 2)
         sleep.assert_called_once_with(2)
@@ -419,13 +429,19 @@ class TestWaitClaimReady(unittest.TestCase):
     def test_accepts_claim_result(self):
         services = FakeServicesApi(statuses=[ServiceStatus.HEALTHY])
         result = ClaimResult(
-            claim_id="c", pool_id="pool-1", request_id="r", service_id="svc-9", prewarmed=False
+            claim_id="c",
+            pool_id="pool-1",
+            request_id="r",
+            service_id="svc-9",
+            prewarmed=False,
         )
         with patch(
             "koyeb.sandbox.pool.get_api_clients",
             return_value=_fake_sync_clients(services_api=services),
         ):
-            ready = wait_claim_ready(result, timeout=10, poll_interval=1, api_token="tok")
+            ready = wait_claim_ready(
+                result, timeout=10, poll_interval=1, api_token="tok"
+            )
         self.assertTrue(ready)
 
     def test_terminal_state_raises(self):
@@ -449,7 +465,9 @@ class TestWaitClaimReady(unittest.TestCase):
             return_value=_fake_sync_clients(services_api=services),
         ):
             with patch("koyeb.sandbox.pool.time.sleep"):
-                ready = wait_claim_ready("svc-1", timeout=10, poll_interval=1, api_token="tok")
+                ready = wait_claim_ready(
+                    "svc-1", timeout=10, poll_interval=1, api_token="tok"
+                )
         self.assertTrue(ready)
 
     def test_timeout_returns_false(self):
@@ -459,7 +477,9 @@ class TestWaitClaimReady(unittest.TestCase):
             return_value=_fake_sync_clients(services_api=services),
         ):
             with patch("koyeb.sandbox.pool.time.sleep"):
-                with patch("koyeb.sandbox.pool.time.time", side_effect=list(range(0, 1000))):
+                with patch(
+                    "koyeb.sandbox.pool.time.time", side_effect=list(range(0, 1000))
+                ):
                     ready = wait_claim_ready(
                         "svc-1", timeout=10, poll_interval=1, api_token="tok"
                     )

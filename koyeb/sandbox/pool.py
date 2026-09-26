@@ -391,7 +391,9 @@ class ServicePool:
                 )
             )
         except ApiException as e:
-            raise ServicePoolError(f"Failed to create service pool '{name}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to create service pool '{name}': {e}"
+            ) from e
         return cls._from_model(reply.service_pool, api_token, host)
 
     @classmethod
@@ -405,7 +407,9 @@ class ServicePool:
         try:
             reply = clients.service_pools.get_service_pool(pool_id)
         except ApiException as e:
-            raise ServicePoolError(f"Failed to get service pool '{pool_id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to get service pool '{pool_id}': {e}"
+            ) from e
         return cls._from_model(reply.service_pool, api_token, host)
 
     @classmethod
@@ -427,8 +431,7 @@ class ServicePool:
         except ApiException as e:
             raise ServicePoolError(f"Failed to list service pools: {e}") from e
         return [
-            cls._from_model(pool, api_token, host)
-            for pool in reply.service_pools or []
+            cls._from_model(pool, api_token, host) for pool in reply.service_pools or []
         ]
 
     def update(self, size: Optional[int] = None) -> "ServicePool":
@@ -441,10 +444,10 @@ class ServicePool:
                 update_mask="size",
             )
         except ApiException as e:
-            raise ServicePoolError(f"Failed to update service pool '{self.id}': {e}") from e
-        return ServicePool._from_model(
-            reply.service_pool, self.api_token, self.host
-        )
+            raise ServicePoolError(
+                f"Failed to update service pool '{self.id}': {e}"
+            ) from e
+        return ServicePool._from_model(reply.service_pool, self.api_token, self.host)
 
     def delete(self) -> None:
         """Delete the pool (async server-side: it enters DELETING)."""
@@ -452,7 +455,9 @@ class ServicePool:
         try:
             clients.service_pools.delete_service_pool(self.id)
         except ApiException as e:
-            raise ServicePoolError(f"Failed to delete service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to delete service pool '{self.id}': {e}"
+            ) from e
 
     def refresh(self) -> "ServicePool":
         """Re-fetch the pool's state (ready_count, status) in place."""
@@ -460,7 +465,9 @@ class ServicePool:
         try:
             reply = clients.service_pools.get_service_pool(self.id)
         except ApiException as e:
-            raise ServicePoolError(f"Failed to refresh service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to refresh service pool '{self.id}': {e}"
+            ) from e
         model = reply.service_pool
         self.name = model.name
         self.size = model.size
@@ -572,7 +579,9 @@ class AsyncServicePool:
                 )
             )
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to create service pool '{name}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to create service pool '{name}': {e}"
+            ) from e
         return cls._from_model(reply.service_pool, api_token, host)
 
     @classmethod
@@ -586,7 +595,9 @@ class AsyncServicePool:
         try:
             reply = await clients.service_pools.get_service_pool(pool_id)
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to get service pool '{pool_id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to get service pool '{pool_id}': {e}"
+            ) from e
         return cls._from_model(reply.service_pool, api_token, host)
 
     @classmethod
@@ -608,8 +619,7 @@ class AsyncServicePool:
         except AsyncApiException as e:
             raise ServicePoolError(f"Failed to list service pools: {e}") from e
         return [
-            cls._from_model(pool, api_token, host)
-            for pool in reply.service_pools or []
+            cls._from_model(pool, api_token, host) for pool in reply.service_pools or []
         ]
 
     async def update(self, size: Optional[int] = None) -> "AsyncServicePool":
@@ -621,7 +631,9 @@ class AsyncServicePool:
                 update_mask="size",
             )
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to update service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to update service pool '{self.id}': {e}"
+            ) from e
         return AsyncServicePool._from_model(
             reply.service_pool, self.api_token, self.host
         )
@@ -631,14 +643,18 @@ class AsyncServicePool:
         try:
             await clients.service_pools.delete_service_pool(self.id)
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to delete service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to delete service pool '{self.id}': {e}"
+            ) from e
 
     async def refresh(self) -> "AsyncServicePool":
         clients = get_async_api_clients(self.api_token, self.host)
         try:
             reply = await clients.service_pools.get_service_pool(self.id)
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to refresh service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to refresh service pool '{self.id}': {e}"
+            ) from e
         model = reply.service_pool
         self.name = model.name
         self.size = model.size
