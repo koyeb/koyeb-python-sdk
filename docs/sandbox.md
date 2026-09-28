@@ -488,8 +488,9 @@ def delete() -> None
 
 Delete the sandbox instance.
 
-Deletes the whole app for SDK-created sandboxes; only the service
-when the sandbox lives in a caller-provided app.
+Deletes the whole app when create() made it for this sandbox;
+only the service otherwise (get_from_id() and list() handles,
+caller-provided or pool apps), leaving the app's other services.
 
 <a id="koyeb.sandbox.sandbox.Sandbox.get_domain"></a>
 
@@ -1076,8 +1077,9 @@ async def delete() -> None
 
 Delete the sandbox instance asynchronously.
 
-Deletes the whole app for SDK-created sandboxes; only the service
-when the sandbox lives in a caller-provided app.
+Deletes the whole app when create() made it for this sandbox;
+only the service otherwise (get_from_id() and list() handles,
+caller-provided or pool apps), leaving the app's other services.
 
 <a id="koyeb.sandbox.sandbox.AsyncSandbox.snapshot"></a>
 

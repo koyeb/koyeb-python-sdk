@@ -213,9 +213,11 @@ class Sandbox:
         self.poll_interval = poll_interval
         self.host = host
         self.snapshot_id = snapshot_id
-        # Owned apps are deleted with the sandbox; caller-provided apps keep
-        # their unrelated services, so delete() removes only the service.
-        self._owns_app = True
+        # Only create() knows it made the app, and then delete() removes the
+        # whole app. Otherwise (get_from_id(), list(), caller-provided or pool
+        # apps) delete() removes only the service: the app may hold unrelated
+        # services, and SDK-created apps are delete_when_empty anyway.
+        self._owns_app = False
         self._created_at = time.time()
         self._sandbox_url: Optional[Tuple[str, Optional[str]]] = None
         self._domain: Optional[str] = None
@@ -951,14 +953,16 @@ class Sandbox:
     def delete(self) -> None:
         """Delete the sandbox instance.
 
-        Deletes the whole app for SDK-created sandboxes; only the service
-        when the sandbox lives in a caller-provided app.
+        Deletes the whole app when create() made it for this sandbox;
+        only the service otherwise (get_from_id() and list() handles,
+        caller-provided or pool apps), leaving the app's other services.
         """
         cp = SyncControlPlane(get_api_clients(self.api_token, self.host))
         if self._owns_app:
             cp.delete_app(self.app_id)
         else:
-            # Caller-provided app: deleting it would destroy unrelated services.
+            # Not our app (caller-provided, pool, or unknown provenance):
+            # deleting it would destroy unrelated services.
             cp.delete_service(self.service_id)
 
     def _get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
@@ -1997,14 +2001,16 @@ class AsyncSandbox(Sandbox):
     async def delete(self) -> None:
         """Delete the sandbox instance asynchronously.
 
-        Deletes the whole app for SDK-created sandboxes; only the service
-        when the sandbox lives in a caller-provided app.
+        Deletes the whole app when create() made it for this sandbox;
+        only the service otherwise (get_from_id() and list() handles,
+        caller-provided or pool apps), leaving the app's other services.
         """
         cp = AsyncControlPlane(get_async_api_clients(self.api_token, self.host))
         if self._owns_app:
             await cp.delete_app(self.app_id)
         else:
-            # Caller-provided app: deleting it would destroy unrelated services.
+            # Not our app (caller-provided, pool, or unknown provenance):
+            # deleting it would destroy unrelated services.
             await cp.delete_service(self.service_id)
 
     async def snapshot(

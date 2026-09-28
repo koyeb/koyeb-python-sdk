@@ -401,9 +401,102 @@ class TestCallerAppCleanup(unittest.TestCase):
         self.assertEqual(clients.apps.deleted, [])
         self.assertIn("could not be deleted", str(cm.exception))
 
-    def test_handle_built_from_id_keeps_app_delete_default(self):
-        # get_from_id()/list() handles have unknown provenance and keep the
-        # historical whole-app delete.
+
+def _pool_member_deployment():
+    env = [SimpleNamespace(key="SANDBOX_SECRET", value="sec")]
+    return SimpleNamespace(
+        deployment=SimpleNamespace(
+            id="dep-1",
+            status="HEALTHY",
+            definition=SimpleNamespace(env=env),
+            metadata=None,
+        )
+    )
+
+
+# A claimed pool sandbox: its service lives in the pool's app, next to the
+# pool's other members.
+_POOL_MEMBER = SimpleNamespace(
+    id="svc-claimed",
+    app_id="pool-app",
+    name="pool-member",
+    active_deployment_id="dep-1",
+    latest_deployment_id="dep-1",
+)
+
+
+class TestDeleteOwnership(unittest.TestCase):
+    """delete() removes the whole app only when create() made it; any other
+    handle removes only its service, so the app's other services (a pool's
+    members, a caller's services) survive. SDK-created apps are
+    delete_when_empty, so the platform reaps them once the service is gone."""
+
+    def test_sync_created_app_handle_deletes_app(self):
+        clients = _fake_sync_clients()
+        with patch(
+            "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
+        ):
+            with patch.object(Sandbox, "wait_ready", return_value=True):
+                sb = Sandbox.create(api_token="tok")
+            sb.delete()
+        self.assertEqual(clients.apps.deleted, ["app-1"])
+        self.assertEqual(clients.services.deleted, [])
+
+    def test_async_created_app_handle_deletes_app(self):
+        clients = _fake_async_clients()
+
+        async def run():
+            sb = await AsyncSandbox.create(api_token="tok")
+            await sb.delete()
+
+        with patch(
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
+        ):
+            with patch.object(AsyncSandbox, "wait_ready", return_value=True):
+                asyncio.run(run())
+        self.assertEqual(clients.apps.deleted, ["app-1"])
+        self.assertEqual(clients.services.deleted, [])
+
+    def test_sync_get_from_id_handle_deletes_only_service(self):
+        clients = _fake_sync_clients()
+        clients.services.get_service = lambda **kw: SimpleNamespace(
+            service=_POOL_MEMBER
+        )
+        clients.deployments = SimpleNamespace(
+            get_deployment=lambda **kw: _pool_member_deployment()
+        )
+        with patch(
+            "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
+        ):
+            Sandbox.get_from_id("svc-claimed", api_token="tok").delete()
+        self.assertEqual(clients.apps.deleted, [])
+        self.assertEqual(clients.services.deleted, ["svc-claimed"])
+
+    def test_async_get_from_id_handle_deletes_only_service(self):
+        clients = _fake_async_clients()
+
+        async def get_service(**kwargs):
+            return SimpleNamespace(service=_POOL_MEMBER)
+
+        async def get_deployment(**kwargs):
+            return _pool_member_deployment()
+
+        clients.services.get_service = get_service
+        clients.deployments = SimpleNamespace(get_deployment=get_deployment)
+
+        async def run():
+            sb = await AsyncSandbox.get_from_id("svc-claimed", api_token="tok")
+            await sb.delete()
+
+        with patch(
+            "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
+        ):
+            asyncio.run(run())
+        self.assertEqual(clients.apps.deleted, [])
+        self.assertEqual(clients.services.deleted, ["svc-claimed"])
+
+    def test_constructed_handle_deletes_only_service(self):
+        # list() handles and direct construction: provenance unknown.
         clients = _fake_sync_clients()
         sandbox = Sandbox(
             sandbox_id="s", app_id="app-x", service_id="svc-x", api_token="tok"
@@ -412,9 +505,8 @@ class TestCallerAppCleanup(unittest.TestCase):
             "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
         ):
             sandbox.delete()
-        self.assertEqual(clients.apps.deleted, ["app-x"])
-        self.assertEqual(clients.services.deleted, [])
-
+        self.assertEqual(clients.apps.deleted, [])
+        self.assertEqual(clients.services.deleted, ["svc-x"])
 
 if __name__ == "__main__":
     unittest.main()
