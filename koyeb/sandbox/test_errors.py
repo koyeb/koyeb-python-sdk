@@ -4,6 +4,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from koyeb.api.exceptions import ApiException
+
 from koyeb.sandbox.snapshot import Snapshot
 from koyeb.sandbox.sandbox import AsyncSandbox, Sandbox
 from koyeb.sandbox.clients import get_api_clients, get_async_api_clients
@@ -191,6 +193,49 @@ class TestNoSandboxSecretRaiseSite(unittest.TestCase):
             sb = asyncio.run(AsyncSandbox.get_from_id("svc-1", api_token="tok"))
         self.assertEqual(sb.sandbox_secret, "sec")
 
+
+
+class TestLookupHelpersSwallowApiErrors(unittest.TestCase):
+    """The best-effort URL/domain/proxy lookups return None when the API
+    fails, rather than raising (a NameError, before the fix)."""
+
+    def _sandbox(self):
+        sb = Sandbox(
+            sandbox_id="s", app_id="app-1", service_id="svc-1", api_token="tok"
+        )
+        sb._deployment_id = "dep-1"
+        return sb
+
+    def _failing_clients(self):
+        def boom(*args, **kwargs):
+            raise ApiException(status=404, reason="Not Found")
+
+        return SimpleNamespace(
+            apps=SimpleNamespace(get_app=boom),
+            services=SimpleNamespace(get_service=boom),
+            deployments=SimpleNamespace(get_deployment=boom),
+        )
+
+    def test_url_from_metadata(self):
+        with patch(
+            "koyeb.sandbox.clients.get_api_clients",
+            return_value=self._failing_clients(),
+        ):
+            self.assertIsNone(self._sandbox()._get_url_and_header_from_metadata())
+
+    def test_domain(self):
+        with patch(
+            "koyeb.sandbox.clients.get_api_clients",
+            return_value=self._failing_clients(),
+        ):
+            self.assertIsNone(self._sandbox()._get_domain())
+
+    def test_tcp_proxy_info(self):
+        with patch(
+            "koyeb.sandbox.clients.get_api_clients",
+            return_value=self._failing_clients(),
+        ):
+            self.assertIsNone(self._sandbox().get_tcp_proxy_info())
 
 if __name__ == "__main__":
     unittest.main()

@@ -966,8 +966,6 @@ class Sandbox:
         Get the public url of the sandbox and the routing key to use to reach it.
         """
         try:
-            from koyeb.api.exceptions import ApiException
-
             deployment_id = self._resolve_deployment_id()
             if not deployment_id:
                 return None
@@ -981,7 +979,7 @@ class Sandbox:
                 return metadata.sandbox.public_url, metadata.sandbox.routing_key
             return None
 
-        except (NotFoundException, ApiException, Exception):
+        except Exception:
             return None
 
     def _get_domain(self) -> Optional[str]:
@@ -994,8 +992,6 @@ class Sandbox:
             Optional[str]: The domain name or None if unavailable
         """
         try:
-            from koyeb.api.exceptions import ApiException
-
             if not self.app_id:
                 return None
 
@@ -1008,7 +1004,7 @@ class Sandbox:
                 # Use the first public domain
                 return app.domains[0].name
             return None
-        except (NotFoundException, ApiException, Exception):
+        except Exception:
             return None
 
     def _get_url(self) -> Optional[str]:
@@ -1062,8 +1058,6 @@ class Sandbox:
             Optional[tuple[str, int]]: A tuple of (host, port) or None if unavailable
         """
         try:
-            from koyeb.api.exceptions import ApiException
-
             from .clients import get_api_clients
 
             clients = get_api_clients(self.api_token, self.host)
@@ -1095,7 +1089,7 @@ class Sandbox:
                     return (proxy_port.host, proxy_port.public_port)
 
             return None
-        except (NotFoundException, ApiException, Exception):
+        except Exception:
             return None
 
     def _get_sandbox_url(self) -> Optional[Tuple[str, Optional[str]]]:
