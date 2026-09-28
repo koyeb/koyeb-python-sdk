@@ -40,7 +40,6 @@ class TestGetQuotasReply(unittest.TestCase):
                     apps = '', 
                     services = '', 
                     domains = '', 
-                    services_by_app = '', 
                     service_provisioning_concurrency = '', 
                     memory_mb = '', 
                     instance_types = [
