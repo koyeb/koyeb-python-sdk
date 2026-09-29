@@ -29,10 +29,12 @@ def main() -> int:
         # Sandbox.create (image, instance_type, env, region, ...).
         pool = ServicePool.create(name=pool_name, size=3, api_token=api_token)
         print(f"✓ Created {pool}")
+        assert pool.id, "Pool creation returned no id"
 
         # List every pool the caller can see.
         pools = ServicePool.list(api_token=api_token)
         print(f"✓ Listed {len(pools)} pool(s)")
+        assert any(p.id == pool.id for p in pools), "Created pool missing from list"
 
         # Update the pool's target size.
         pool.update(size=5)
@@ -41,6 +43,7 @@ def main() -> int:
         # Refresh re-fetches the pool (status, ready_count, ...).
         pool.refresh()
         print(f"✓ Refreshed, ready_count={pool.ready_count}, status={pool.status}")
+        assert pool.size == 5, f"Expected size 5 after update, got {pool.size}"
     except Exception as e:  # noqa: BLE001 - surface any failure but still clean up
         print(f"✗ Service pool example failed: {e}", file=sys.stderr)
         return 1

@@ -45,12 +45,21 @@ def main():
         ]
     )
 
+    # Fail loudly if a scenario number has no example, so the runner
+    # itself cannot silently skip coverage.
+    expected_numbers = {f"{number:02d}" for number in range(1, 32)}
+    present_numbers = {example.name[:2] for example in all_example_files}
+    missing_numbers = sorted(expected_numbers - present_numbers)
+    if missing_numbers:
+        print(f"Missing synchronous example scenarios: {', '.join(missing_numbers)}")
+        return 1
+
     # Filter flows based on specification
     example_files = filter_flows(all_example_files, args.flows)
 
     if not example_files:
         print("No example files match the specified flows")
-        return 0
+        return 1
 
     # Build flow timeout mapping
     flow_timeouts = build_flow_timeouts(args.flow_timeout)
@@ -121,7 +130,7 @@ def main():
                     "name": example_name,
                     "status": "TIMEOUT",
                     "time": elapsed_time,
-                    "error": "Script exceeded 60 second timeout",
+                    "error": f"Script exceeded {timeout} second timeout",
                 }
             )
 

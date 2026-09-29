@@ -2,7 +2,7 @@
 Koyeb service pools: pre-warmed sandbox pools and claims.
 
 Mirrors the JS SDK's service-pool.ts / claim.ts: a pool keeps ``size``
-pre-warmed sandboxes ready; ``claim()`` hands one out idempotently (the
+pre-warmed services ready; ``claim()`` hands one out idempotently (the
 same ``request_id`` returns the same claim), retrying transient failures
 (429/5xx) with linear backoff. Sync and async are fully mirrored.
 """
@@ -16,6 +16,9 @@ from typing import Any, List, Optional, Union
 
 from koyeb.api.exceptions import ApiException
 from koyeb.api.models.create_service_pool import CreateServicePool
+from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
+from koyeb.api.models.deployment_port import DeploymentPort
+from koyeb.api.models.deployment_route import DeploymentRoute
 from koyeb.api.models.pool_claim import PoolClaim
 from koyeb.api.models.pool_claim_request import PoolClaimRequest
 from koyeb.api.models.update_service_pool import UpdateServicePool
@@ -42,6 +45,11 @@ from .status import classify_service_status
 logger = logging.getLogger(__name__)
 
 DEFAULT_POOL_SIZE = 1
+_POOL_DEFINITION_TYPES = {
+    "WEB": DeploymentDefinitionType.WEB,
+    "WORKER": DeploymentDefinitionType.WORKER,
+    "SANDBOX": DeploymentDefinitionType.SANDBOX,
+}
 DEFAULT_CLAIM_ATTEMPTS = 3
 DEFAULT_CLAIM_RETRY_DELAY = 1.0  # seconds; linear: delay * attempt number
 DEFAULT_CLAIM_WAIT_TIMEOUT = 300.0
@@ -59,6 +67,62 @@ class ClaimResult:
     request_id: str
     service_id: str
     prewarmed: bool
+
+
+def _pool_definition_type(pool_type: str) -> DeploymentDefinitionType:
+    """Map a pool ``type`` string onto the API enum, fail-fast.
+
+    DATABASE is a product-rule exclusion: pools host WEB, WORKER, and
+    SANDBOX definitions only."""
+    if pool_type in _POOL_DEFINITION_TYPES:
+        return _POOL_DEFINITION_TYPES[pool_type]
+    if pool_type == "DATABASE":
+        raise ServicePoolError(
+            "Invalid pool type 'DATABASE': service pools do not host "
+            "DATABASE definitions (allowed: WEB, WORKER, SANDBOX)"
+        )
+    raise ServicePoolError(
+        f"Invalid pool type {pool_type!r}: must be one of " "'WEB', 'WORKER', 'SANDBOX'"
+    )
+
+
+def _validate_pool_create_args(
+    pool_type: str,
+    ports: Optional[List[Any]],
+    routes: Optional[List[Any]],
+    exposed_port_protocol: Optional[str] = None,
+    enable_tcp_proxy: bool = False,
+) -> None:
+    """Fail-fast on type/wiring mismatches, before any API call."""
+    if pool_type == "SANDBOX" and (ports or routes):
+        raise ServicePoolError(
+            "SANDBOX pools do not accept explicit ports or routes: the "
+            "sandbox wiring owns ports 3030/3031, and user ports would "
+            "break executor connectivity"
+        )
+    if pool_type != "SANDBOX" and (
+        exposed_port_protocol is not None or enable_tcp_proxy
+    ):
+        raise ServicePoolError(
+            "exposed_port_protocol and enable_tcp_proxy are sandbox-only "
+            f"options and cannot be used on {pool_type} pools"
+        )
+
+
+def _coerce_ports(ports: Optional[List[Any]]) -> Optional[List[DeploymentPort]]:
+    """Accept DeploymentPort models or ``{port, protocol}`` dicts; verbatim."""
+    if ports is None:
+        return None
+    return [p if isinstance(p, DeploymentPort) else DeploymentPort(**p) for p in ports]
+
+
+def _coerce_routes(routes: Optional[List[Any]]) -> Optional[List[DeploymentRoute]]:
+    """Accept DeploymentRoute models or ``{port, path}`` dicts; verbatim."""
+    if routes is None:
+        return None
+    return [
+        r if isinstance(r, DeploymentRoute) else DeploymentRoute(**r) for r in routes
+    ]
 
 
 def _claim_error_retryable(status: Any) -> bool:
@@ -351,6 +415,12 @@ class ServicePool:
         region: Optional[str] = None,
         env: Optional[dict] = None,
         config_files: Optional[dict] = None,
+        type: str = "SANDBOX",
+        entrypoint: Optional[List[str]] = None,
+        command: Optional[str] = None,
+        args: Optional[List[str]] = None,
+        ports: Optional[List[Any]] = None,
+        routes: Optional[List[Any]] = None,
         privileged: bool = False,
         registry_secret: Optional[str] = None,
         exposed_port_protocol: Optional[str] = None,
@@ -362,16 +432,33 @@ class ServicePool:
         api_token: Optional[str] = None,
         host: Optional[str] = None,
     ) -> "ServicePool":
-        """Create a pool of ``size`` pre-warmed sandboxes built from the same
-        definition options as ``Sandbox.create`` (minus sandbox-specific
-        entrypoint/command overrides)."""
+        """Create a pool of ``size`` pre-warmed services built from one
+        definition.
+
+        ``type`` selects the definition type: WEB, WORKER, or SANDBOX (the
+        default). SANDBOX pools keep the sandbox auto-wiring (ports 3030/3031
+        and the sandbox routes); the platform mints their executor secret, and
+        an explicit ``SANDBOX_SECRET`` in ``env`` wins over minting. WEB and
+        WORKER pools carry exactly the declared ``ports`` and ``routes`` — no
+        secret, no auto ports. The docker overrides (``entrypoint``,
+        ``command``, ``args``) apply to every pool type. Mesh stays AUTO:
+        there is no pool-level mesh option."""
+        _validate_pool_create_args(
+            type, ports, routes, exposed_port_protocol, enable_tcp_proxy
+        )
         spec = SandboxSpec(
             name=name,
             image=image,
             instance_type=instance_type,
+            definition_type=_pool_definition_type(type),
             region=region,
             env=env,
             config_files=config_files,
+            entrypoint=entrypoint,
+            command=command,
+            args=args,
+            ports=_coerce_ports(ports),
+            routes=_coerce_routes(routes),
             privileged=privileged,
             registry_secret=registry_secret,
             exposed_port_protocol=exposed_port_protocol,
@@ -381,8 +468,7 @@ class ServicePool:
             block_network=block_network,
             outbound_allowlist=outbound_allowlist,
         )
-        # Pools generate their own executor secret; mesh stays auto.
-        spec.apply_sandbox_secret()
+        # The platform mints the executor secret for SANDBOX pools; mesh stays auto.
         clients = get_api_clients(api_token, host)
         try:
             reply = clients.service_pools.create_service_pool(
@@ -391,7 +477,9 @@ class ServicePool:
                 )
             )
         except ApiException as e:
-            raise ServicePoolError(f"Failed to create service pool '{name}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to create service pool '{name}': {e}"
+            ) from e
         return cls._from_model(reply.service_pool, api_token, host)
 
     @classmethod
@@ -405,7 +493,9 @@ class ServicePool:
         try:
             reply = clients.service_pools.get_service_pool(pool_id)
         except ApiException as e:
-            raise ServicePoolError(f"Failed to get service pool '{pool_id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to get service pool '{pool_id}': {e}"
+            ) from e
         return cls._from_model(reply.service_pool, api_token, host)
 
     @classmethod
@@ -427,8 +517,7 @@ class ServicePool:
         except ApiException as e:
             raise ServicePoolError(f"Failed to list service pools: {e}") from e
         return [
-            cls._from_model(pool, api_token, host)
-            for pool in reply.service_pools or []
+            cls._from_model(pool, api_token, host) for pool in reply.service_pools or []
         ]
 
     def update(self, size: Optional[int] = None) -> "ServicePool":
@@ -441,10 +530,10 @@ class ServicePool:
                 update_mask="size",
             )
         except ApiException as e:
-            raise ServicePoolError(f"Failed to update service pool '{self.id}': {e}") from e
-        return ServicePool._from_model(
-            reply.service_pool, self.api_token, self.host
-        )
+            raise ServicePoolError(
+                f"Failed to update service pool '{self.id}': {e}"
+            ) from e
+        return ServicePool._from_model(reply.service_pool, self.api_token, self.host)
 
     def delete(self) -> None:
         """Delete the pool (async server-side: it enters DELETING)."""
@@ -452,7 +541,9 @@ class ServicePool:
         try:
             clients.service_pools.delete_service_pool(self.id)
         except ApiException as e:
-            raise ServicePoolError(f"Failed to delete service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to delete service pool '{self.id}': {e}"
+            ) from e
 
     def refresh(self) -> "ServicePool":
         """Re-fetch the pool's state (ready_count, status) in place."""
@@ -460,7 +551,9 @@ class ServicePool:
         try:
             reply = clients.service_pools.get_service_pool(self.id)
         except ApiException as e:
-            raise ServicePoolError(f"Failed to refresh service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to refresh service pool '{self.id}': {e}"
+            ) from e
         model = reply.service_pool
         self.name = model.name
         self.size = model.size
@@ -535,6 +628,12 @@ class AsyncServicePool:
         region: Optional[str] = None,
         env: Optional[dict] = None,
         config_files: Optional[dict] = None,
+        type: str = "SANDBOX",
+        entrypoint: Optional[List[str]] = None,
+        command: Optional[str] = None,
+        args: Optional[List[str]] = None,
+        ports: Optional[List[Any]] = None,
+        routes: Optional[List[Any]] = None,
         privileged: bool = False,
         registry_secret: Optional[str] = None,
         exposed_port_protocol: Optional[str] = None,
@@ -546,13 +645,22 @@ class AsyncServicePool:
         api_token: Optional[str] = None,
         host: Optional[str] = None,
     ) -> "AsyncServicePool":
+        _validate_pool_create_args(
+            type, ports, routes, exposed_port_protocol, enable_tcp_proxy
+        )
         spec = SandboxSpec(
             name=name,
             image=image,
             instance_type=instance_type,
+            definition_type=_pool_definition_type(type),
             region=region,
             env=env,
             config_files=config_files,
+            entrypoint=entrypoint,
+            command=command,
+            args=args,
+            ports=_coerce_ports(ports),
+            routes=_coerce_routes(routes),
             privileged=privileged,
             registry_secret=registry_secret,
             exposed_port_protocol=exposed_port_protocol,
@@ -562,8 +670,7 @@ class AsyncServicePool:
             block_network=block_network,
             outbound_allowlist=outbound_allowlist,
         )
-        # Pools generate their own executor secret; mesh stays auto.
-        spec.apply_sandbox_secret()
+        # The platform mints the executor secret for SANDBOX pools; mesh stays auto.
         clients = get_async_api_clients(api_token, host)
         try:
             reply = await clients.service_pools.create_service_pool(
@@ -572,7 +679,9 @@ class AsyncServicePool:
                 )
             )
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to create service pool '{name}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to create service pool '{name}': {e}"
+            ) from e
         return cls._from_model(reply.service_pool, api_token, host)
 
     @classmethod
@@ -586,7 +695,9 @@ class AsyncServicePool:
         try:
             reply = await clients.service_pools.get_service_pool(pool_id)
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to get service pool '{pool_id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to get service pool '{pool_id}': {e}"
+            ) from e
         return cls._from_model(reply.service_pool, api_token, host)
 
     @classmethod
@@ -608,8 +719,7 @@ class AsyncServicePool:
         except AsyncApiException as e:
             raise ServicePoolError(f"Failed to list service pools: {e}") from e
         return [
-            cls._from_model(pool, api_token, host)
-            for pool in reply.service_pools or []
+            cls._from_model(pool, api_token, host) for pool in reply.service_pools or []
         ]
 
     async def update(self, size: Optional[int] = None) -> "AsyncServicePool":
@@ -621,7 +731,9 @@ class AsyncServicePool:
                 update_mask="size",
             )
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to update service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to update service pool '{self.id}': {e}"
+            ) from e
         return AsyncServicePool._from_model(
             reply.service_pool, self.api_token, self.host
         )
@@ -631,14 +743,18 @@ class AsyncServicePool:
         try:
             await clients.service_pools.delete_service_pool(self.id)
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to delete service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to delete service pool '{self.id}': {e}"
+            ) from e
 
     async def refresh(self) -> "AsyncServicePool":
         clients = get_async_api_clients(self.api_token, self.host)
         try:
             reply = await clients.service_pools.get_service_pool(self.id)
         except AsyncApiException as e:
-            raise ServicePoolError(f"Failed to refresh service pool '{self.id}': {e}") from e
+            raise ServicePoolError(
+                f"Failed to refresh service pool '{self.id}': {e}"
+            ) from e
         model = reply.service_pool
         self.name = model.name
         self.size = model.size

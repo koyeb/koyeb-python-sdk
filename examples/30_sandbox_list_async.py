@@ -25,11 +25,14 @@ async def main() -> int:
             print(f"  {handle.id}  {handle.name}")
 
         # Lazy handles have no executor secret...
+        raised = False
         try:
             ours_handle = next(h for h in handles if h.id == ours.service_id)
             await ours_handle.exec("echo hi")
         except NoSandboxSecretError:
+            raised = True
             print("✓ Lazy handle has no secret, as documented")
+        assert raised, "Lazy handle should not carry an executor secret"
 
         # ...so connect through get_from_id before running commands.
         connected = await AsyncSandbox.get_from_id(
@@ -37,6 +40,7 @@ async def main() -> int:
         )
         out = await connected.exec("echo hello from the list demo")
         print(f"✓ Connected handle output: {out.stdout.strip()}")
+        assert out.stdout.strip() == "hello from the list demo"
     finally:
         await ours.delete()
         print("✓ Cleaned up")

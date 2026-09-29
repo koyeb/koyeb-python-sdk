@@ -105,6 +105,7 @@ def main(run_long_tests=False):
         health_duration = time.time() - health_start
         tracker.record("Health check", health_duration, "monitoring")
         print(f"    ✓ took {health_duration:.1f}s")
+        assert is_healthy, "Sandbox should be healthy"
 
         # Test command execution with timing
         print("  → Executing initial test command...")
@@ -113,6 +114,8 @@ def main(run_long_tests=False):
         exec_duration = time.time() - exec_start
         tracker.record("Initial exec command", exec_duration, "execution")
         print(f"    ✓ took {exec_duration:.1f}s")
+        assert result.exit_code == 0, result.stderr
+        assert result.stdout.strip() == "Sandbox is ready!"
 
         if run_long_tests:
             # Long test 1: Install a package
@@ -122,6 +125,7 @@ def main(run_long_tests=False):
             install_duration = time.time() - install_start
             tracker.record("Package installation", install_duration, "long_tests")
             print(f"    ✓ took {install_duration:.1f}s")
+            assert result.exit_code == 0, result.stderr
 
             # Long test 2: Run a computation
             print("  → [LONG TEST] Running computation...")
@@ -132,6 +136,7 @@ def main(run_long_tests=False):
             compute_duration = time.time() - compute_start
             tracker.record("Heavy computation", compute_duration, "long_tests")
             print(f"    ✓ took {compute_duration:.1f}s")
+            assert result.exit_code == 0, result.stderr
 
             # Long test 3: Multiple health checks
             print("  → [LONG TEST] Multiple health checks...")

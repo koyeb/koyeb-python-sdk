@@ -24,13 +24,18 @@ def main() -> int:
         # Default: a failed command is a value, not an exception.
         result = sandbox.exec("ls /definitely-missing")
         print(f"✓ Default returned success={result.success}, exit={result.exit_code}")
+        assert not result.success, "Command should have failed"
 
         # Opt-in: the same command raises, with the result attached.
+        raised = False
         try:
             sandbox.exec("ls /definitely-missing", raise_on_error=True)
         except SandboxCommandError as e:
+            raised = True
+            assert e.result.exit_code != 0
             print(f"✓ Raised SandboxCommandError: exit={e.result.exit_code}")
             print(f"  stderr: {e.result.stderr.strip()}")
+        assert raised, "raise_on_error should raise SandboxCommandError"
         return 0
     finally:
         sandbox.delete()

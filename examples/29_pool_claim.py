@@ -55,6 +55,7 @@ def main() -> int:
 
             out = sandbox.exec("echo 'Hello from a claimed sandbox!'")
             print(f"  Output: {out.stdout.strip()}")
+            assert out.stdout.strip() == "Hello from a claimed sandbox!"
 
             # Replay demo: the same (pool_id, request_id) returns the same
             # claim — safe to retry after a network failure.

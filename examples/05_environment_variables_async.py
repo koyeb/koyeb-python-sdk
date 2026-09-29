@@ -9,7 +9,7 @@ import string
 
 from koyeb import AsyncSandbox
 from koyeb.api.models.create_secret import CreateSecret
-from koyeb.sandbox.utils import get_api_clients
+from koyeb.sandbox.clients import get_api_clients
 
 
 async def main():
