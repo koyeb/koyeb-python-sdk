@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from koyeb import Sandbox
-from koyeb.sandbox.utils import get_api_clients
+from koyeb.sandbox.clients import get_api_clients
 
 
 class TimingTracker:

@@ -9,7 +9,7 @@ import time
 
 from koyeb import Sandbox
 from koyeb.api.models.create_app import CreateApp
-from koyeb.sandbox.utils import get_api_clients
+from koyeb.sandbox.clients import get_api_clients
 
 
 def main():

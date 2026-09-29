@@ -9,7 +9,7 @@ import time
 import random
 import string
 from koyeb import Sandbox
-from koyeb.sandbox.utils import get_api_clients
+from koyeb.sandbox.clients import get_api_clients
 
 
 def service_exists(api_token: str, service_id: str) -> bool:

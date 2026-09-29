@@ -12,7 +12,7 @@ import string
 
 from koyeb import Sandbox
 from koyeb.sandbox import SnapshotType
-from koyeb.sandbox.utils import SandboxTimeoutError
+from koyeb.sandbox.errors import SandboxTimeoutError
 
 
 def main():
