@@ -16,7 +16,9 @@ class FakeSyncClient:
         self._events = events or []
         self._run_response = run_response or {}
 
-    def run_streaming(self, cmd=None, cwd=None, env=None, timeout=None):
+    def run_streaming(
+        self, cmd=None, cwd=None, env=None, timeout=None, total_timeout=None
+    ):
         yield from self._events
 
     def run(self, cmd=None, cwd=None, env=None, timeout=None):
@@ -28,7 +30,9 @@ class FakeAsyncClient:
         self._events = events or []
         self._run_response = run_response or {}
 
-    async def run_streaming(self, cmd=None, cwd=None, env=None, timeout=None):
+    async def run_streaming(
+        self, cmd=None, cwd=None, env=None, timeout=None, total_timeout=None
+    ):
         for event in self._events:
             yield event
 
