@@ -22,7 +22,12 @@ from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.update_service import UpdateService
 
 from .executor_client import ConnectionInfo
-from .control_plane import AsyncControlPlane, DeploymentInfo, ServiceInfo, SyncControlPlane
+from .control_plane import (
+    AsyncControlPlane,
+    DeploymentInfo,
+    ServiceInfo,
+    SyncControlPlane,
+)
 from .spec import SandboxSpec
 from .clients import (
     create_sandbox_client,
@@ -90,9 +95,7 @@ def _cleanup_after_failure(sandbox: "Sandbox") -> bool:
         sandbox.delete()
         return True
     except Exception as e:
-        logger.warning(
-            f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}"
-        )
+        logger.warning(f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}")
         return False
 
 
@@ -102,9 +105,7 @@ async def _cleanup_after_failure_async(sandbox: "Sandbox") -> bool:
         await sandbox.delete()
         return True
     except Exception as e:
-        logger.warning(
-            f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}"
-        )
+        logger.warning(f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}")
         return False
 
 
@@ -478,6 +479,7 @@ class Sandbox:
         )
         sandbox._owns_app = created_app
         return sandbox
+
     @classmethod
     def get_from_id(
         cls,
@@ -1987,9 +1989,7 @@ class AsyncSandbox(Sandbox):
             try:
                 service = await cp.get_service(self.service_id)
                 if service.active_deployment_id:
-                    deployment = await cp.get_deployment(
-                        service.active_deployment_id
-                    )
+                    deployment = await cp.get_deployment(service.active_deployment_id)
                     if self._tcp_proxy_ready(deployment):
                         return True
             except Exception:

@@ -16318,10 +16318,6 @@
           "format": "int64",
           "title": "Deprecated, use custom_domains instead"
         },
-        "services_by_app": {
-          "type": "string",
-          "format": "int64"
-        },
         "service_provisioning_concurrency": {
           "type": "string",
           "format": "int64"
