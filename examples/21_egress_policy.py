@@ -64,6 +64,7 @@ def wait_for_probe(sandbox, probe, expect_allowed, label, timeout=120, interval=
 
 def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
+    region = os.getenv("KOYEB_NETWORK_POLICY_REGION", "nl-north-1")
     if not api_token:
         print("Error: KOYEB_API_TOKEN not set")
         return 1
@@ -76,6 +77,7 @@ def main():
         Sandbox.create(
             name=f"egress-{suffix}",
             api_token=api_token,
+            region=region,
             block_network=True,
             outbound_allowlist=["1.1.1.1"],
         )
@@ -91,6 +93,7 @@ def main():
             name=f"egress-{suffix}",
             wait_ready=True,
             api_token=api_token,
+            region=region,
             block_network=True,
         )
         print(f"Created sandbox with block_network=True: {sandbox.name}")
