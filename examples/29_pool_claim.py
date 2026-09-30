@@ -22,11 +22,14 @@ from koyeb.sandbox import (
 
 def main() -> int:
     api_token = os.environ.get("KOYEB_API_TOKEN")
+    region = os.getenv("KOYEB_SERVICE_POOL_REGION", "nl-north-1")
     if not api_token:
         print("KOYEB_API_TOKEN is not set", file=sys.stderr)
         return 1
 
-    pool = ServicePool.create(name="claim-demo", size=1, api_token=api_token)
+    pool = ServicePool.create(
+        name="claim-demo", size=1, region=region, api_token=api_token
+    )
     print(f"✓ Created pool {pool.id} (size {pool.size})")
 
     try:

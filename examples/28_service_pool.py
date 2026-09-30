@@ -8,6 +8,7 @@ service instead of provisioning one on demand.
 
 import os
 import sys
+import time
 import uuid
 
 from koyeb.sandbox import ServicePool
@@ -15,6 +16,7 @@ from koyeb.sandbox import ServicePool
 
 def main() -> int:
     api_token = os.environ.get("KOYEB_API_TOKEN")
+    region = os.getenv("KOYEB_SERVICE_POOL_REGION", "nl-north-1")
     if not api_token:
         print("KOYEB_API_TOKEN is not set", file=sys.stderr)
         return 1
@@ -25,9 +27,11 @@ def main() -> int:
 
     pool = None
     try:
-        # Create a pool of 3 warm sandboxes. Definition options mirror
+        # Create a pool with one warm sandbox. Definition options mirror
         # Sandbox.create (image, instance_type, env, region, ...).
-        pool = ServicePool.create(name=pool_name, size=3, api_token=api_token)
+        pool = ServicePool.create(
+            name=pool_name, size=1, region=region, api_token=api_token
+        )
         print(f"✓ Created {pool}")
         assert pool.id, "Pool creation returned no id"
 
@@ -36,14 +40,26 @@ def main() -> int:
         print(f"✓ Listed {len(pools)} pool(s)")
         assert any(p.id == pool.id for p in pools), "Created pool missing from list"
 
+        deadline = time.time() + 300
+        while time.time() < deadline:
+            pool.refresh()
+            status = getattr(pool.status, "value", pool.status)
+            if status == "ERROR":
+                raise RuntimeError("Pool entered ERROR before it became ready")
+            if pool.ready_count == pool.size:
+                break
+            time.sleep(2)
+        else:
+            raise AssertionError("Pool did not become ready within 300 seconds")
+
         # Update the pool's target size.
-        pool.update(size=5)
-        print("✓ Updated: size=5")
+        pool.update(size=2)
+        print("✓ Updated: size=2")
 
         # Refresh re-fetches the pool (status, ready_count, ...).
         pool.refresh()
         print(f"✓ Refreshed, ready_count={pool.ready_count}, status={pool.status}")
-        assert pool.size == 5, f"Expected size 5 after update, got {pool.size}"
+        assert pool.size == 2, f"Expected size 2 after update, got {pool.size}"
     except Exception as e:  # noqa: BLE001 - surface any failure but still clean up
         print(f"✗ Service pool example failed: {e}", file=sys.stderr)
         return 1

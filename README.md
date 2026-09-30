@@ -48,6 +48,9 @@ Using the Koyeb Python SDK requires an API token. Complete the following steps t
     export KOYEB_API_TOKEN="YOUR_API_TOKEN"
     ```
 
+For repository examples, you can instead copy `.env.example` to `.env` and set the token there.
+The example runners load `.env` automatically.
+
 Optionally, set a default region for all sandbox deployments (defaults to `"na"` if not set):
 
 ```bash copy

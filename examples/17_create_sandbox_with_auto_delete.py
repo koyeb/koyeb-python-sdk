@@ -144,7 +144,7 @@ def main():
         create_start = time.time()
         sandbox1 = Sandbox.create(
             image="koyeb/sandbox:slim",
-            name="auto-delete-test-1",
+            name=f"auto-delete-test-1-{suffix}",
             wait_ready=True,
             api_token=api_token,
             delete_after_delay=delete_after_delay_1,
@@ -317,23 +317,29 @@ def main():
 
     finally:
         # Clean up any sandboxes that weren't auto-deleted
-        if sandbox1:
+        if sandbox1 and service_exists(api_token, sandbox1.service_id):
             print()
             print("  → Manually deleting sandbox 1 (wasn't auto-deleted)...")
             delete_start = time.time()
-            sandbox1.delete()
-            tracker.record(
-                "Sandbox 1 manual deletion", time.time() - delete_start, "cleanup"
-            )
+            try:
+                sandbox1.delete()
+                tracker.record(
+                    "Sandbox 1 manual deletion", time.time() - delete_start, "cleanup"
+                )
+            except Exception as error:
+                print(f"    ⚠ Could not delete sandbox 1: {error}")
 
-        if sandbox2:
+        if sandbox2 and service_exists(api_token, sandbox2.service_id):
             print()
             print("  → Manually deleting sandbox 2 (wasn't auto-deleted)...")
             delete_start = time.time()
-            sandbox2.delete()
-            tracker.record(
-                "Sandbox 2 manual deletion", time.time() - delete_start, "cleanup"
-            )
+            try:
+                sandbox2.delete()
+                tracker.record(
+                    "Sandbox 2 manual deletion", time.time() - delete_start, "cleanup"
+                )
+            except Exception as error:
+                print(f"    ⚠ Could not delete sandbox 2: {error}")
 
         print()
         print("✓ Demo completed")

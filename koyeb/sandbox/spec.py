@@ -381,6 +381,7 @@ class SandboxSpec:
     deep_sleep_value: int = 3900
     delete_after_delay: int = 0
     delete_after_inactivity_delay: int = 0
+    project_id: Optional[str] = None
     enable_mesh: Optional[bool] = None
     entrypoint: Optional[List[str]] = None
     command: Optional[str] = None

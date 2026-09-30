@@ -109,8 +109,13 @@ class SyncControlPlane:
     def __init__(self, clients: Any):
         self._clients = clients
 
-    def create_app(self, payload: Dict[str, Any]) -> str:
-        reply = self._clients.apps.create_app(app=CreateApp(**payload))
+    def create_app(
+        self, payload: Dict[str, Any], project_id: Optional[str] = None
+    ) -> str:
+        kwargs: Dict[str, Any] = {"app": CreateApp(**payload)}
+        if project_id:
+            kwargs["_headers"] = {"x-koyeb-project-id": project_id}
+        reply = self._clients.apps.create_app(**kwargs)
         return reply.app.id
 
     def delete_app(self, app_id: str) -> None:
@@ -121,8 +126,13 @@ class SyncControlPlane:
         domains = [d.name for d in getattr(app, "domains", None) or []]
         return AppInfo(id=app.id, name=app.name, domains=domains)
 
-    def create_service(self, payload: Dict[str, Any]) -> str:
-        reply = self._clients.services.create_service(service=CreateService(**payload))
+    def create_service(
+        self, payload: Dict[str, Any], project_id: Optional[str] = None
+    ) -> str:
+        kwargs: Dict[str, Any] = {"service": CreateService(**payload)}
+        if project_id:
+            kwargs["_headers"] = {"x-koyeb-project-id": project_id}
+        reply = self._clients.services.create_service(**kwargs)
         return reply.service.id
 
     def get_service(self, service_id: str) -> ServiceInfo:
@@ -196,8 +206,13 @@ class AsyncControlPlane:
     def __init__(self, clients: Any):
         self._clients = clients
 
-    async def create_app(self, payload: Dict[str, Any]) -> str:
-        reply = await self._clients.apps.create_app(app=AsyncCreateApp(**payload))
+    async def create_app(
+        self, payload: Dict[str, Any], project_id: Optional[str] = None
+    ) -> str:
+        kwargs: Dict[str, Any] = {"app": AsyncCreateApp(**payload)}
+        if project_id:
+            kwargs["_headers"] = {"x-koyeb-project-id": project_id}
+        reply = await self._clients.apps.create_app(**kwargs)
         return reply.app.id
 
     async def delete_app(self, app_id: str) -> None:
@@ -208,10 +223,13 @@ class AsyncControlPlane:
         domains = [d.name for d in getattr(app, "domains", None) or []]
         return AppInfo(id=app.id, name=app.name, domains=domains)
 
-    async def create_service(self, payload: Dict[str, Any]) -> str:
-        reply = await self._clients.services.create_service(
-            service=AsyncCreateService(**payload)
-        )
+    async def create_service(
+        self, payload: Dict[str, Any], project_id: Optional[str] = None
+    ) -> str:
+        kwargs: Dict[str, Any] = {"service": AsyncCreateService(**payload)}
+        if project_id:
+            kwargs["_headers"] = {"x-koyeb-project-id": project_id}
+        reply = await self._clients.services.create_service(**kwargs)
         return reply.service.id
 
     async def get_service(self, service_id: str) -> ServiceInfo:

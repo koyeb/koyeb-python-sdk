@@ -5,15 +5,17 @@ A collection of examples demonstrating the Koyeb Sandbox SDK capabilities.
 ## Quick Start
 
 ```bash
-# Set your API token
-export KOYEB_API_TOKEN=your_api_token_here
+# Create a private environment file.
+cp .env.example .env
 
-# Optional: API host override (used by the config-file examples)
-export KOYEB_API_HOST=https://app.koyeb.com
+# Edit .env and set KOYEB_API_TOKEN.
 
 # Run individual examples
-uv run python examples/01_create_sandbox.py
+uv run --env-file .env python examples/01_create_sandbox.py
 ```
+
+The run-all scripts load the repository `.env` file automatically.
+Existing shell variables take priority over values from `.env`.
 
 Each numbered example checks its result with assertions and exits non-zero
 when a check fails.
@@ -31,9 +33,11 @@ uv run python examples/00_run_all_async.py
 ```
 
 The GitHub Actions workflow needs the `KOYEB_API_TOKEN` repository secret.
-It also accepts the `KOYEB_API_HOST` repository variable. The API token
-selects the Koyeb organization; resources land in that organization's
-default project.
+It also accepts `KOYEB_API_HOST`, `KOYEB_PROJECT_ID`, `KOYEB_REGION`, and
+`KOYEB_NETWORK_POLICY_REGION` and `KOYEB_SERVICE_POOL_REGION` repository variables.
+GitHub Actions does not use the local `.env` file.
+The API token selects the Koyeb organization.
+`KOYEB_PROJECT_ID` selects the project inside that organization.
 
 ## Examples
 

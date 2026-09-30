@@ -88,6 +88,24 @@ class TestRaiseOnErrorOptIn(unittest.TestCase):
         result = _exec(client, raise_on_error=True)
         self.assertTrue(result.success)
 
+    def test_streaming_callbacks_preserve_result_output(self):
+        stdout = []
+        stderr = []
+        client = FakeSyncClient(
+            events=[
+                {"stream": "stdout", "data": "out"},
+                {"stream": "stderr", "data": "err"},
+                {"code": 0},
+            ]
+        )
+
+        result = _exec(client, on_stdout=stdout.append, on_stderr=stderr.append)
+
+        self.assertEqual(stdout, ["out"])
+        self.assertEqual(stderr, ["err"])
+        self.assertEqual(result.stdout, "out")
+        self.assertEqual(result.stderr, "err")
+
     def test_raise_on_error_non_streaming(self):
         client = FakeSyncClient(run_response={"stdout": "", "stderr": "boom", "code": 2})
         with self.assertRaises(SandboxCommandError) as cm:
@@ -136,6 +154,26 @@ class TestRaiseOnErrorAsyncMirror(unittest.TestCase):
         )
         result = _exec_async(client, raise_on_error=True)
         self.assertTrue(result.success)
+
+    def test_streaming_callbacks_preserve_result_output(self):
+        stdout = []
+        stderr = []
+        client = FakeAsyncClient(
+            events=[
+                {"stream": "stdout", "data": "out"},
+                {"stream": "stderr", "data": "err"},
+                {"code": 0},
+            ]
+        )
+
+        result = _exec_async(
+            client, on_stdout=stdout.append, on_stderr=stderr.append
+        )
+
+        self.assertEqual(stdout, ["out"])
+        self.assertEqual(stderr, ["err"])
+        self.assertEqual(result.stdout, "out")
+        self.assertEqual(result.stderr, "err")
 
 
 if __name__ == "__main__":
