@@ -19,12 +19,8 @@ class TestClassifyServiceStatus(unittest.TestCase):
         self.assertEqual(classify_service_status(ServiceStatus.DEGRADED), "ready")
 
     def test_in_progress(self):
-        self.assertEqual(
-            classify_service_status(ServiceStatus.STARTING), "in_progress"
-        )
-        self.assertEqual(
-            classify_service_status(ServiceStatus.RESUMING), "in_progress"
-        )
+        self.assertEqual(classify_service_status(ServiceStatus.STARTING), "in_progress")
+        self.assertEqual(classify_service_status(ServiceStatus.RESUMING), "in_progress")
 
     def test_known_terminal(self):
         for status in (

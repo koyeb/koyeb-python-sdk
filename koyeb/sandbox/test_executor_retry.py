@@ -91,9 +91,7 @@ class TestSyncRetryScope(unittest.TestCase):
             response = client._request_with_retry("GET", "https://sb.example/health")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(handler.calls, 4)
-        self.assertEqual(
-            [c.args[0] for c in sleep.call_args_list], [1.0, 2.0, 4.0]
-        )
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [1.0, 2.0, 4.0])
 
     def test_5xx_exhausted_raises_service_error(self):
         handler = _ScriptedHandler([_ScriptedHandler.response(500)] * 4)
@@ -138,9 +136,7 @@ class TestSyncRetryScope(unittest.TestCase):
         def connect_error(request):
             raise httpx.ConnectError("refused", request=request)
 
-        handler = _ScriptedHandler(
-            [connect_error, _ScriptedHandler.response(200)]
-        )
+        handler = _ScriptedHandler([connect_error, _ScriptedHandler.response(200)])
         client, handler = _make_sync_client(handler)
         with patch("koyeb.sandbox.executor_client.time.sleep"):
             response = client._request_with_retry("GET", "https://sb.example/health")
@@ -187,9 +183,7 @@ class TestAsyncRetryScope(unittest.TestCase):
         client, _ = _make_async_client(handler)
 
         async def run():
-            return await client._request_with_retry(
-                "GET", "https://sb.example/health"
-            )
+            return await client._request_with_retry("GET", "https://sb.example/health")
 
         with self.assertRaises(SandboxRequestError) as cm:
             asyncio.run(run())
