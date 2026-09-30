@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 
+from _env import load_env_file
+
 
 def filter_flows(all_files, flows_spec):
     """
@@ -142,6 +144,8 @@ async def run_example(example_file, timeout):
 
 
 async def main():
+    load_env_file()
+
     parser = argparse.ArgumentParser(description="Run async example flows")
     parser.add_argument(
         "--flows",

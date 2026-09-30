@@ -9,8 +9,12 @@ import sys
 import time
 from pathlib import Path
 
+from _env import load_env_file
+
 
 def main():
+    load_env_file()
+
     parser = argparse.ArgumentParser(description="Run example flows")
     parser.add_argument(
         "--flows",
@@ -41,6 +45,7 @@ def main():
             f
             for f in examples_dir.glob("*.py")
             if f.name not in ["00_run_all.py", "00_run_all_async.py"]
+            and not f.name.startswith("_")
             and not f.name.endswith("_async.py")
         ]
     )
