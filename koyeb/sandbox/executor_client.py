@@ -115,6 +115,7 @@ class SandboxClient:
         url: str,
         max_retries: int = 3,
         initial_backoff: float = 1.0,
+        idempotent: bool = True,
         **kwargs,
     ) -> httpx.Response:
         """
@@ -125,11 +126,17 @@ class SandboxClient:
         wrapped as SandboxRequestError; 5xx that persist after retries are
         wrapped as SandboxServiceError.
 
+        A non-idempotent request (one that runs a command) is retried only
+        when the connection failed, so it never reached the executor: a 5xx
+        or a dropped connection may come after the command ran (e.g. the
+        gateway's 504 on a long /run), and a retry would run it again.
+
         Args:
             method: HTTP method (e.g., 'GET', 'POST')
             url: The URL to request
             max_retries: Maximum number of retry attempts
             initial_backoff: Initial backoff time in seconds (doubles each retry)
+            idempotent: False for requests that must not run twice
             **kwargs: Additional arguments to pass to httpx
 
         Returns:
@@ -152,7 +159,7 @@ class SandboxClient:
                 response = self._client.request(method, url, **kwargs)
 
                 # Retry transient server errors (5xx) with backoff
-                if response.status_code >= 500 and attempt < max_retries:
+                if response.status_code >= 500 and idempotent and attempt < max_retries:
                     logger.debug(
                         f"Received {response.status_code} error, retrying... "
                         f"(attempt {attempt + 1}/{max_retries + 1})"
@@ -165,7 +172,11 @@ class SandboxClient:
                 return response
 
             except httpx.HTTPStatusError as e:
-                if e.response.status_code >= 500 and attempt < max_retries:
+                if (
+                    e.response.status_code >= 500
+                    and idempotent
+                    and attempt < max_retries
+                ):
                     logger.debug(
                         f"Received {e.response.status_code} error, retrying... "
                         f"(attempt {attempt + 1}/{max_retries + 1})"
@@ -189,7 +200,8 @@ class SandboxClient:
             except httpx.RequestError as e:
                 # Transient network errors (connection refused, reset, ...)
                 # are retried with the same backoff as server errors.
-                if attempt < max_retries:
+                retryable = idempotent or isinstance(e, httpx.ConnectError)
+                if retryable and attempt < max_retries:
                     logger.debug(
                         f"Network error, retrying... "
                         f"(attempt {attempt + 1}/{max_retries + 1}): {e}"
@@ -197,7 +209,7 @@ class SandboxClient:
                     time.sleep(backoff)
                     backoff *= 2
                     continue
-                logger.warning(f"Request failed after {max_retries} retries: {e}")
+                logger.warning(f"Request failed after {attempt} retries: {e}")
                 raise SandboxError(f"Request to sandbox executor failed: {e}") from e
 
         # Unreachable in practice: every terminal path returns or raises.
@@ -252,6 +264,7 @@ class SandboxClient:
             f"{self.base_url}/run",
             json=payload,
             timeout=request_timeout,
+            idempotent=False,
         )
         return response.json()
 
@@ -505,7 +518,7 @@ class SandboxClient:
         if env is not None:
             payload["env"] = env
         response = self._request_with_retry(
-            "POST", f"{self.base_url}/start_process", json=payload
+            "POST", f"{self.base_url}/start_process", json=payload, idempotent=False
         )
         return response.json()
 
@@ -604,6 +617,7 @@ class AsyncSandboxClient:
         url: str,
         max_retries: int = 3,
         initial_backoff: float = 1.0,
+        idempotent: bool = True,
         **kwargs,
     ) -> httpx.Response:
         """
@@ -614,11 +628,17 @@ class AsyncSandboxClient:
         wrapped as SandboxRequestError; 5xx that persist after retries are
         wrapped as SandboxServiceError.
 
+        A non-idempotent request (one that runs a command) is retried only
+        when the connection failed, so it never reached the executor: a 5xx
+        or a dropped connection may come after the command ran (e.g. the
+        gateway's 504 on a long /run), and a retry would run it again.
+
         Args:
             method: HTTP method (e.g., 'GET', 'POST')
             url: The URL to request
             max_retries: Maximum number of retry attempts
             initial_backoff: Initial backoff time in seconds (doubles each retry)
+            idempotent: False for requests that must not run twice
             **kwargs: Additional arguments to pass to httpx
 
         Returns:
@@ -641,7 +661,7 @@ class AsyncSandboxClient:
                 response = await self._client.request(method, url, **kwargs)
 
                 # Retry transient server errors (5xx) with backoff
-                if response.status_code >= 500 and attempt < max_retries:
+                if response.status_code >= 500 and idempotent and attempt < max_retries:
                     logger.debug(
                         f"Received {response.status_code} error, retrying... "
                         f"(attempt {attempt + 1}/{max_retries + 1})"
@@ -654,7 +674,11 @@ class AsyncSandboxClient:
                 return response
 
             except httpx.HTTPStatusError as e:
-                if e.response.status_code >= 500 and attempt < max_retries:
+                if (
+                    e.response.status_code >= 500
+                    and idempotent
+                    and attempt < max_retries
+                ):
                     logger.debug(
                         f"Received {e.response.status_code} error, retrying... "
                         f"(attempt {attempt + 1}/{max_retries + 1})"
@@ -678,7 +702,8 @@ class AsyncSandboxClient:
             except httpx.RequestError as e:
                 # Transient network errors (connection refused, reset, ...)
                 # are retried with the same backoff as server errors.
-                if attempt < max_retries:
+                retryable = idempotent or isinstance(e, httpx.ConnectError)
+                if retryable and attempt < max_retries:
                     logger.debug(
                         f"Network error, retrying... "
                         f"(attempt {attempt + 1}/{max_retries + 1}): {e}"
@@ -686,7 +711,7 @@ class AsyncSandboxClient:
                     await asyncio.sleep(backoff)
                     backoff *= 2
                     continue
-                logger.warning(f"Request failed after {max_retries} retries: {e}")
+                logger.warning(f"Request failed after {attempt} retries: {e}")
                 raise SandboxError(f"Request to sandbox executor failed: {e}") from e
 
         # Unreachable in practice: every terminal path returns or raises.
@@ -741,6 +766,7 @@ class AsyncSandboxClient:
             f"{self.base_url}/run",
             json=payload,
             timeout=request_timeout,
+            idempotent=False,
         )
         return response.json()
 
@@ -994,7 +1020,7 @@ class AsyncSandboxClient:
         if env is not None:
             payload["env"] = env
         response = await self._request_with_retry(
-            "POST", f"{self.base_url}/start_process", json=payload
+            "POST", f"{self.base_url}/start_process", json=payload, idempotent=False
         )
         return response.json()
 

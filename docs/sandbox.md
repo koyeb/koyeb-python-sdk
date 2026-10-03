@@ -1765,6 +1765,11 @@ def __call__(command: str,
 
 Execute a command in a shell synchronously. Supports streaming output via callbacks.
 
+With stream=False the output comes in one response, which the sandbox
+gateway cuts with a 504 after 5 minutes without data: stream commands
+that can run longer. A non-streaming command is not re-sent on a
+server error, since it may have run already.
+
 **Arguments**:
 
 - `command` - Command to execute as a string (e.g., "python -c 'print(2+2)'")
@@ -1824,6 +1829,11 @@ async def __call__(command: str,
 ```
 
 Execute a command in a shell asynchronously. Supports streaming output via callbacks.
+
+With stream=False the output comes in one response, which the sandbox
+gateway cuts with a 504 after 5 minutes without data: stream commands
+that can run longer. A non-streaming command is not re-sent on a
+server error, since it may have run already.
 
 **Arguments**:
 
