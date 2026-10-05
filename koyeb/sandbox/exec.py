@@ -78,6 +78,12 @@ class _EventFold:
 
     The sync and async exec twins differ only in how events are pulled;
     this class owns what every event means.
+
+    The executor sends output one line per event, without its line ending.
+    Buffered stdout/stderr put it back so they match what /run returns:
+    the event's "eol" when the executor sends one, a newline otherwise.
+    Without "eol", output that doesn't end with a newline gets one appended.
+    Callbacks receive "data" as sent, without the line ending.
     """
 
     def __init__(self, command, start_time, on_stdout=None, on_stderr=None):
@@ -95,16 +101,17 @@ class _EventFold:
         if "stream" in event:
             stream_type = event["stream"]
             data = event["data"]
+            line = data + event.get("eol", "\n")
             if stream_type == "stdout":
                 if self.on_stdout:
                     self.on_stdout(data)
                 elif self.buffer:
-                    self.stdout.append(data)
+                    self.stdout.append(line)
             elif stream_type == "stderr":
                 if self.on_stderr:
                     self.on_stderr(data)
                 elif self.buffer:
-                    self.stderr.append(data)
+                    self.stderr.append(line)
         elif "code" in event:
             self.exit_code = event["code"]
         elif "error" in event and isinstance(event["error"], str):
@@ -163,8 +170,15 @@ class SandboxExecutor:
             cwd: Working directory for the command
             env: Environment variables for the command
             timeout: Command timeout in seconds (enforced for HTTP requests)
-            on_stdout: Optional callback for streaming stdout chunks
-            on_stderr: Optional callback for streaming stderr chunks
+            on_stdout: Optional callback called with each stdout line, without
+                its line ending. When a callback is set, output is not buffered
+                in the result.
+            on_stderr: Optional callback called with each stderr line, without
+                its line ending
+            stream: Run through /run_streaming (default) instead of /run.
+                stdout/stderr are the same either way, except that output not
+                ending with a newline gets one appended when streamed, unless
+                the executor sends each line's "eol"
 
         Returns:
             CommandResult: Result of the command execution
@@ -249,8 +263,15 @@ class AsyncSandboxExecutor(SandboxExecutor):
             cwd: Working directory for the command
             env: Environment variables for the command
             timeout: Command timeout in seconds (enforced for HTTP requests)
-            on_stdout: Optional callback for streaming stdout chunks
-            on_stderr: Optional callback for streaming stderr chunks
+            on_stdout: Optional callback called with each stdout line, without
+                its line ending. When a callback is set, output is not buffered
+                in the result.
+            on_stderr: Optional callback called with each stderr line, without
+                its line ending
+            stream: Run through /run_streaming (default) instead of /run.
+                stdout/stderr are the same either way, except that output not
+                ending with a newline gets one appended when streamed, unless
+                the executor sends each line's "eol"
 
         Returns:
             CommandResult: Result of the command execution

@@ -1725,6 +1725,12 @@ Folds executor stream events into a CommandResult.
 The sync and async exec twins differ only in how events are pulled;
 this class owns what every event means.
 
+The executor sends output one line per event, without its line ending.
+Buffered stdout/stderr put it back so they match what /run returns:
+the event's "eol" when the executor sends one, a newline otherwise.
+Without "eol", output that doesn't end with a newline gets one appended.
+Callbacks receive "data" as sent, without the line ending.
+
 <a id="koyeb.sandbox.exec._EventFold.feed"></a>
 
 #### feed
@@ -1771,8 +1777,15 @@ Execute a command in a shell synchronously. Supports streaming output via callba
 - `cwd` - Working directory for the command
 - `env` - Environment variables for the command
 - `timeout` - Command timeout in seconds (enforced for HTTP requests)
-- `on_stdout` - Optional callback for streaming stdout chunks
-- `on_stderr` - Optional callback for streaming stderr chunks
+- `on_stdout` - Optional callback called with each stdout line, without
+  its line ending. When a callback is set, output is not buffered
+  in the result.
+- `on_stderr` - Optional callback called with each stderr line, without
+  its line ending
+- `stream` - Run through /run_streaming (default) instead of /run.
+  stdout/stderr are the same either way, except that output not
+  ending with a newline gets one appended when streamed, unless
+  the executor sends each line's "eol"
   
 
 **Returns**:
@@ -1831,8 +1844,15 @@ Execute a command in a shell asynchronously. Supports streaming output via callb
 - `cwd` - Working directory for the command
 - `env` - Environment variables for the command
 - `timeout` - Command timeout in seconds (enforced for HTTP requests)
-- `on_stdout` - Optional callback for streaming stdout chunks
-- `on_stderr` - Optional callback for streaming stderr chunks
+- `on_stdout` - Optional callback called with each stdout line, without
+  its line ending. When a callback is set, output is not buffered
+  in the result.
+- `on_stderr` - Optional callback called with each stderr line, without
+  its line ending
+- `stream` - Run through /run_streaming (default) instead of /run.
+  stdout/stderr are the same either way, except that output not
+  ending with a newline gets one appended when streamed, unless
+  the executor sends each line's "eol"
   
 
 **Returns**:
