@@ -85,7 +85,6 @@ class _EventFold:
         self.start_time = start_time
         self.on_stdout = on_stdout
         self.on_stderr = on_stderr
-        self.buffer = not on_stdout and not on_stderr
         self.stdout: List[str] = []
         self.stderr: List[str] = []
         self.exit_code = 0
@@ -96,15 +95,13 @@ class _EventFold:
             stream_type = event["stream"]
             data = event["data"]
             if stream_type == "stdout":
+                self.stdout.append(data)
                 if self.on_stdout:
                     self.on_stdout(data)
-                elif self.buffer:
-                    self.stdout.append(data)
             elif stream_type == "stderr":
+                self.stderr.append(data)
                 if self.on_stderr:
                     self.on_stderr(data)
-                elif self.buffer:
-                    self.stderr.append(data)
         elif "code" in event:
             self.exit_code = event["code"]
         elif "error" in event and isinstance(event["error"], str):
