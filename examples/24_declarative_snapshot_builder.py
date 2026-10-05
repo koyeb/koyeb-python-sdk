@@ -23,10 +23,13 @@ def main():
         # Build a reusable snapshot declaratively
         print("✓ Building declarative snapshot...")
         snapshot = (
+            # Instance snapshots are only supported on k8s-backed regions;
+            # Nomad regions (e.g. fra) reject the create.
             Sandbox.template(
                 f"ci-environment-{suffix}",
                 image="python:3.12",
                 workdir="/workspace",
+                region="nl-north-1",
                 api_token=api_token,
             )
             .file("requirements.txt", "requests")

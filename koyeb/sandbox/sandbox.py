@@ -743,6 +743,7 @@ class Sandbox:
         workdir: Optional[str] = None,
         api_token: Optional[str] = None,
         host: Optional[str] = None,
+        region: Optional[str] = None,
         delete_builder: bool = True,
     ) -> "DeclarativeSnapshot":
         """
@@ -758,6 +759,7 @@ class Sandbox:
             workdir: Working directory in the sandbox
             api_token: Koyeb API token
             host: Koyeb API host
+            region: Region to build the snapshot in (defaults to KOYEB_REGION env var)
             delete_builder: Whether to delete the builder sandbox after creating the snapshot (default: True)
 
         Returns:
@@ -781,6 +783,7 @@ class Sandbox:
             workdir=workdir,
             api_token=api_token,
             host=host,
+            region=region,
             delete_builder=delete_builder,
         )
 

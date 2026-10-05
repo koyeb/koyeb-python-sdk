@@ -380,6 +380,7 @@ class DeclarativeSnapshot:
         workdir: Optional[str] = None,
         api_token: Optional[str] = None,
         host: Optional[str] = None,
+        region: Optional[str] = None,
         delete_builder: bool = True,
     ):
         """
@@ -407,6 +408,7 @@ class DeclarativeSnapshot:
         self._workdir = workdir
         self._api_token = api_token
         self._host = host
+        self._region = region
         self._delete_builder = delete_builder
         self._files: Dict[str, str] = {}
         self._copy_ops: List[Tuple[str, str]] = []
@@ -488,6 +490,7 @@ class DeclarativeSnapshot:
                 wait_ready=True,
                 api_token=self._api_token,
                 host=self._host,
+                region=self._region,
             )
 
             # Apply working directory
