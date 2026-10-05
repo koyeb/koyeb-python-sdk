@@ -140,6 +140,17 @@ class TestSyncDeploymentHealthWiring(unittest.TestCase):
                 sb._is_deployment_healthy()
         self.assertIn("SLEEPING", str(cm.exception))
 
+    def test_error_carries_sandbox_name_and_status(self):
+        """Callers branch on structured fields (e.g. wake on SLEEPING)
+        instead of parsing the message."""
+        sb = self._make_sandbox()
+        with self._patch_clients(DeploymentStatus.SLEEPING):
+            with self.assertRaises(SandboxDeploymentError) as cm:
+                sb._is_deployment_healthy()
+        self.assertEqual(cm.exception.sandbox_name, "sb")
+        self.assertEqual(cm.exception.status, "SLEEPING")
+        self.assertIn("SLEEPING", str(cm.exception))
+
     def test_degraded_is_ready(self):
         sb = self._make_sandbox()
         with self._patch_clients(DeploymentStatus.DEGRADED):

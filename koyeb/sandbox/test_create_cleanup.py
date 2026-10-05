@@ -156,10 +156,7 @@ class TestWaitReadyCleanup(unittest.TestCase):
 
     def test_sync_terminal_error_deletes_and_annotates(self):
         clients = self._create_ok_clients()
-        terminal = SandboxDeploymentError(
-            "Sandbox 'quick-sandbox' deployment reached status STOPPED "
-            "— it will not become ready; wake or redeploy the sandbox."
-        )
+        terminal = SandboxDeploymentError("quick-sandbox", "STOPPED")
         with patch(
             "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
         ):
@@ -254,10 +251,7 @@ class TestWaitReadyCleanup(unittest.TestCase):
 
     def test_async_terminal_error_deletes_and_annotates(self):
         clients = _fake_async_clients()
-        terminal = SandboxDeploymentError(
-            "Sandbox 'quick-sandbox' deployment reached status STOPPED "
-            "— it will not become ready; wake or redeploy the sandbox."
-        )
+        terminal = SandboxDeploymentError("quick-sandbox", "STOPPED")
         with patch(
             "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
@@ -327,10 +321,7 @@ class TestCallerAppCleanup(unittest.TestCase):
     def test_sync_terminal_error_keeps_caller_app_deletes_service(self):
         # The except-branch cleanup, unlike the timeout branch pinned above.
         clients = _fake_sync_clients()
-        terminal = SandboxDeploymentError(
-            "Sandbox 'quick-sandbox' deployment reached status STOPPED "
-            "— it will not become ready; wake or redeploy the sandbox."
-        )
+        terminal = SandboxDeploymentError("quick-sandbox", "STOPPED")
         with patch(
             "koyeb.sandbox.sandbox.get_api_clients", return_value=clients
         ):
@@ -345,10 +336,7 @@ class TestCallerAppCleanup(unittest.TestCase):
 
     def test_async_terminal_error_keeps_caller_app_deletes_service(self):
         clients = _fake_async_clients()
-        terminal = SandboxDeploymentError(
-            "Sandbox 'quick-sandbox' deployment reached status STOPPED "
-            "— it will not become ready; wake or redeploy the sandbox."
-        )
+        terminal = SandboxDeploymentError("quick-sandbox", "STOPPED")
         with patch(
             "koyeb.sandbox.sandbox.get_async_api_clients", return_value=clients
         ):
