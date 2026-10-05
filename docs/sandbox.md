@@ -1770,7 +1770,12 @@ Execute a command in a shell synchronously. Supports streaming output via callba
 - `command` - Command to execute as a string (e.g., "python -c 'print(2+2)'")
 - `cwd` - Working directory for the command
 - `env` - Environment variables for the command
-- `timeout` - Command timeout in seconds (enforced for HTTP requests)
+- `timeout` - Total time budget for the command, in seconds. When it runs
+  out, SandboxTimeoutError is raised and the connection to the
+  executor is closed, whether or not the command streams output.
+  When streaming, the budget is checked as output or a keepalive
+  (every 10 s) arrives, so a silent command can overrun it by up
+  to 10 s; AsyncSandboxExecutor enforces it on time.
 - `on_stdout` - Optional callback for streaming stdout chunks
 - `on_stderr` - Optional callback for streaming stderr chunks
   
@@ -1830,7 +1835,9 @@ Execute a command in a shell asynchronously. Supports streaming output via callb
 - `command` - Command to execute as a string (e.g., "python -c 'print(2+2)'")
 - `cwd` - Working directory for the command
 - `env` - Environment variables for the command
-- `timeout` - Command timeout in seconds (enforced for HTTP requests)
+- `timeout` - Total time budget for the command, in seconds. When it runs
+  out, SandboxTimeoutError is raised and the connection to the
+  executor is closed, whether or not the command streams output.
 - `on_stdout` - Optional callback for streaming stdout chunks
 - `on_stderr` - Optional callback for streaming stderr chunks
   
@@ -1997,10 +2004,12 @@ Execute a shell command in the sandbox.
 #### run\_streaming
 
 ```python
-def run_streaming(cmd: str,
-                  cwd: Optional[str] = None,
-                  env: Optional[Dict[str, str]] = None,
-                  timeout: Optional[float] = None) -> Iterator[Dict[str, Any]]
+def run_streaming(
+        cmd: str,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        timeout: Optional[float] = None,
+        total_timeout: Optional[float] = None) -> Iterator[Dict[str, Any]]
 ```
 
 Execute a shell command in the sandbox and stream the output in real-time.
@@ -2014,7 +2023,14 @@ output. For simple commands where buffered output is acceptable, use run() inste
 - `cmd` - The shell command to execute
 - `cwd` - Optional working directory for command execution
 - `env` - Optional environment variables to set/override
-- `timeout` - Optional timeout in seconds for the streaming request
+- `timeout` - Optional timeout in seconds for connecting and for each read.
+  The executor sends a keepalive every 10 s, so on its own it does
+  not bound how long the stream runs: use total_timeout for that.
+- `total_timeout` - Optional time budget in seconds for the whole stream.
+  Once it has passed, the stream is closed and SandboxTimeoutError
+  is raised. Whether the command then stops is up to the executor.
+  The budget is checked whenever a line arrives, keepalives
+  included, so the error can come up to one keepalive interval late.
   
 
 **Yields**:
@@ -2029,6 +2045,11 @@ output. For simple commands where buffered output is acceptable, use run() inste
   
   - error event (if command fails to start):
 - `{"error"` - "error message"}
+  
+
+**Raises**:
+
+- `SandboxTimeoutError` - If a read or the total_timeout budget times out
   
 
 **Example**:
@@ -2425,7 +2446,9 @@ async def run_streaming(
         cmd: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None) -> AsyncIterator[Dict[str, Any]]
+        timeout: Optional[float] = None,
+        total_timeout: Optional[float] = None
+) -> AsyncIterator[Dict[str, Any]]
 ```
 
 Execute a shell command in the sandbox and stream the output in real-time.
@@ -2439,7 +2462,12 @@ output. For simple commands where buffered output is acceptable, use run() inste
 - `cmd` - The shell command to execute
 - `cwd` - Optional working directory for command execution
 - `env` - Optional environment variables to set/override
-- `timeout` - Optional timeout in seconds for the streaming request
+- `timeout` - Optional timeout in seconds for connecting and for each read.
+  The executor sends a keepalive every 10 s, so on its own it does
+  not bound how long the stream runs: use total_timeout for that.
+- `total_timeout` - Optional time budget in seconds for the whole stream.
+  Once it has passed, the stream is closed and SandboxTimeoutError
+  is raised. Whether the command then stops is up to the executor.
   
 
 **Yields**:
@@ -2454,6 +2482,11 @@ output. For simple commands where buffered output is acceptable, use run() inste
   
   - error event (if command fails to start):
 - `{"error"` - "error message"}
+  
+
+**Raises**:
+
+- `SandboxTimeoutError` - If a read or the total_timeout budget times out
   
 
 **Example**:

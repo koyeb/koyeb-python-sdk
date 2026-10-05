@@ -162,7 +162,12 @@ class SandboxExecutor:
             command: Command to execute as a string (e.g., "python -c 'print(2+2)'")
             cwd: Working directory for the command
             env: Environment variables for the command
-            timeout: Command timeout in seconds (enforced for HTTP requests)
+            timeout: Total time budget for the command, in seconds. When it runs
+                out, SandboxTimeoutError is raised and the connection to the
+                executor is closed, whether or not the command streams output.
+                When streaming, the budget is checked as output or a keepalive
+                (every 10 s) arrives, so a silent command can overrun it by up
+                to 10 s; AsyncSandboxExecutor enforces it on time.
             on_stdout: Optional callback for streaming stdout chunks
             on_stderr: Optional callback for streaming stderr chunks
 
@@ -188,7 +193,11 @@ class SandboxExecutor:
             fold = _EventFold(command, start_time, on_stdout, on_stderr)
             client = self._get_client()
             for event in client.run_streaming(
-                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+                cmd=command,
+                cwd=cwd,
+                env=env,
+                timeout=float(timeout),
+                total_timeout=float(timeout),
             ):
                 failed_start = fold.feed(event)
                 if failed_start is not None:
@@ -248,7 +257,9 @@ class AsyncSandboxExecutor(SandboxExecutor):
             command: Command to execute as a string (e.g., "python -c 'print(2+2)'")
             cwd: Working directory for the command
             env: Environment variables for the command
-            timeout: Command timeout in seconds (enforced for HTTP requests)
+            timeout: Total time budget for the command, in seconds. When it runs
+                out, SandboxTimeoutError is raised and the connection to the
+                executor is closed, whether or not the command streams output.
             on_stdout: Optional callback for streaming stdout chunks
             on_stderr: Optional callback for streaming stderr chunks
 
@@ -274,7 +285,11 @@ class AsyncSandboxExecutor(SandboxExecutor):
             fold = _EventFold(command, start_time, on_stdout, on_stderr)
             client = self._get_async_client()
             async for event in client.run_streaming(
-                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+                cmd=command,
+                cwd=cwd,
+                env=env,
+                timeout=float(timeout),
+                total_timeout=float(timeout),
             ):
                 failed_start = fold.feed(event)
                 if failed_start is not None:
