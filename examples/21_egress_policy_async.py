@@ -30,6 +30,11 @@ PROBE_ALLOWED = (
     's.settimeout(5); s.connect(addr); s.close()"'
 )
 
+# Network policies are enforced on Kubernetes-backed regions only; Nomad
+# regions (e.g. fra) reject them, so pin the region instead of inheriting
+# KOYEB_REGION.
+REGION = "nl-north-1"
+
 
 async def wait_for_probe(
     sandbox, probe, expect_allowed, label, timeout=120, interval=3
@@ -92,6 +97,7 @@ async def main():
         sandbox = await AsyncSandbox.create(
             image="koyeb/sandbox",
             name=f"egress-{suffix}",
+            region=REGION,
             wait_ready=True,
             api_token=api_token,
             block_network=True,
