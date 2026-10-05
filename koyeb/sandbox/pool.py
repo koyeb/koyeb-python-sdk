@@ -524,10 +524,15 @@ class ServicePool:
         """Resize the pool; returns the updated pool."""
         clients = get_api_clients(self.api_token, self.host)
         try:
+            # The update endpoint is a full replace: refetch the live pool so
+            # the resend carries the current definition, not a stale cache.
+            current = clients.service_pools.get_service_pool(self.id).service_pool
             reply = clients.service_pools.update_service_pool(
                 id=self.id,
-                service_pool=UpdateServicePool(size=size),
-                update_mask="size",
+                service_pool=UpdateServicePool(
+                    size=current.size if size is None else size,
+                    definition=current.definition,
+                ),
             )
         except ApiException as e:
             raise ServicePoolError(
@@ -723,12 +728,20 @@ class AsyncServicePool:
         ]
 
     async def update(self, size: Optional[int] = None) -> "AsyncServicePool":
+        """Resize the pool; returns the updated pool."""
         clients = get_async_api_clients(self.api_token, self.host)
         try:
+            # The update endpoint is a full replace: refetch the live pool so
+            # the resend carries the current definition, not a stale cache.
+            current = (
+                await clients.service_pools.get_service_pool(self.id)
+            ).service_pool
             reply = await clients.service_pools.update_service_pool(
                 id=self.id,
-                service_pool=AsyncUpdateServicePool(size=size),
-                update_mask="size",
+                service_pool=AsyncUpdateServicePool(
+                    size=current.size if size is None else size,
+                    definition=current.definition,
+                ),
             )
         except AsyncApiException as e:
             raise ServicePoolError(

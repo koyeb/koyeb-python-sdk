@@ -6,6 +6,10 @@ from unittest.mock import patch
 
 from koyeb.api.exceptions import ApiException
 from koyeb.api_async.exceptions import ApiException as AsyncApiException
+from koyeb.api_async.models.deployment_definition import (
+    DeploymentDefinition as AsyncDeploymentDefinition,
+)
+from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
 from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.deployment_port import DeploymentPort
@@ -35,14 +39,14 @@ from koyeb.sandbox.errors import (
 )
 
 
-def _pool_model(ready_count=1, size=2):
+def _pool_model(ready_count=1, size=2, definition=None):
     return SimpleNamespace(
         id="pool-1",
         name="my-pool",
         size=size,
         ready_count=ready_count,
         status=ServicePoolStatus.READY,
-        definition=None,
+        definition=definition,
     )
 
 
@@ -377,7 +381,8 @@ class TestServicePoolCrud(unittest.TestCase):
         self.assertEqual(pools.list_kwargs.get("name"), None)
 
     def test_update_size(self):
-        pools = FakeServicePoolsApi()
+        definition = DeploymentDefinition(name="my-pool")
+        pools = FakeServicePoolsApi(pool=_pool_model(definition=definition))
         pool = self._pool(pools)
         with patch(
             "koyeb.sandbox.pool.get_api_clients",
@@ -387,8 +392,26 @@ class TestServicePoolCrud(unittest.TestCase):
         pool_id, body, update_mask = pools.updates[0]
         self.assertEqual(pool_id, "pool-1")
         self.assertEqual(body.size, 5)
-        self.assertEqual(update_mask, "size")
+        self.assertIs(body.definition, definition)  # PUT is a full replace
+        self.assertIsNone(update_mask)
+        self.assertEqual(pools.got, ["pool-1"])  # refetched before the PUT
         self.assertEqual(updated.size, 2)  # mapped from reply model
+
+    def test_update_without_size_resends_current_size(self):
+        definition = DeploymentDefinition(name="my-pool")
+        pools = FakeServicePoolsApi(
+            pool=_pool_model(size=2, definition=definition)
+        )
+        pool = self._pool(pools)
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            pool.update()
+        _, body, update_mask = pools.updates[0]
+        self.assertEqual(body.size, 2)
+        self.assertIs(body.definition, definition)
+        self.assertIsNone(update_mask)
 
     def test_delete(self):
         pools = FakeServicePoolsApi()
@@ -789,7 +812,10 @@ class TestAsyncPoolMirror(unittest.TestCase):
                 asyncio.run(run())
 
     def test_async_pool_update_delete_refresh(self):
-        pools = FakeAsyncServicePoolsApi(pool=_pool_model(ready_count=9))
+        definition = AsyncDeploymentDefinition(name="my-pool")
+        pools = FakeAsyncServicePoolsApi(
+            pool=_pool_model(ready_count=9, definition=definition)
+        )
         pool = AsyncServicePool(
             id="pool-1",
             name="my-pool",
@@ -809,7 +835,11 @@ class TestAsyncPoolMirror(unittest.TestCase):
                 await pool.refresh()
 
             asyncio.run(run())
-        self.assertEqual(pools.updates[0][1].size, 4)
+        pool_id, body, update_mask = pools.updates[0]
+        self.assertEqual(pool_id, "pool-1")
+        self.assertEqual(body.size, 4)
+        self.assertIs(body.definition, definition)  # PUT is a full replace
+        self.assertIsNone(update_mask)
         self.assertEqual(pools.deleted, ["pool-1"])
         self.assertEqual(pool.ready_count, 9)
 
