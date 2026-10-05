@@ -8,6 +8,7 @@ returns the same sandbox instead of consuming another.
 
 import os
 import sys
+import uuid
 
 from koyeb.sandbox import (
     PoolClaimError,
@@ -26,10 +27,15 @@ def main() -> int:
         print("KOYEB_API_TOKEN is not set", file=sys.stderr)
         return 1
 
-    pool = ServicePool.create(name="claim-demo", size=1, api_token=api_token)
-    print(f"✓ Created pool {pool.id} (size {pool.size})")
+    # Use a unique name so concurrent or repeated runs don't collide on the
+    # server-side unique (name, workspace) index.
+    pool_name = f"claim-demo-{uuid.uuid4().hex[:8]}"
 
+    pool = None
     try:
+        pool = ServicePool.create(name=pool_name, size=1, api_token=api_token)
+        print(f"✓ Created pool {pool.id} (size {pool.size})")
+
         # Claim a sandbox from the pool. The request id is generated once
         # and preserved across internal retries.
         result = claim(pool.id, api_token=api_token)
@@ -76,8 +82,14 @@ def main() -> int:
         print(f"Sandbox error: {e}")
         return 1
     finally:
-        pool.delete()
-        print("✓ Deleted the pool")
+        # Delete the pool no matter what. The server fences it until
+        # outstanding claims drain.
+        if pool is not None:
+            try:
+                pool.delete()
+                print("✓ Deleted the pool")
+            except Exception as e:  # noqa: BLE001 - best-effort cleanup
+                print(f"⚠ Could not delete pool {pool.id}: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
