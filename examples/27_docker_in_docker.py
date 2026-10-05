@@ -58,9 +58,12 @@ def main():
             "Creating privileged sandbox (image koyeb/sandbox:dind, instance_type=medium)..."
         )
         create_start = time.time()
+        # The docker build inside this example snapshots the sandbox: instance
+        # snapshots are only supported on k8s-backed regions (fra rejects them).
         sandbox = Sandbox.create(
             image="koyeb/sandbox:dind",
             name=f"docker-in-docker-{suffix}",
+            region="nl-north-1",
             wait_ready=True,
             instance_type="medium",
             privileged=True,

@@ -407,8 +407,11 @@ def run_filesystem_benchmarks(
         try:
             # Create builder sandbox
             print("  → Creating builder sandbox...")
+            # Instance snapshots are only supported on k8s-backed regions;
+            # Nomad regions (e.g. fra) reject the create.
             builder = Sandbox.create(
                 name=f"bench-builder-fs-{size_mb}mb-{suffix}".lower(),
+                region="nl-north-1",
                 instance_type=INSTANCE_TYPE,
                 wait_ready=True,
                 timeout=600,
@@ -484,6 +487,7 @@ def run_full_benchmarks(
             builder = Sandbox.create(
                 name=f"bench-builder-full-{size_mb}mb-{suffix}".lower(),
                 image="koyeb/sandbox",  # Standard sandbox image
+                region="nl-north-1",
                 instance_type=INSTANCE_TYPE,
                 wait_ready=True,
                 timeout=600,

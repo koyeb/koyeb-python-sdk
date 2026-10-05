@@ -22,9 +22,12 @@ def main():
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     try:
         print("✓ Creating sandbox...")
+        # Instance snapshots are only supported on k8s-backed regions; Nomad
+        # regions (e.g. fra) reject the create.
         sbx = Sandbox.create(
             image="python:3.12",
             name=f"snapshot-and-spawn-{suffix}",
+            region="nl-north-1",
             wait_ready=True,
             api_token=api_token,
         )
