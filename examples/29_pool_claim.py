@@ -50,8 +50,10 @@ def main() -> int:
         print(f"  Claim status: {info.status}")
 
         # A claimed service is detached from the pool and owned by the
-        # caller: delete it like any other sandbox when done.
-        sandbox = Sandbox.get_from_id(result.service_id, api_token=api_token)
+        # caller: delete it like any other sandbox when done. Resolve AFTER
+        # the cold path settles — the claimed service's deployment (and its
+        # platform-minted SANDBOX_SECRET) is created asynchronously, so an
+        # early resolution races it and fails.
         try:
             if not result.prewarmed:
                 # Cold path: no warm sandbox was available, so the claimed
@@ -59,6 +61,7 @@ def main() -> int:
                 wait_claim_ready(result, api_token=api_token)
                 print("✓ Claimed sandbox is ready")
 
+            sandbox = Sandbox.get_from_id(result.service_id, api_token=api_token)
             out = sandbox.exec("echo 'Hello from a claimed sandbox!'")
             print(f"  Output: {out.stdout.strip()}")
             assert out.stdout.strip() == "Hello from a claimed sandbox!"
@@ -71,7 +74,12 @@ def main() -> int:
             assert replay.service_id == result.service_id
             print("✓ Replay with the same request_id returned the same service")
         finally:
-            sandbox.delete()
+            # Best-effort teardown resolution so a failed cold path still
+            # cleans up the claimed service.
+            try:
+                Sandbox.get_from_id(result.service_id, api_token=api_token).delete()
+            except Exception:  # noqa: BLE001 - cleanup must not mask failures
+                pass
             print("✓ Deleted the claimed sandbox service")
         return 0
     except PoolClaimError as e:
