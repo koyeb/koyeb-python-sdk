@@ -23,7 +23,7 @@ Name | Type | Description | Notes
 **messages** | **List[str]** |  | [optional] 
 **definition** | [**RegionalDeploymentDefinition**](RegionalDeploymentDefinition.md) |  | [optional] 
 **datacenters** | **List[str]** |  | [optional] 
-**metadata** | **object** |  | [optional] 
+**metadata** | [**RegionalDeploymentMetadata**](RegionalDeploymentMetadata.md) |  | [optional] 
 **provisioning_info** | [**DeploymentProvisioningInfo**](DeploymentProvisioningInfo.md) |  | [optional] 
 **role** | [**RegionalDeploymentRole**](RegionalDeploymentRole.md) |  | [optional] [default to RegionalDeploymentRole.INVALID]
 **instance_snapshot_id** | **str** |  | [optional] 

@@ -56,7 +56,9 @@ async def main() -> int:
                 await wait_claim_ready_async(result, api_token=api_token)
                 print("✓ Claimed sandbox is ready")
 
-            sandbox = await AsyncSandbox.get_from_id(result.service_id, api_token=api_token)
+            sandbox = await AsyncSandbox.get_from_id(
+                result.service_id, api_token=api_token
+            )
             out = await sandbox.exec("echo 'Hello from a claimed sandbox!'")
             print(f"  Output: {out.stdout.strip()}")
             assert out.stdout.strip() == "Hello from a claimed sandbox!"
@@ -72,7 +74,11 @@ async def main() -> int:
             # Best-effort teardown resolution so a failed cold path still
             # cleans up the claimed service.
             try:
-                (await AsyncSandbox.get_from_id(result.service_id, api_token=api_token)).delete()
+                (
+                    await AsyncSandbox.get_from_id(
+                        result.service_id, api_token=api_token
+                    )
+                ).delete()
             except Exception:  # noqa: BLE001 - cleanup must not mask failures
                 pass
             print("✓ Deleted the claimed sandbox service")

@@ -45,9 +45,7 @@ class TestStreamedOutputKeepsLineBreaks(unittest.TestCase):
         self.assertEqual(result.stdout, "no newline at end\n")
 
     def test_stderr(self):
-        result = self.run_both(
-            [_out("out"), _err("err"), _err("err2"), {"code": 3}]
-        )
+        result = self.run_both([_out("out"), _err("err"), _err("err2"), {"code": 3}])
         self.assertEqual(result.stdout, "out\n")
         self.assertEqual(result.stderr, "err\nerr2\n")
         self.assertEqual(result.exit_code, 3)

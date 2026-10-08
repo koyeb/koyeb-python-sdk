@@ -399,9 +399,7 @@ class TestServicePoolCrud(unittest.TestCase):
 
     def test_update_without_size_resends_current_size(self):
         definition = DeploymentDefinition(name="my-pool")
-        pools = FakeServicePoolsApi(
-            pool=_pool_model(size=2, definition=definition)
-        )
+        pools = FakeServicePoolsApi(pool=_pool_model(size=2, definition=definition))
         pool = self._pool(pools)
         with patch(
             "koyeb.sandbox.pool.get_api_clients",

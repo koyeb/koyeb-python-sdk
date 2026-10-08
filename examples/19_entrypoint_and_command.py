@@ -42,7 +42,9 @@ def main():
             try:
                 sandbox.delete()
             except Exception as cleanup_error:  # noqa: BLE001
-                print(f"⚠ cleanup failed (best-effort): {cleanup_error}", file=sys.stderr)
+                print(
+                    f"⚠ cleanup failed (best-effort): {cleanup_error}", file=sys.stderr
+                )
 
     # Example 2: Custom entrypoint with command
     # Use a custom entrypoint that runs python, proving the entrypoint was used.
@@ -71,7 +73,9 @@ def main():
             try:
                 sandbox.delete()
             except Exception as cleanup_error:  # noqa: BLE001
-                print(f"⚠ cleanup failed (best-effort): {cleanup_error}", file=sys.stderr)
+                print(
+                    f"⚠ cleanup failed (best-effort): {cleanup_error}", file=sys.stderr
+                )
 
     return 0
 

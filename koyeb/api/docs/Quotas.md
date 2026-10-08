@@ -8,7 +8,6 @@ Name | Type | Description | Notes
 **apps** | **str** |  | [optional] 
 **services** | **str** |  | [optional] 
 **domains** | **str** |  | [optional] 
-**services_by_app** | **str** |  | [optional] 
 **service_provisioning_concurrency** | **str** |  | [optional] 
 **memory_mb** | **str** |  | [optional] 
 **instance_types** | **List[str]** |  | [optional] 

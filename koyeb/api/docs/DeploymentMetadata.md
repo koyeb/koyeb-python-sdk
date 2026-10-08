@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **archive** | [**ArchiveDeploymentMetadata**](ArchiveDeploymentMetadata.md) |  | [optional] 
 **proxy_ports** | [**List[DeploymentProxyPortMetadata]**](DeploymentProxyPortMetadata.md) |  | [optional] 
 **sandbox** | [**SandboxMetadata**](SandboxMetadata.md) |  | [optional] 
+**docker** | [**DockerDeploymentMetadata**](DockerDeploymentMetadata.md) |  | [optional] 
 
 ## Example
 

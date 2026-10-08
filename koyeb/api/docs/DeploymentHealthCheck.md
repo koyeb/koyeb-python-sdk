@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **timeout** | **int** |  | [optional] 
 **tcp** | [**TCPHealthCheck**](TCPHealthCheck.md) |  | [optional] 
 **http** | [**HTTPHealthCheck**](HTTPHealthCheck.md) |  | [optional] 
+**grpc** | [**GRPCHealthCheck**](GRPCHealthCheck.md) |  | [optional] 
 
 ## Example
 
