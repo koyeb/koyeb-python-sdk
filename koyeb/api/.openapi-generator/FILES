@@ -187,6 +187,7 @@ koyeb/api/docs/DigitalOceanRegistryConfiguration.md
 koyeb/api/docs/DiscourseAuthReply.md
 koyeb/api/docs/DiscourseAuthRequest.md
 koyeb/api/docs/DockerBuilder.md
+koyeb/api/docs/DockerDeploymentMetadata.md
 koyeb/api/docs/DockerHelperApi.md
 koyeb/api/docs/DockerHubRegistryConfiguration.md
 koyeb/api/docs/DockerSource.md
@@ -209,6 +210,7 @@ koyeb/api/docs/ExecCommandRequestBody.md
 koyeb/api/docs/ExecCommandRequestIdType.md
 koyeb/api/docs/ExecCommandRequestTerminalSize.md
 koyeb/api/docs/GCPContainerRegistryConfiguration.md
+koyeb/api/docs/GRPCHealthCheck.md
 koyeb/api/docs/GetAppReply.md
 koyeb/api/docs/GetBudgetReply.md
 koyeb/api/docs/GetCatalogInstanceReply.md
@@ -418,6 +420,7 @@ koyeb/api/docs/RegionalDeploymentDefinitionType.md
 koyeb/api/docs/RegionalDeploymentEvent.md
 koyeb/api/docs/RegionalDeploymentListItem.md
 koyeb/api/docs/RegionalDeploymentMesh.md
+koyeb/api/docs/RegionalDeploymentMetadata.md
 koyeb/api/docs/RegionalDeploymentRole.md
 koyeb/api/docs/RegionalDeploymentStatus.md
 koyeb/api/docs/RegionalDeploymentVolume.md
@@ -644,6 +647,7 @@ koyeb/api/models/digital_ocean_registry_configuration.py
 koyeb/api/models/discourse_auth_reply.py
 koyeb/api/models/discourse_auth_request.py
 koyeb/api/models/docker_builder.py
+koyeb/api/models/docker_deployment_metadata.py
 koyeb/api/models/docker_hub_registry_configuration.py
 koyeb/api/models/docker_source.py
 koyeb/api/models/domain.py
@@ -711,6 +715,7 @@ koyeb/api/models/github_installation_request.py
 koyeb/api/models/google_protobuf_any.py
 koyeb/api/models/google_protobuf_null_value.py
 koyeb/api/models/google_rpc_status.py
+koyeb/api/models/grpc_health_check.py
 koyeb/api/models/has_unpaid_invoices_reply.py
 koyeb/api/models/http_header.py
 koyeb/api/models/http_health_check.py
@@ -855,6 +860,7 @@ koyeb/api/models/regional_deployment_definition_type.py
 koyeb/api/models/regional_deployment_event.py
 koyeb/api/models/regional_deployment_list_item.py
 koyeb/api/models/regional_deployment_mesh.py
+koyeb/api/models/regional_deployment_metadata.py
 koyeb/api/models/regional_deployment_role.py
 koyeb/api/models/regional_deployment_status.py
 koyeb/api/models/regional_deployment_volume.py
@@ -942,4 +948,7 @@ koyeb/api/models/verify_docker_image_reply.py
 koyeb/api/models/verify_docker_image_reply_err_code.py
 koyeb/api/rest.py
 koyeb/api/test/__init__.py
+koyeb/api/test/test_docker_deployment_metadata.py
+koyeb/api/test/test_grpc_health_check.py
+koyeb/api/test/test_regional_deployment_metadata.py
 koyeb/api_README.md

@@ -187,6 +187,7 @@ koyeb/api_async/docs/DigitalOceanRegistryConfiguration.md
 koyeb/api_async/docs/DiscourseAuthReply.md
 koyeb/api_async/docs/DiscourseAuthRequest.md
 koyeb/api_async/docs/DockerBuilder.md
+koyeb/api_async/docs/DockerDeploymentMetadata.md
 koyeb/api_async/docs/DockerHelperApi.md
 koyeb/api_async/docs/DockerHubRegistryConfiguration.md
 koyeb/api_async/docs/DockerSource.md
@@ -209,6 +210,7 @@ koyeb/api_async/docs/ExecCommandRequestBody.md
 koyeb/api_async/docs/ExecCommandRequestIdType.md
 koyeb/api_async/docs/ExecCommandRequestTerminalSize.md
 koyeb/api_async/docs/GCPContainerRegistryConfiguration.md
+koyeb/api_async/docs/GRPCHealthCheck.md
 koyeb/api_async/docs/GetAppReply.md
 koyeb/api_async/docs/GetBudgetReply.md
 koyeb/api_async/docs/GetCatalogInstanceReply.md
@@ -418,6 +420,7 @@ koyeb/api_async/docs/RegionalDeploymentDefinitionType.md
 koyeb/api_async/docs/RegionalDeploymentEvent.md
 koyeb/api_async/docs/RegionalDeploymentListItem.md
 koyeb/api_async/docs/RegionalDeploymentMesh.md
+koyeb/api_async/docs/RegionalDeploymentMetadata.md
 koyeb/api_async/docs/RegionalDeploymentRole.md
 koyeb/api_async/docs/RegionalDeploymentStatus.md
 koyeb/api_async/docs/RegionalDeploymentVolume.md
@@ -644,6 +647,7 @@ koyeb/api_async/models/digital_ocean_registry_configuration.py
 koyeb/api_async/models/discourse_auth_reply.py
 koyeb/api_async/models/discourse_auth_request.py
 koyeb/api_async/models/docker_builder.py
+koyeb/api_async/models/docker_deployment_metadata.py
 koyeb/api_async/models/docker_hub_registry_configuration.py
 koyeb/api_async/models/docker_source.py
 koyeb/api_async/models/domain.py
@@ -711,6 +715,7 @@ koyeb/api_async/models/github_installation_request.py
 koyeb/api_async/models/google_protobuf_any.py
 koyeb/api_async/models/google_protobuf_null_value.py
 koyeb/api_async/models/google_rpc_status.py
+koyeb/api_async/models/grpc_health_check.py
 koyeb/api_async/models/has_unpaid_invoices_reply.py
 koyeb/api_async/models/http_header.py
 koyeb/api_async/models/http_health_check.py
@@ -855,6 +860,7 @@ koyeb/api_async/models/regional_deployment_definition_type.py
 koyeb/api_async/models/regional_deployment_event.py
 koyeb/api_async/models/regional_deployment_list_item.py
 koyeb/api_async/models/regional_deployment_mesh.py
+koyeb/api_async/models/regional_deployment_metadata.py
 koyeb/api_async/models/regional_deployment_role.py
 koyeb/api_async/models/regional_deployment_status.py
 koyeb/api_async/models/regional_deployment_volume.py
@@ -942,4 +948,7 @@ koyeb/api_async/models/verify_docker_image_reply.py
 koyeb/api_async/models/verify_docker_image_reply_err_code.py
 koyeb/api_async/rest.py
 koyeb/api_async/test/__init__.py
+koyeb/api_async/test/test_docker_deployment_metadata.py
+koyeb/api_async/test/test_grpc_health_check.py
+koyeb/api_async/test/test_regional_deployment_metadata.py
 koyeb/api_async_README.md
