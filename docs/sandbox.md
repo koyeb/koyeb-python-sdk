@@ -1385,6 +1385,23 @@ Create Docker source configuration.
 
   DockerSource object
 
+<a id="koyeb.sandbox.spec.build_archive_source"></a>
+
+#### build\_archive\_source
+
+```python
+def build_archive_source(archive: Any) -> ArchiveSource
+```
+
+Build the archive member source: ArchiveSource models verbatim, or
+``{id, builder?, buildpack?, docker?}`` dicts.
+
+The builder options map onto the API builders (buildpack:
+build_command, run_command, privileged; docker: dockerfile,
+entrypoint, command, args, target, privileged) and are mutually
+exclusive; a bare ``builder`` name selects an empty builder and the
+server applies its defaults.
+
 <a id="koyeb.sandbox.spec.create_koyeb_sandbox_ports"></a>
 
 #### create\_koyeb\_sandbox\_ports
@@ -1465,8 +1482,11 @@ def create_deployment_definition(
         _experimental_deep_sleep_value: int = 3900,
         enable_mesh: Optional[bool] = None,
         config_files: Optional[List[ConfigFile]] = None,
-        network_policy: Optional[NetworkPolicy] = None
-) -> DeploymentDefinition
+        network_policy: Optional[NetworkPolicy] = None,
+        health_checks: Optional[List[DeploymentHealthCheck]] = None,
+        volumes: Optional[List[DeploymentVolume]] = None,
+        proxy_ports: Optional[List[DeploymentProxyPort]] = None,
+        archive: Optional[ArchiveSource] = None) -> DeploymentDefinition
 ```
 
 Create deployment definition for a sandbox service.
@@ -1495,6 +1515,13 @@ Create deployment definition for a sandbox service.
   Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
 - `enable_mesh` - Mesh tri-state: None (default) = auto, True = enabled, False = disabled
 - `network_policy` - Optional network policy restricting egress traffic
+- `health_checks` - Member health checks, carried verbatim (WEB pool members;
+  the pool surface gates them, see koyeb.sandbox.pool)
+- `volumes` - Member volume mounts, carried verbatim (wiring-orthogonal:
+  every pool type accepts them)
+- `proxy_ports` - Member proxy ports, carried verbatim (WEB/WORKER pool
+  members; SANDBOX members expose 3031 via enable_tcp_proxy only)
+- `archive` - Archive member source; replaces the Docker image source
   
 
 **Returns**:
@@ -1514,10 +1541,13 @@ The single definition of a sandbox deployment.
 
 ``definition_type`` defaults to SANDBOX, which keeps the sandbox
 auto-wiring; pool flows set WEB/WORKER and carry their own ports and
-routes. Invalid egress or port protocol fails at construction, before
-any API call. Sandbox flows call apply_sandbox_secret() before
-deployment_definition(): the secret rides the env. Pool flows never
-inject one — the platform mints the executor secret.
+routes. The pool member knobs (health_checks, volumes, proxy_ports,
+archive) ride the definition verbatim; the pool surface in
+koyeb.sandbox.pool gates their wiring rules. Invalid egress or port
+protocol fails at construction, before any API call. Sandbox flows
+call apply_sandbox_secret() before deployment_definition(): the secret
+rides the env. Pool flows never inject one — the platform mints the
+executor secret.
 
 <a id="koyeb.sandbox.spec.SandboxSpec.apply_sandbox_secret"></a>
 
@@ -3700,6 +3730,10 @@ def create(cls,
            args: Optional[List[str]] = None,
            ports: Optional[List[Any]] = None,
            routes: Optional[List[Any]] = None,
+           checks: Optional[List[Any]] = None,
+           volumes: Optional[List[Any]] = None,
+           proxy_ports: Optional[List[Any]] = None,
+           archive: Optional[Any] = None,
            privileged: bool = False,
            registry_secret: Optional[str] = None,
            exposed_port_protocol: Optional[str] = None,
@@ -3724,15 +3758,34 @@ secret, no auto ports. The docker overrides (``entrypoint``,
 ``command``, ``args``) apply to every pool type. Mesh stays AUTO:
 there is no pool-level mesh option.
 
+Member definition knobs: ``checks`` (WEB pools only) are health
+checks; ``volumes`` (every pool type) are ``VOLUME:PATH`` mounts;
+``proxy_ports`` (WEB/WORKER pools only) expose ports through the
+Koyeb proxy — SANDBOX pools expose port 3031 with the separate
+``enable_tcp_proxy`` option instead; ``archive`` (``{"id": ...}``
+plus optional ``builder``/``buildpack``/``docker`` options) boots
+the members from an existing archive and replaces the Docker image
+source. Invalid combinations fail fast with a ``ServicePoolError``
+before any API call.
+
 <a id="koyeb.sandbox.pool.ServicePool.update"></a>
 
 #### update
 
 ```python
-def update(size: Optional[int] = None) -> "ServicePool"
+def update(size: Optional[int] = None,
+           checks: Optional[List[Any]] = None,
+           volumes: Optional[List[Any]] = None,
+           proxy_ports: Optional[List[Any]] = None,
+           archive: Optional[Any] = None) -> "ServicePool"
 ```
 
-Resize the pool; returns the updated pool.
+Resize the pool and/or update its member definition knobs
+(checks, volumes, proxy_ports, archive); returns the updated pool.
+
+Every knob is optional: None keeps the live value, so ``update(size=n)``
+stays the minimal working path. A provided knob replaces its field on
+the live definition before the resend.
 
 <a id="koyeb.sandbox.pool.ServicePool.delete"></a>
 
@@ -3763,6 +3816,25 @@ class AsyncServicePool()
 ```
 
 Async twin of :class:`ServicePool`.
+
+<a id="koyeb.sandbox.pool.AsyncServicePool.update"></a>
+
+#### update
+
+```python
+async def update(size: Optional[int] = None,
+                 checks: Optional[List[Any]] = None,
+                 volumes: Optional[List[Any]] = None,
+                 proxy_ports: Optional[List[Any]] = None,
+                 archive: Optional[Any] = None) -> "AsyncServicePool"
+```
+
+Resize the pool and/or update its member definition knobs
+(checks, volumes, proxy_ports, archive); returns the updated pool.
+
+Every knob is optional: None keeps the live value, so ``update(size=n)``
+stays the minimal working path. A provided knob replaces its field on
+the live definition before the resend.
 
 <a id="koyeb.sandbox.snapshot"></a>
 
@@ -4149,7 +4221,10 @@ Raised when a sandbox operation times out
 class SandboxDeploymentError(SandboxError)
 ```
 
-Raised when a sandbox deployment reaches an error state
+Raised when a sandbox deployment reaches a terminal state.
+
+Carries the sandbox name and the terminal status, so callers can branch
+(e.g. wake on SLEEPING) instead of parsing the message.
 
 <a id="koyeb.sandbox.errors.SandboxRequestError"></a>
 

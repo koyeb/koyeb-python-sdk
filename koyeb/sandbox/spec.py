@@ -17,10 +17,13 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from koyeb.api.models.archive_source import ArchiveSource
+from koyeb.api.models.buildpack_builder import BuildpackBuilder
 from koyeb.api.models.config_file import ConfigFile
 from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
 from koyeb.api.models.deployment_env import DeploymentEnv
+from koyeb.api.models.deployment_health_check import DeploymentHealthCheck
 from koyeb.api.models.deployment_instance_type import DeploymentInstanceType
 from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.deployment_port import DeploymentPort
@@ -31,12 +34,15 @@ from koyeb.api.models.deployment_scaling_target import DeploymentScalingTarget
 from koyeb.api.models.deployment_scaling_target_sleep_idle_delay import (
     DeploymentScalingTargetSleepIdleDelay,
 )
+from koyeb.api.models.deployment_volume import DeploymentVolume
+from koyeb.api.models.docker_builder import DockerBuilder
 from koyeb.api.models.docker_source import DockerSource
 from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.proxy_port_protocol import ProxyPortProtocol
 from koyeb.api.models.secret import Secret
 
 from .egress import build_network_policy
+from .errors import ServicePoolError
 
 if TYPE_CHECKING:
     from .snapshot import SnapshotType
@@ -173,6 +179,70 @@ def create_docker_source(
     )
 
 
+def _validate_archive_builder(
+    archive_id: Any, builder: Any, buildpack: Any, docker: Any
+) -> None:
+    """Fail-fast on the archive source shape and builder combinations."""
+    if not archive_id:
+        raise ServicePoolError(
+            "Invalid archive source: the 'id' of the archive to deploy is "
+            "required (create one with `koyeb archive create`)"
+        )
+    if builder is not None and builder not in ("buildpack", "docker"):
+        raise ServicePoolError(
+            f"Invalid archive builder {builder!r}: must be 'buildpack' or 'docker'"
+        )
+    if buildpack is not None and docker is not None:
+        raise ServicePoolError(
+            "Invalid archive source: the buildpack and docker builder "
+            "options are mutually exclusive"
+        )
+    if buildpack is not None and builder == "docker":
+        raise ServicePoolError(
+            "Invalid archive source: 'buildpack' options cannot be "
+            "combined with builder 'docker'"
+        )
+    if docker is not None and builder == "buildpack":
+        raise ServicePoolError(
+            "Invalid archive source: 'docker' options cannot be combined "
+            "with builder 'buildpack'"
+        )
+
+
+def build_archive_source(archive: Any) -> ArchiveSource:
+    """Build the archive member source: ArchiveSource models verbatim, or
+    ``{id, builder?, buildpack?, docker?}`` dicts.
+
+    The builder options map onto the API builders (buildpack:
+    build_command, run_command, privileged; docker: dockerfile,
+    entrypoint, command, args, target, privileged) and are mutually
+    exclusive; a bare ``builder`` name selects an empty builder and the
+    server applies its defaults.
+    """
+    if isinstance(archive, ArchiveSource):
+        return archive
+    if not isinstance(archive, dict):
+        raise ServicePoolError(
+            f"Invalid archive source {archive!r}: pass an ArchiveSource "
+            "model or an {'id': ...} dict"
+        )
+    buildpack = archive.get("buildpack")
+    docker = archive.get("docker")
+    _validate_archive_builder(
+        archive.get("id"), archive.get("builder"), buildpack, docker
+    )
+    source = ArchiveSource(id=archive["id"])
+    if buildpack is not None:
+        source.buildpack = BuildpackBuilder(**buildpack)
+    elif docker is not None:
+        source.docker = DockerBuilder(**docker)
+    elif archive.get("builder") == "buildpack":
+        source.buildpack = BuildpackBuilder()
+    elif archive.get("builder") == "docker":
+        source.docker = DockerBuilder()
+    return source
+
+
 def create_koyeb_sandbox_ports(protocol: str = "http") -> List[DeploymentPort]:
     """
     Create port configuration for koyeb/sandbox image.
@@ -251,6 +321,10 @@ def create_deployment_definition(
     enable_mesh: Optional[bool] = None,
     config_files: Optional[List[ConfigFile]] = None,
     network_policy: Optional[NetworkPolicy] = None,
+    health_checks: Optional[List[DeploymentHealthCheck]] = None,
+    volumes: Optional[List[DeploymentVolume]] = None,
+    proxy_ports: Optional[List[DeploymentProxyPort]] = None,
+    archive: Optional[ArchiveSource] = None,
 ) -> DeploymentDefinition:
     """
     Create deployment definition for a sandbox service.
@@ -278,6 +352,13 @@ def create_deployment_definition(
             Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
         enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
         network_policy: Optional network policy restricting egress traffic
+        health_checks: Member health checks, carried verbatim (WEB pool members;
+            the pool surface gates them, see koyeb.sandbox.pool)
+        volumes: Member volume mounts, carried verbatim (wiring-orthogonal:
+            every pool type accepts them)
+        proxy_ports: Member proxy ports, carried verbatim (WEB/WORKER pool
+            members; SANDBOX members expose 3031 via enable_tcp_proxy only)
+        archive: Archive member source; replaces the Docker image source
 
     Returns:
         DeploymentDefinition object
@@ -297,8 +378,9 @@ def create_deployment_definition(
         ports = create_koyeb_sandbox_ports(protocol)
         routes = create_koyeb_sandbox_routes()
 
-    # Create TCP proxy ports if enabled
-    proxy_ports = None
+    # Proxy ports: the SANDBOX wiring exposes 3031 via enable_tcp_proxy;
+    # otherwise the caller-supplied member proxy ports ride verbatim
+    # (the pool surface rejects the combination up front).
     if enable_tcp_proxy:
         proxy_ports = create_koyeb_sandbox_proxy_ports()
 
@@ -339,7 +421,8 @@ def create_deployment_definition(
     return DeploymentDefinition(
         name=name,
         type=definition_type,
-        docker=docker_source,
+        docker=None if archive is not None else docker_source,
+        archive=archive,
         env=env_vars,
         ports=ports,
         proxy_ports=proxy_ports,
@@ -350,6 +433,8 @@ def create_deployment_definition(
         mesh=mesh,
         config_files=config_files if config_files else None,
         network_policy=network_policy,
+        health_checks=health_checks,
+        volumes=volumes,
     )
 
 
@@ -359,10 +444,13 @@ class SandboxSpec:
 
     ``definition_type`` defaults to SANDBOX, which keeps the sandbox
     auto-wiring; pool flows set WEB/WORKER and carry their own ports and
-    routes. Invalid egress or port protocol fails at construction, before
-    any API call. Sandbox flows call apply_sandbox_secret() before
-    deployment_definition(): the secret rides the env. Pool flows never
-    inject one — the platform mints the executor secret.
+    routes. The pool member knobs (health_checks, volumes, proxy_ports,
+    archive) ride the definition verbatim; the pool surface in
+    koyeb.sandbox.pool gates their wiring rules. Invalid egress or port
+    protocol fails at construction, before any API call. Sandbox flows
+    call apply_sandbox_secret() before deployment_definition(): the secret
+    rides the env. Pool flows never inject one — the platform mints the
+    executor secret.
     """
 
     name: str
@@ -387,6 +475,10 @@ class SandboxSpec:
     args: Optional[List[str]] = None
     ports: Optional[List[DeploymentPort]] = None
     routes: Optional[List[DeploymentRoute]] = None
+    health_checks: Optional[List[DeploymentHealthCheck]] = None
+    volumes: Optional[List[DeploymentVolume]] = None
+    proxy_ports: Optional[List[DeploymentProxyPort]] = None
+    archive: Optional[ArchiveSource] = None
     block_network: bool = False
     outbound_allowlist: Optional[List[str]] = None
     snapshot_id: Optional[str] = None
@@ -421,7 +513,9 @@ class SandboxSpec:
         """The deployment definition; the sync model is the wire truth."""
         return create_deployment_definition(
             name=self.name,
-            docker_source=create_docker_source(
+            docker_source=None
+            if self.archive is not None
+            else create_docker_source(
                 self.image,
                 privileged=self.privileged,
                 image_registry_secret=self.registry_secret,
@@ -443,6 +537,10 @@ class SandboxSpec:
             enable_mesh=self.enable_mesh,
             config_files=build_config_files(self.config_files) or None,
             network_policy=self.network_policy,
+            health_checks=self.health_checks,
+            volumes=self.volumes,
+            proxy_ports=self.proxy_ports,
+            archive=self.archive,
         )
 
     def deployment_definition_dict(self) -> Dict[str, Any]:

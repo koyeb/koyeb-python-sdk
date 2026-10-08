@@ -9,11 +9,26 @@ from koyeb.api_async.exceptions import ApiException as AsyncApiException
 from koyeb.api_async.models.deployment_definition import (
     DeploymentDefinition as AsyncDeploymentDefinition,
 )
+from koyeb.api_async.models.deployment_definition_type import (
+    DeploymentDefinitionType as AsyncDeploymentDefinitionType,
+)
+from koyeb.api_async.models.deployment_health_check import (
+    DeploymentHealthCheck as AsyncDeploymentHealthCheck,
+)
+from koyeb.api_async.models.docker_source import DockerSource as AsyncDockerSource
+from koyeb.api_async.models.http_health_check import (
+    HTTPHealthCheck as AsyncHTTPHealthCheck,
+)
 from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
+from koyeb.api.models.deployment_health_check import DeploymentHealthCheck
 from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.deployment_port import DeploymentPort
+from koyeb.api.models.deployment_proxy_port import DeploymentProxyPort
 from koyeb.api.models.deployment_route import DeploymentRoute
+from koyeb.api.models.deployment_volume import DeploymentVolume
+from koyeb.api.models.docker_source import DockerSource
+from koyeb.api.models.http_health_check import HTTPHealthCheck
 from koyeb.api.models.pool_claim_status import PoolClaimStatus
 from koyeb.api.models.service_pool_status import ServicePoolStatus
 from koyeb.api.models.service_status import ServiceStatus
@@ -348,6 +363,297 @@ class TestServicePoolCreate(unittest.TestCase):
         self.assertIn("WEB", str(cm.exception))
         self.assertEqual(pools.created, [])
 
+    def test_create_web_pool_carries_checks_verbatim(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="web-pool",
+                type="WEB",
+                checks=[
+                    DeploymentHealthCheck(
+                        http=HTTPHealthCheck(port=8080, path="/healthz")
+                    ),
+                    {"tcp": {"port": 5432}},
+                ],
+                api_token="tok",
+            )
+        health_checks = pools.created[0].definition.health_checks
+        self.assertEqual(len(health_checks), 2)
+        self.assertEqual(health_checks[0].http.port, 8080)
+        self.assertEqual(health_checks[0].http.path, "/healthz")
+        self.assertEqual(health_checks[1].tcp.port, 5432)
+
+    def test_create_volumes_mount_on_every_pool_type(self):
+        # Volumes are wiring-orthogonal: SANDBOX, WEB and WORKER pools all
+        # mount them (the CLI bundle has no type gate).
+        for pool_type in ("SANDBOX", "WEB", "WORKER"):
+            with self.subTest(pool_type=pool_type):
+                pools = FakeServicePoolsApi()
+                with patch(
+                    "koyeb.sandbox.pool.get_api_clients",
+                    return_value=_fake_sync_clients(pools_api=pools),
+                ):
+                    ServicePool.create(
+                        name="p",
+                        type=pool_type,
+                        volumes=[
+                            "vol-uuid:/data",  # CLI VOLUME:PATH style
+                            {"id": "vol-2", "path": "/mnt"},
+                            DeploymentVolume(id="vol-3", path="/cache"),
+                        ],
+                        api_token="tok",
+                    )
+                volumes = pools.created[0].definition.volumes
+                self.assertEqual(
+                    [(v.id, v.path) for v in volumes],
+                    [
+                        ("vol-uuid", "/data"),
+                        ("vol-2", "/mnt"),
+                        ("vol-3", "/cache"),
+                    ],
+                )
+
+    def test_create_rejects_malformed_volume_strings(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            for bad in ("no-mount-path", "vol-1:", ":/data", "vol-1:/a:extra"):
+                with self.subTest(volume=bad):
+                    with self.assertRaises(ServicePoolError) as cm:
+                        ServicePool.create(name="p", volumes=[bad], api_token="tok")
+                    self.assertIn("VOLUME:PATH", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_create_web_pool_carries_proxy_ports(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="web-pool",
+                type="WEB",
+                proxy_ports=[
+                    {"port": 5432},  # protocol defaults to tcp (API model default)
+                    DeploymentProxyPort(port=9000, protocol="tcp"),
+                ],
+                api_token="tok",
+            )
+        proxy_ports = pools.created[0].definition.proxy_ports
+        self.assertEqual(
+            [(p.port, p.protocol) for p in proxy_ports], [(5432, "tcp"), (9000, "tcp")]
+        )
+
+    def test_create_sandbox_enable_tcp_proxy_wires_3031(self):
+        # The SANDBOX 3031 knob is separate from member proxy_ports and
+        # stays surgical: enabling it wires the executor's TCP proxy port.
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="p", type="SANDBOX", enable_tcp_proxy=True, api_token="tok"
+            )
+        proxy_ports = pools.created[0].definition.proxy_ports
+        self.assertEqual([(p.port, p.protocol) for p in proxy_ports], [(3031, "tcp")])
+
+    def test_create_rejects_proxy_ports_on_sandbox_pool(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                ServicePool.create(
+                    name="p",
+                    type="SANDBOX",
+                    proxy_ports=[{"port": 5432, "protocol": "tcp"}],
+                    api_token="tok",
+                )
+        self.assertIn("SANDBOX", str(cm.exception))
+        self.assertIn("3030/3031", str(cm.exception))
+        # the message must distinguish the sandbox-only 3031 knob
+        self.assertIn("enable_tcp_proxy", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_create_rejects_invalid_proxy_port_protocol(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                ServicePool.create(
+                    name="web-pool",
+                    type="WEB",
+                    proxy_ports=[{"port": 8080, "protocol": "http"}],
+                    api_token="tok",
+                )
+        self.assertIn("tcp", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_create_archive_replaces_docker_source(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(name="p", archive={"id": "arch-1"}, api_token="tok")
+        definition = pools.created[0].definition
+        self.assertEqual(definition.archive.id, "arch-1")
+        self.assertIsNone(definition.archive.buildpack)
+        self.assertIsNone(definition.archive.docker)
+        self.assertIsNone(definition.docker)  # the archive replaces the source
+
+    def test_create_archive_with_buildpack_builder(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="p",
+                archive={
+                    "id": "arch-1",
+                    "builder": "buildpack",
+                    "buildpack": {
+                        "build_command": "make build",
+                        "run_command": "make run",
+                    },
+                },
+                api_token="tok",
+            )
+        archive = pools.created[0].definition.archive
+        self.assertEqual(archive.buildpack.build_command, "make build")
+        self.assertEqual(archive.buildpack.run_command, "make run")
+        self.assertIsNone(archive.docker)
+
+    def test_create_archive_with_docker_builder(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            ServicePool.create(
+                name="p",
+                archive={
+                    "id": "arch-1",
+                    "builder": "docker",
+                    "docker": {
+                        "dockerfile": "Dockerfile",
+                        "entrypoint": ["/bin/sh", "-c"],
+                        "command": "run.sh",
+                        "args": ["--fast"],
+                        "target": "production",
+                    },
+                },
+                api_token="tok",
+            )
+        builder = pools.created[0].definition.archive.docker
+        self.assertEqual(builder.dockerfile, "Dockerfile")
+        self.assertEqual(builder.entrypoint, ["/bin/sh", "-c"])
+        self.assertEqual(builder.command, "run.sh")
+        self.assertEqual(builder.args, ["--fast"])
+        self.assertEqual(builder.target, "production")
+
+    def test_create_rejects_archive_with_docker_source(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            for kwargs in (
+                {"archive": {"id": "arch-1"}, "image": "ghcr.io/acme/app"},
+                {"archive": {"id": "arch-1"}, "entrypoint": ["/bin/sh"]},
+                {"archive": {"id": "arch-1"}, "command": "run"},
+                {"archive": {"id": "arch-1"}, "args": ["--x"]},
+                {"archive": {"id": "arch-1"}, "registry_secret": "sec"},
+                {"archive": {"id": "arch-1"}, "privileged": True},
+            ):
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(ServicePoolError) as cm:
+                        ServicePool.create(name="p", api_token="tok", **kwargs)
+                    self.assertIn("archive", str(cm.exception))
+                    self.assertIn("Docker image", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_create_rejects_invalid_archive(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            for archive in (
+                {},  # missing id
+                {"id": "arch-1", "builder": "bogus"},
+                {"id": "arch-1", "buildpack": {}, "docker": {}},
+                {"id": "arch-1", "builder": "docker", "buildpack": {}},
+                {"id": "arch-1", "builder": "buildpack", "docker": {}},
+            ):
+                with self.subTest(archive=archive):
+                    with self.assertRaises(ServicePoolError):
+                        ServicePool.create(name="p", archive=archive, api_token="tok")
+        self.assertEqual(pools.created, [])
+
+    def test_create_rejects_check_without_a_probe(self):
+        # A flat {"port": ...} dict is not the wire shape: it would silently
+        # coerce to an empty check (no http/tcp/grpc probe) — fail fast
+        # instead, naming the accepted shapes.
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                ServicePool.create(
+                    name="web-pool",
+                    type="WEB",
+                    checks=[{"port": 8080}],
+                    api_token="tok",
+                )
+        self.assertIn("http", str(cm.exception))
+        self.assertIn("tcp", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_create_rejects_volume_dict_missing_id_or_path(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            for bad in ({"id": "vol-1"}, {"path": "/data"}):
+                with self.subTest(volume=bad):
+                    with self.assertRaises(ServicePoolError) as cm:
+                        ServicePool.create(name="p", volumes=[bad], api_token="tok")
+                    self.assertIn("id", str(cm.exception))
+                    self.assertIn("path", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_create_rejects_checks_on_sandbox_and_worker_pools(self):
+        pools = FakeServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            for pool_type in ("SANDBOX", "WORKER"):
+                with self.subTest(pool_type=pool_type):
+                    with self.assertRaises(ServicePoolError) as cm:
+                        ServicePool.create(
+                            name="p",
+                            type=pool_type,
+                            checks=[{"http": {"port": 8080}}],
+                            api_token="tok",
+                        )
+                    self.assertIn("WEB", str(cm.exception))
+                    self.assertIn(pool_type, str(cm.exception))
+        self.assertEqual(pools.created, [])
+
 
 class TestServicePoolCrud(unittest.TestCase):
     def _pool(self, pools):
@@ -410,6 +716,146 @@ class TestServicePoolCrud(unittest.TestCase):
         self.assertEqual(body.size, 2)
         self.assertIs(body.definition, definition)
         self.assertIsNone(update_mask)
+
+    def test_update_checks_replace_live_values(self):
+        live = DeploymentDefinition(
+            name="my-pool",
+            type=DeploymentDefinitionType.WEB,
+            health_checks=[
+                DeploymentHealthCheck(http=HTTPHealthCheck(port=8080, path="/old"))
+            ],
+        )
+        pools = FakeServicePoolsApi(pool=_pool_model(definition=live))
+        pool = self._pool(pools)
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            pool.update(checks=[{"http": {"port": 9000, "path": "/new"}}])
+        _, body, update_mask = pools.updates[0]
+        self.assertIs(body.definition, live)  # merged over the refetched live pool
+        self.assertEqual(len(body.definition.health_checks), 1)
+        self.assertEqual(body.definition.health_checks[0].http.port, 9000)
+        self.assertEqual(body.definition.health_checks[0].http.path, "/new")
+        self.assertIsNone(update_mask)
+
+    def test_update_rejects_checks_on_sandbox_pool(self):
+        live = DeploymentDefinition(
+            name="my-pool", type=DeploymentDefinitionType.SANDBOX
+        )
+        pools = FakeServicePoolsApi(pool=_pool_model(definition=live))
+        pool = self._pool(pools)
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                pool.update(checks=[{"tcp": {"port": 5432}}])
+        self.assertIn("WEB", str(cm.exception))
+        self.assertEqual(pools.updates, [])  # rejected before the PUT
+
+    def test_update_proxy_ports_replace_live_values(self):
+        live = DeploymentDefinition(
+            name="my-pool",
+            type=DeploymentDefinitionType.WORKER,
+            proxy_ports=[DeploymentProxyPort(port=5432, protocol="tcp")],
+        )
+        pools = FakeServicePoolsApi(pool=_pool_model(definition=live))
+        pool = self._pool(pools)
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            pool.update(proxy_ports=[{"port": 9000, "protocol": "tcp"}])
+        _, body, _ = pools.updates[0]
+        self.assertEqual(
+            [(p.port, p.protocol) for p in body.definition.proxy_ports], [(9000, "tcp")]
+        )
+
+    def test_update_rejects_proxy_ports_on_sandbox_pool(self):
+        live = DeploymentDefinition(
+            name="my-pool", type=DeploymentDefinitionType.SANDBOX
+        )
+        pools = FakeServicePoolsApi(pool=_pool_model(definition=live))
+        pool = self._pool(pools)
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                pool.update(proxy_ports=[{"port": 9000, "protocol": "tcp"}])
+        self.assertIn("enable_tcp_proxy", str(cm.exception))
+        self.assertEqual(pools.updates, [])
+
+    def test_update_volumes_replace_live_values(self):
+        # Volumes are wiring-orthogonal: even a SANDBOX pool accepts them.
+        live = DeploymentDefinition(
+            name="my-pool",
+            type=DeploymentDefinitionType.SANDBOX,
+            volumes=[DeploymentVolume(id="vol-live", path="/live")],
+        )
+        pools = FakeServicePoolsApi(pool=_pool_model(definition=live))
+        pool = self._pool(pools)
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            pool.update(volumes=["vol-new:/data"])
+        _, body, _ = pools.updates[0]
+        self.assertEqual(
+            [(v.id, v.path) for v in body.definition.volumes],
+            [("vol-new", "/data")],
+        )
+
+    def test_update_archive_replaces_live_source(self):
+        live = DeploymentDefinition(
+            name="my-pool",
+            type=DeploymentDefinitionType.WEB,
+            docker=DockerSource(image="ghcr.io/acme/app:v1"),
+        )
+        pools = FakeServicePoolsApi(pool=_pool_model(definition=live))
+        pool = self._pool(pools)
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            pool.update(archive={"id": "arch-2"})
+        _, body, _ = pools.updates[0]
+        self.assertEqual(body.definition.archive.id, "arch-2")
+        self.assertIsNone(body.definition.docker)
+
+    def test_update_without_knobs_keeps_live_member_wiring(self):
+        live = DeploymentDefinition(
+            name="my-pool",
+            type=DeploymentDefinitionType.WEB,
+            health_checks=[
+                DeploymentHealthCheck(http=HTTPHealthCheck(port=8080, path="/live"))
+            ],
+            volumes=[DeploymentVolume(id="vol-live", path="/live")],
+        )
+        pools = FakeServicePoolsApi(pool=_pool_model(definition=live))
+        pool = self._pool(pools)
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            pool.update(size=5)
+        _, body, _ = pools.updates[0]
+        self.assertIs(body.definition, live)  # size-only: definition untouched
+        self.assertEqual(body.definition.health_checks[0].http.path, "/live")
+        self.assertEqual(body.definition.volumes[0].id, "vol-live")
+
+    def test_update_knobs_rejected_without_live_definition(self):
+        pools = FakeServicePoolsApi(pool=_pool_model(definition=None))
+        pool = self._pool(pools)
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                pool.update(volumes=["vol:/data"])
+        self.assertIn("definition", str(cm.exception))
+        self.assertEqual(pools.updates, [])
 
     def test_delete(self):
         pools = FakeServicePoolsApi()
@@ -808,6 +1254,119 @@ class TestAsyncPoolMirror(unittest.TestCase):
 
             with self.assertRaises(ServiceTerminalStateError):
                 asyncio.run(run())
+
+    def test_async_create_carries_member_knobs(self):
+        pools = FakeAsyncServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            asyncio.run(
+                AsyncServicePool.create(
+                    name="web-pool",
+                    type="WEB",
+                    checks=[{"http": {"port": 8080, "path": "/healthz"}}],
+                    volumes=["vol-uuid:/data"],
+                    proxy_ports=[{"port": 5432, "protocol": "tcp"}],
+                    archive={"id": "arch-1", "builder": "docker"},
+                    api_token="tok",
+                )
+            )
+        definition = pools.created[0].definition
+        self.assertEqual(definition.health_checks[0].http.path, "/healthz")
+        self.assertEqual(definition.volumes[0].id, "vol-uuid")
+        self.assertEqual(definition.proxy_ports[0].port, 5432)
+        self.assertEqual(definition.archive.id, "arch-1")
+        self.assertIsNone(definition.docker)
+
+    def test_async_create_rejects_proxy_ports_on_sandbox(self):
+        pools = FakeAsyncServicePoolsApi()
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            with self.assertRaises(ServicePoolError) as cm:
+                asyncio.run(
+                    AsyncServicePool.create(
+                        name="p",
+                        type="SANDBOX",
+                        proxy_ports=[{"port": 5432, "protocol": "tcp"}],
+                        api_token="tok",
+                    )
+                )
+        self.assertIn("enable_tcp_proxy", str(cm.exception))
+        self.assertEqual(pools.created, [])
+
+    def test_async_update_merges_member_knobs(self):
+        live = AsyncDeploymentDefinition(
+            name="my-pool",
+            type=AsyncDeploymentDefinitionType.WEB,
+            docker=AsyncDockerSource(image="ghcr.io/acme/app:v1"),
+            health_checks=[
+                AsyncDeploymentHealthCheck(
+                    http=AsyncHTTPHealthCheck(port=8080, path="/old")
+                )
+            ],
+        )
+        pools = FakeAsyncServicePoolsApi(pool=_pool_model(definition=live))
+        pool = AsyncServicePool(
+            id="pool-1",
+            name="my-pool",
+            size=2,
+            ready_count=1,
+            status=ServicePoolStatus.READY,
+            api_token="tok",
+        )
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+
+            async def run():
+                return await pool.update(
+                    size=4,
+                    checks=[{"http": {"port": 9000, "path": "/new"}}],
+                    volumes=[{"id": "vol-2", "path": "/data"}],
+                    proxy_ports=[DeploymentProxyPort(port=9000, protocol="tcp")],
+                    archive={"id": "arch-2"},
+                )
+
+            asyncio.run(run())
+        _, body, _ = pools.updates[0]
+        self.assertEqual(body.size, 4)
+        definition = body.definition
+        self.assertIs(definition, live)  # merged over the refetched live pool
+        self.assertEqual(definition.health_checks[0].http.port, 9000)
+        self.assertEqual(definition.volumes[0].id, "vol-2")
+        self.assertEqual(definition.proxy_ports[0].port, 9000)
+        self.assertEqual(definition.archive.id, "arch-2")
+        self.assertIsNone(definition.docker)
+
+    def test_async_update_rejects_checks_on_sandbox_pool(self):
+        live = AsyncDeploymentDefinition(
+            name="my-pool", type=AsyncDeploymentDefinitionType.SANDBOX
+        )
+        pools = FakeAsyncServicePoolsApi(pool=_pool_model(definition=live))
+        pool = AsyncServicePool(
+            id="pool-1",
+            name="my-pool",
+            size=2,
+            ready_count=1,
+            status=ServicePoolStatus.READY,
+            api_token="tok",
+        )
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+
+            async def run():
+                return await pool.update(checks=[{"tcp": {"port": 5432}}])
+
+            with self.assertRaises(ServicePoolError) as cm:
+                asyncio.run(run())
+        self.assertIn("WEB", str(cm.exception))
+        self.assertEqual(pools.updates, [])
 
     def test_async_pool_update_delete_refresh(self):
         definition = AsyncDeploymentDefinition(name="my-pool")
