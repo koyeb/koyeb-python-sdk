@@ -818,6 +818,7 @@ class ServicePoolsApi:
         name: Optional[StrictStr] = None,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
+        status: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -839,6 +840,8 @@ class ServicePoolsApi:
         :type limit: str
         :param offset:
         :type offset: str
+        :param status: Filter pools by their own status: ready, provisioning, error or deleting.
+        :type status: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -865,6 +868,7 @@ class ServicePoolsApi:
             name=name,
             limit=limit,
             offset=offset,
+            status=status,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -896,6 +900,7 @@ class ServicePoolsApi:
         name: Optional[StrictStr] = None,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
+        status: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -917,6 +922,8 @@ class ServicePoolsApi:
         :type limit: str
         :param offset:
         :type offset: str
+        :param status: Filter pools by their own status: ready, provisioning, error or deleting.
+        :type status: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -943,6 +950,7 @@ class ServicePoolsApi:
             name=name,
             limit=limit,
             offset=offset,
+            status=status,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -974,6 +982,7 @@ class ServicePoolsApi:
         name: Optional[StrictStr] = None,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
+        status: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -995,6 +1004,8 @@ class ServicePoolsApi:
         :type limit: str
         :param offset:
         :type offset: str
+        :param status: Filter pools by their own status: ready, provisioning, error or deleting.
+        :type status: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1021,6 +1032,7 @@ class ServicePoolsApi:
             name=name,
             limit=limit,
             offset=offset,
+            status=status,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1047,6 +1059,7 @@ class ServicePoolsApi:
         name,
         limit,
         offset,
+        status,
         _request_auth,
         _content_type,
         _headers,
@@ -1075,6 +1088,9 @@ class ServicePoolsApi:
 
         if offset is not None:
             _query_params.append(("offset", offset))
+
+        if status is not None:
+            _query_params.append(("status", status))
 
         # process the header parameters
         # process the form parameters

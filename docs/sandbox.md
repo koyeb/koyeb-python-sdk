@@ -3724,6 +3724,27 @@ secret, no auto ports. The docker overrides (``entrypoint``,
 ``command``, ``args``) apply to every pool type. Mesh stays AUTO:
 there is no pool-level mesh option.
 
+<a id="koyeb.sandbox.pool.ServicePool.list"></a>
+
+#### list
+
+```python
+@classmethod
+def list(cls,
+         name: Optional[str] = None,
+         status: Optional[str] = None,
+         limit: Optional[int] = None,
+         offset: Optional[int] = None,
+         api_token: Optional[str] = None,
+         host: Optional[str] = None) -> List["ServicePool"]
+```
+
+List service pools, optionally filtered by name and status.
+
+The status filter takes the lowercase model value (`ready`,
+`provisioning`, `error` or `deleting`), not the uppercase enum name
+the reply carries; the API rejects anything else with a 400.
+
 <a id="koyeb.sandbox.pool.ServicePool.update"></a>
 
 #### update
@@ -3763,6 +3784,37 @@ class AsyncServicePool()
 ```
 
 Async twin of :class:`ServicePool`.
+
+<a id="koyeb.sandbox.pool.AsyncServicePool.list"></a>
+
+#### list
+
+```python
+@classmethod
+async def list(cls,
+               name: Optional[str] = None,
+               status: Optional[str] = None,
+               limit: Optional[int] = None,
+               offset: Optional[int] = None,
+               api_token: Optional[str] = None,
+               host: Optional[str] = None) -> List["AsyncServicePool"]
+```
+
+List service pools, optionally filtered by name and status (async).
+
+The status filter takes the lowercase model value (`ready`,
+`provisioning`, `error` or `deleting`), not the uppercase enum name
+the reply carries; the API rejects anything else with a 400.
+
+<a id="koyeb.sandbox.pool.AsyncServicePool.update"></a>
+
+#### update
+
+```python
+async def update(size: Optional[int] = None) -> "AsyncServicePool"
+```
+
+Resize the pool; returns the updated pool.
 
 <a id="koyeb.sandbox.snapshot"></a>
 
@@ -4149,7 +4201,10 @@ Raised when a sandbox operation times out
 class SandboxDeploymentError(SandboxError)
 ```
 
-Raised when a sandbox deployment reaches an error state
+Raised when a sandbox deployment reaches a terminal state.
+
+Carries the sandbox name and the terminal status, so callers can branch
+(e.g. wake on SLEEPING) instead of parsing the message.
 
 <a id="koyeb.sandbox.errors.SandboxRequestError"></a>
 

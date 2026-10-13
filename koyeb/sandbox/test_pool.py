@@ -380,6 +380,17 @@ class TestServicePoolCrud(unittest.TestCase):
         self.assertEqual(len(found), 2)
         self.assertEqual(pools.list_kwargs.get("name"), None)
 
+    def test_list_passes_status_filter(self):
+        pools = FakeServicePoolsApi(pools=[_pool_model()])
+        with patch(
+            "koyeb.sandbox.pool.get_api_clients",
+            return_value=_fake_sync_clients(pools_api=pools),
+        ):
+            found = ServicePool.list(status="ready", api_token="tok")
+        self.assertEqual(len(found), 1)
+        self.assertEqual(pools.list_kwargs.get("status"), "ready")
+        self.assertEqual(pools.list_kwargs.get("name"), None)
+
     def test_update_size(self):
         definition = DeploymentDefinition(name="my-pool")
         pools = FakeServicePoolsApi(pool=_pool_model(definition=definition))
@@ -840,6 +851,17 @@ class TestAsyncPoolMirror(unittest.TestCase):
         self.assertIsNone(update_mask)
         self.assertEqual(pools.deleted, ["pool-1"])
         self.assertEqual(pool.ready_count, 9)
+
+    def test_async_list_passes_status_filter(self):
+        pools = FakeAsyncServicePoolsApi(pools=[_pool_model()])
+        with patch(
+            "koyeb.sandbox.pool.get_async_api_clients",
+            return_value=_fake_async_clients(pools_api=pools),
+        ):
+            found = asyncio.run(AsyncServicePool.list(status="ready", api_token="tok"))
+        self.assertEqual(len(found), 1)
+        self.assertEqual(pools.list_kwargs.get("status"), "ready")
+        self.assertEqual(pools.list_kwargs.get("name"), None)
 
 
 if __name__ == "__main__":
