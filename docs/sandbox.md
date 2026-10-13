@@ -3845,6 +3845,7 @@ Uses the InstanceSnapshots API which is for sandbox/service instance snapshots.
 @classmethod
 def list(cls,
          service_id: Optional[str] = None,
+         name: Optional[str] = None,
          snapshot_type: Optional[SnapshotType] = None,
          status: Optional[SnapshotStatus] = None,
          limit: int = 50,
@@ -3859,7 +3860,9 @@ Uses the InstanceSnapshots API which is for sandbox/service instance snapshots.
 
 **Arguments**:
 
-- `service_id` - Filter by service ID
+- `service_id` - Filter by service ID (applied to the returned page;
+the list endpoint has no service_id query param)
+- `name` - Filter by snapshot name
 - `snapshot_type` - Filter by snapshot type
 - `status` - Filter by snapshot status
 - `limit` - Maximum number of snapshots to return
