@@ -95,9 +95,11 @@ class _EventFold:
         self.stdout: List[str] = []
         self.stderr: List[str] = []
         self.exit_code = 0
+        self.saw_event = False
 
     def feed(self, event: Dict[str, Any]) -> Optional[CommandResult]:
         """Consume one event; returns a result only for a failed start."""
+        self.saw_event = True
         if "stream" in event:
             stream_type = event["stream"]
             data = event["data"]
@@ -126,6 +128,17 @@ class _EventFold:
         return None
 
     def result(self) -> CommandResult:
+        # Zero events is a broken executor response, not a command that
+        # exited 0: report a failed start instead of a fabricated success.
+        if not self.saw_event:
+            return CommandResult(
+                stdout="",
+                stderr="Sandbox executor returned an empty command stream",
+                exit_code=1,
+                status=CommandStatus.FAILED,
+                duration=time.time() - self.start_time,
+                command=self.command,
+            )
         return CommandResult(
             stdout="".join(self.stdout),
             stderr="".join(self.stderr),
