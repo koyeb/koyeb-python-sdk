@@ -15,6 +15,7 @@ import httpx
 
 from .errors import (
     NoSandboxSecretError,
+    SandboxConnectionError,
     SandboxError,
     SandboxRequestError,
     SandboxServiceError,
@@ -59,15 +60,47 @@ def _build_headers(conn_info: ConnectionInfo) -> Dict[str, str]:
     return headers
 
 
-def _parse_sse_line(line: str) -> Optional[Dict[str, Any]]:
-    """Parse a Server-Sent Events line into an event dict."""
-    if not line or not line.startswith("data:"):
-        return None
-    data = line[5:].strip()
+def _parse_sse_payload(data: str) -> Dict[str, Any]:
+    """Parse one joined SSE data payload into an event dict."""
     try:
         return json.loads(data)
     except json.JSONDecodeError:
         return {"error": f"Failed to parse event data: {data}"}
+
+
+def _sse_data_lines(lines) -> "Iterator[List[str]]":
+    """Split SSE lines into events: data: lines accumulate until a blank line
+    (or EOF) ends the event, then join with newlines per the SSE format.
+
+    Line endings may be CRLF depending on the transport, so blank-line
+    detection strips before comparing.
+    """
+    data: List[str] = []
+    for line in lines:
+        if line.strip():
+            if line.startswith("data:"):
+                data.append(line[5:].strip())
+        else:
+            if data:
+                yield data
+            data = []
+    if data:
+        yield data
+
+
+async def _sse_data_lines_async(lines) -> "AsyncIterator[List[str]]":
+    """Async twin of _sse_data_lines for aiter_lines streams."""
+    data: List[str] = []
+    async for line in lines:
+        if line.strip():
+            if line.startswith("data:"):
+                data.append(line[5:].strip())
+        else:
+            if data:
+                yield data
+            data = []
+    if data:
+        yield data
 
 
 class SandboxClient:
@@ -198,7 +231,7 @@ class SandboxClient:
                     backoff *= 2
                     continue
                 logger.warning(f"Request failed after {max_retries} retries: {e}")
-                raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+                raise SandboxConnectionError(f"Request to sandbox executor failed: {e}") from e
 
         # Unreachable in practice: every terminal path returns or raises.
         raise SandboxError(f"Request to {url} failed after {max_retries} retries")
@@ -316,17 +349,15 @@ class SandboxClient:
                         message=response.text,
                     )
                 response.raise_for_status()
-                for line in response.iter_lines():
-                    event = _parse_sse_line(line)
-                    if event is not None:
-                        yield event
+                for data_lines in _sse_data_lines(response.iter_lines()):
+                    yield _parse_sse_payload("\n".join(data_lines))
         except httpx.TimeoutException as e:
             raise SandboxTimeoutError(
                 f"Request timed out after {request_timeout}s"
             ) from e
         except httpx.RequestError as e:
             # E.g. the instance is torn down mid-stream during a redeployment.
-            raise SandboxError(f"Connection to sandbox lost: {e}") from e
+            raise SandboxConnectionError(f"Connection to sandbox lost: {e}") from e
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """
@@ -687,7 +718,7 @@ class AsyncSandboxClient:
                     backoff *= 2
                     continue
                 logger.warning(f"Request failed after {max_retries} retries: {e}")
-                raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+                raise SandboxConnectionError(f"Request to sandbox executor failed: {e}") from e
 
         # Unreachable in practice: every terminal path returns or raises.
         raise SandboxError(f"Request to {url} failed after {max_retries} retries")
@@ -805,17 +836,15 @@ class AsyncSandboxClient:
                         message=response.text,
                     )
                 response.raise_for_status()
-                async for line in response.aiter_lines():
-                    event = _parse_sse_line(line)
-                    if event is not None:
-                        yield event
+                async for data_lines in _sse_data_lines_async(response.aiter_lines()):
+                    yield _parse_sse_payload("\n".join(data_lines))
         except httpx.TimeoutException as e:
             raise SandboxTimeoutError(
                 f"Request timed out after {request_timeout}s"
             ) from e
         except httpx.RequestError as e:
             # E.g. the instance is torn down mid-stream during a redeployment.
-            raise SandboxError(f"Connection to sandbox lost: {e}") from e
+            raise SandboxConnectionError(f"Connection to sandbox lost: {e}") from e
 
     async def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """
