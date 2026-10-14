@@ -502,15 +502,23 @@ class ServicePool:
     def list(
         cls,
         name: Optional[str] = None,
+        status: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         api_token: Optional[str] = None,
         host: Optional[str] = None,
     ) -> List["ServicePool"]:
+        """List service pools, optionally filtered by name and status.
+
+        The status filter takes the lowercase model value (`ready`,
+        `provisioning`, `error` or `deleting`), not the uppercase enum name
+        the reply carries; the API rejects anything else with a 400.
+        """
         clients = get_api_clients(api_token, host)
         try:
             reply = clients.service_pools.list_service_pools(
                 name=name,
+                status=status,
                 limit=str(limit) if limit is not None else None,
                 offset=str(offset) if offset is not None else None,
             )
@@ -709,15 +717,23 @@ class AsyncServicePool:
     async def list(
         cls,
         name: Optional[str] = None,
+        status: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         api_token: Optional[str] = None,
         host: Optional[str] = None,
     ) -> List["AsyncServicePool"]:
+        """List service pools, optionally filtered by name and status (async).
+
+        The status filter takes the lowercase model value (`ready`,
+        `provisioning`, `error` or `deleting`), not the uppercase enum name
+        the reply carries; the API rejects anything else with a 400.
+        """
         clients = get_async_api_clients(api_token, host)
         try:
             reply = await clients.service_pools.list_service_pools(
                 name=name,
+                status=status,
                 limit=str(limit) if limit is not None else None,
                 offset=str(offset) if offset is not None else None,
             )

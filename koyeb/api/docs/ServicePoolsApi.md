@@ -264,7 +264,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **list_service_pools**
-> ListServicePoolsReply list_service_pools(name=name, limit=limit, offset=offset)
+> ListServicePoolsReply list_service_pools(name=name, limit=limit, offset=offset, status=status)
 
 List ServicePools
 
@@ -302,10 +302,11 @@ with koyeb.api.ApiClient(configuration) as api_client:
     name = 'name_example' # str |  (optional)
     limit = 'limit_example' # str |  (optional)
     offset = 'offset_example' # str |  (optional)
+    status = 'status_example' # str | Filter pools by their own status: ready, provisioning, error or deleting. (optional)
 
     try:
         # List ServicePools
-        api_response = api_instance.list_service_pools(name=name, limit=limit, offset=offset)
+        api_response = api_instance.list_service_pools(name=name, limit=limit, offset=offset, status=status)
         print("The response of ServicePoolsApi->list_service_pools:\n")
         pprint(api_response)
     except Exception as e:
@@ -322,6 +323,7 @@ Name | Type | Description  | Notes
  **name** | **str**|  | [optional] 
  **limit** | **str**|  | [optional] 
  **offset** | **str**|  | [optional] 
+ **status** | **str**| Filter pools by their own status: ready, provisioning, error or deleting. | [optional] 
 
 ### Return type
 
