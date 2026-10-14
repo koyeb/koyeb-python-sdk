@@ -10,6 +10,7 @@ from koyeb.sandbox.executor_client import (
     SandboxClient,
 )
 from koyeb.sandbox.errors import (
+    SandboxConnectionError,
     SandboxError,
     SandboxRequestError,
     SandboxServiceError,
@@ -126,8 +127,9 @@ class TestSyncRetryScope(unittest.TestCase):
         )
         client, handler = _make_sync_client(handler)
         with patch("koyeb.sandbox.executor_client.time.sleep") as sleep:
-            with self.assertRaises(SandboxError) as cm:
+            with self.assertRaises(SandboxConnectionError) as cm:
                 client._request_with_retry("GET", "https://sb.example/health")
+        self.assertIsInstance(cm.exception, SandboxError)
         self.assertNotIsInstance(cm.exception, SandboxRequestError)
         self.assertEqual(handler.calls, 4)
         self.assertEqual([c.args[0] for c in sleep.call_args_list], [1.0, 2.0, 4.0])
@@ -202,8 +204,9 @@ class TestAsyncRetryScope(unittest.TestCase):
                     "GET", "https://sb.example/health"
                 )
 
-        with self.assertRaises(SandboxError) as cm:
+        with self.assertRaises(SandboxConnectionError) as cm:
             asyncio.run(run())
+        self.assertIsInstance(cm.exception, SandboxError)
         self.assertNotIsInstance(cm.exception, SandboxRequestError)
         self.assertEqual(handler.calls, 4)
 
