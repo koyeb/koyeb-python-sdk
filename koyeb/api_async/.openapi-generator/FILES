@@ -948,7 +948,4 @@ koyeb/api_async/models/verify_docker_image_reply.py
 koyeb/api_async/models/verify_docker_image_reply_err_code.py
 koyeb/api_async/rest.py
 koyeb/api_async/test/__init__.py
-koyeb/api_async/test/test_docker_deployment_metadata.py
-koyeb/api_async/test/test_grpc_health_check.py
-koyeb/api_async/test/test_regional_deployment_metadata.py
 koyeb/api_async_README.md
