@@ -15,8 +15,9 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import StrictStr
+from pydantic import Field, StrictStr
 from typing import Any, Dict, Optional
+from typing_extensions import Annotated
 from koyeb.api_async.models.create_service_pool import CreateServicePool
 from koyeb.api_async.models.create_service_pool_reply import CreateServicePoolReply
 from koyeb.api_async.models.get_service_pool_reply import GetServicePoolReply
@@ -818,7 +819,12 @@ class ServicePoolsApi:
         name: Optional[StrictStr] = None,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
-        status: Optional[StrictStr] = None,
+        status: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Filter pools by their own status: ready, provisioning, error or deleting."
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -900,7 +906,12 @@ class ServicePoolsApi:
         name: Optional[StrictStr] = None,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
-        status: Optional[StrictStr] = None,
+        status: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Filter pools by their own status: ready, provisioning, error or deleting."
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -982,7 +993,12 @@ class ServicePoolsApi:
         name: Optional[StrictStr] = None,
         limit: Optional[StrictStr] = None,
         offset: Optional[StrictStr] = None,
-        status: Optional[StrictStr] = None,
+        status: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Filter pools by their own status: ready, provisioning, error or deleting."
+            ),
+        ] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],

@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -30,7 +30,10 @@ class PoolClaimRequest(BaseModel):
     """  # noqa: E501
 
     pool_id: Optional[StrictStr] = None
-    request_id: Optional[StrictStr] = None
+    request_id: Optional[StrictStr] = Field(
+        default=None,
+        description="Idempotency key scoped to the pool: retries with the same value return the same claim. A fresh id is generated when omitted.",
+    )
     __properties: ClassVar[List[str]] = ["pool_id", "request_id"]
 
     model_config = ConfigDict(
