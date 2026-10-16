@@ -22,6 +22,18 @@ seconds
 
 seconds
 
+<a id="koyeb.sandbox.sandbox.FAST_POLL_INTERVAL"></a>
+
+#### FAST\_POLL\_INTERVAL
+
+seconds
+
+<a id="koyeb.sandbox.sandbox.FAST_POLL_WINDOW"></a>
+
+#### FAST\_POLL\_WINDOW
+
+seconds after wait_ready() starts
+
 <a id="koyeb.sandbox.sandbox.ProcessInfo"></a>
 
 ## ProcessInfo Objects
@@ -442,7 +454,8 @@ Wait for sandbox to become ready with exponential backoff polling.
 First waits for the deployment status to become HEALTHY, then polls the
 sandbox health endpoint to confirm the executor is responsive.
 
-Starts polling at 0.1s intervals, doubling each time up to poll_interval.
+Polls every 0.1s for the first 10s, then doubles the interval each
+time up to poll_interval.
 
 **Arguments**:
 
@@ -1030,7 +1043,8 @@ Wait for sandbox to become ready with exponential backoff async polling.
 First waits for the deployment status to become HEALTHY, then polls the
 sandbox health endpoint to confirm the executor is responsive.
 
-Starts polling at 0.1s intervals, doubling each time up to poll_interval.
+Polls every 0.1s for the first 10s, then doubles the interval each
+time up to poll_interval.
 
 **Arguments**:
 
@@ -3536,6 +3550,12 @@ same ``request_id`` returns the same claim), retrying transient failures
 
 seconds; linear: delay * attempt number
 
+<a id="koyeb.sandbox.pool.DEFAULT_CLAIM_POLL_INTERVAL"></a>
+
+#### DEFAULT\_CLAIM\_POLL\_INTERVAL
+
+seconds; the backoff starts at 0.1
+
 <a id="koyeb.sandbox.pool.ClaimResult"></a>
 
 ## ClaimResult Objects
@@ -3664,6 +3684,9 @@ General service-health polling: returns True on ready, False on
 timeout, and raises :class:`ServiceTerminalStateError` on terminal
 states. Transient Get Service failures are treated as in-progress and
 retried until the timeout (they dominate while a cold claim provisions).
+
+Polls after 0.1s, then doubles the interval each time up to
+``poll_interval``.
 
 <a id="koyeb.sandbox.pool.wait_claim_ready_async"></a>
 
