@@ -274,6 +274,7 @@ class SandboxClient:
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
+        connect_timeout: float = 10.0,
     ) -> Iterator[Dict[str, Any]]:
         """
         Execute a shell command in the sandbox and stream the output in real-time.
@@ -286,7 +287,15 @@ class SandboxClient:
             cmd: The shell command to execute
             cwd: Optional working directory for command execution
             env: Optional environment variables to set/override
-            timeout: Optional timeout in seconds for the streaming request
+            timeout: Optional time budget in seconds for the whole stream. Once
+                it has passed, the stream is closed and SandboxTimeoutError is
+                raised. Whether the command then stops is up to the executor.
+                The budget is checked whenever a line arrives, keepalives
+                (every 10 s) included, so the error can come up to one keepalive
+                interval late. Without it, the stream runs until the command
+                ends, and only a read silent for the client's timeout fails.
+            connect_timeout: Timeout in seconds for connecting to the executor,
+                10 by default and never more than timeout
 
         Yields:
             Dict events with the following types:
@@ -299,6 +308,9 @@ class SandboxClient:
 
             - error event (if command fails to start):
               {"error": "error message"}
+
+        Raises:
+            SandboxTimeoutError: If connecting, a read or the timeout budget times out
 
         Example:
             >>> client = SandboxClient("http://localhost:8080", "secret")
@@ -314,7 +326,13 @@ class SandboxClient:
         if env is not None:
             payload["env"] = env
 
-        request_timeout = timeout if timeout is not None else self.timeout
+        # The executor sends a keepalive every 10 s, so the per-read timeout
+        # only catches a dead connection: timeout is enforced as a deadline.
+        read_timeout = timeout if timeout is not None else self.timeout
+        if timeout is not None:
+            connect_timeout = min(connect_timeout, timeout)
+        request_timeout = httpx.Timeout(read_timeout, connect=connect_timeout)
+        expires_at = time.monotonic() + timeout if timeout is not None else None
         try:
             with self._client.stream(
                 "POST",
@@ -330,13 +348,17 @@ class SandboxClient:
                     )
                 response.raise_for_status()
                 for line in response.iter_lines():
+                    if expires_at is not None and time.monotonic() >= expires_at:
+                        raise SandboxTimeoutError(f"Request timed out after {timeout}s")
                     event = _parse_sse_line(line)
                     if event is not None:
                         yield event
-        except httpx.TimeoutException as e:
+        except httpx.ConnectTimeout as e:
             raise SandboxTimeoutError(
-                f"Request timed out after {request_timeout}s"
+                f"Connection timed out after {connect_timeout}s"
             ) from e
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(f"Request timed out after {read_timeout}s") from e
         except httpx.RequestError as e:
             # E.g. the instance is torn down mid-stream during a redeployment.
             raise SandboxError(f"Connection to sandbox lost: {e}") from e
@@ -776,6 +798,7 @@ class AsyncSandboxClient:
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
+        connect_timeout: float = 10.0,
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         Execute a shell command in the sandbox and stream the output in real-time.
@@ -788,7 +811,13 @@ class AsyncSandboxClient:
             cmd: The shell command to execute
             cwd: Optional working directory for command execution
             env: Optional environment variables to set/override
-            timeout: Optional timeout in seconds for the streaming request
+            timeout: Optional time budget in seconds for the whole stream. Once
+                it has passed, the stream is closed and SandboxTimeoutError is
+                raised. Whether the command then stops is up to the executor.
+                Without it, the stream runs until the command ends, and only a
+                read silent for the client's timeout fails.
+            connect_timeout: Timeout in seconds for connecting to the executor,
+                10 by default and never more than timeout
 
         Yields:
             Dict events with the following types:
@@ -801,6 +830,9 @@ class AsyncSandboxClient:
 
             - error event (if command fails to start):
               {"error": "error message"}
+
+        Raises:
+            SandboxTimeoutError: If connecting, a read or the timeout budget times out
 
         Example:
             >>> client = AsyncSandboxClient("http://localhost:8080", "secret")
@@ -816,7 +848,13 @@ class AsyncSandboxClient:
         if env is not None:
             payload["env"] = env
 
-        request_timeout = timeout if timeout is not None else self.timeout
+        # The executor sends a keepalive every 10 s, so the per-read timeout
+        # only catches a dead connection: timeout is enforced as a deadline.
+        read_timeout = timeout if timeout is not None else self.timeout
+        if timeout is not None:
+            connect_timeout = min(connect_timeout, timeout)
+        request_timeout = httpx.Timeout(read_timeout, connect=connect_timeout)
+        expires_at = time.monotonic() + timeout if timeout is not None else None
         try:
             async with self._client.stream(
                 "POST",
@@ -831,14 +869,30 @@ class AsyncSandboxClient:
                         message=response.text,
                     )
                 response.raise_for_status()
-                async for line in response.aiter_lines():
+                lines = response.aiter_lines()
+                while True:
+                    try:
+                        if expires_at is None:
+                            line = await lines.__anext__()
+                        else:
+                            line = await asyncio.wait_for(
+                                lines.__anext__(), expires_at - time.monotonic()
+                            )
+                    except StopAsyncIteration:
+                        break
+                    except asyncio.TimeoutError as e:
+                        raise SandboxTimeoutError(
+                            f"Request timed out after {timeout}s"
+                        ) from e
                     event = _parse_sse_line(line)
                     if event is not None:
                         yield event
-        except httpx.TimeoutException as e:
+        except httpx.ConnectTimeout as e:
             raise SandboxTimeoutError(
-                f"Request timed out after {request_timeout}s"
+                f"Connection timed out after {connect_timeout}s"
             ) from e
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(f"Request timed out after {read_timeout}s") from e
         except httpx.RequestError as e:
             # E.g. the instance is torn down mid-stream during a redeployment.
             raise SandboxError(f"Connection to sandbox lost: {e}") from e

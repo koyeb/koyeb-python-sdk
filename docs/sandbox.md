@@ -1762,7 +1762,7 @@ For async usage, use AsyncSandboxExecutor instead.
 def __call__(command: str,
              cwd: Optional[str] = None,
              env: Optional[Dict[str, str]] = None,
-             timeout: int = 30,
+             timeout: int = 300,
              on_stdout: Optional[Callable[[str], None]] = None,
              on_stderr: Optional[Callable[[str], None]] = None,
              stream: bool = True,
@@ -1781,7 +1781,13 @@ server error, since it may have run already.
 - `command` - Command to execute as a string (e.g., "python -c 'print(2+2)'")
 - `cwd` - Working directory for the command
 - `env` - Environment variables for the command
-- `timeout` - Command timeout in seconds (enforced for HTTP requests)
+- `timeout` - Total time budget for the command, in seconds (default:
+  300). When it runs out, SandboxTimeoutError is raised and the
+  connection to the executor is closed, whether or not the
+  command streams output.
+  When streaming, the budget is checked as output or a keepalive
+  (every 10 s) arrives, so a silent command can overrun it by up
+  to 10 s; AsyncSandboxExecutor enforces it on time.
 - `on_stdout` - Optional callback called with each stdout line, without
   its line ending. When a callback is set, output is not buffered
   in the result.
@@ -1834,7 +1840,7 @@ using native async I/O via AsyncSandboxClient.
 async def __call__(command: str,
                    cwd: Optional[str] = None,
                    env: Optional[Dict[str, str]] = None,
-                   timeout: int = 30,
+                   timeout: int = 300,
                    on_stdout: Optional[Callable[[str], None]] = None,
                    on_stderr: Optional[Callable[[str], None]] = None,
                    stream: bool = True,
@@ -1853,7 +1859,10 @@ server error, since it may have run already.
 - `command` - Command to execute as a string (e.g., "python -c 'print(2+2)'")
 - `cwd` - Working directory for the command
 - `env` - Environment variables for the command
-- `timeout` - Command timeout in seconds (enforced for HTTP requests)
+- `timeout` - Total time budget for the command, in seconds (default:
+  300). When it runs out, SandboxTimeoutError is raised and the
+  connection to the executor is closed, whether or not the
+  command streams output.
 - `on_stdout` - Optional callback called with each stdout line, without
   its line ending. When a callback is set, output is not buffered
   in the result.
@@ -2030,7 +2039,8 @@ Execute a shell command in the sandbox.
 def run_streaming(cmd: str,
                   cwd: Optional[str] = None,
                   env: Optional[Dict[str, str]] = None,
-                  timeout: Optional[float] = None) -> Iterator[Dict[str, Any]]
+                  timeout: Optional[float] = None,
+                  connect_timeout: float = 10.0) -> Iterator[Dict[str, Any]]
 ```
 
 Execute a shell command in the sandbox and stream the output in real-time.
@@ -2044,7 +2054,15 @@ output. For simple commands where buffered output is acceptable, use run() inste
 - `cmd` - The shell command to execute
 - `cwd` - Optional working directory for command execution
 - `env` - Optional environment variables to set/override
-- `timeout` - Optional timeout in seconds for the streaming request
+- `timeout` - Optional time budget in seconds for the whole stream. Once
+  it has passed, the stream is closed and SandboxTimeoutError is
+  raised. Whether the command then stops is up to the executor.
+  The budget is checked whenever a line arrives, keepalives
+  (every 10 s) included, so the error can come up to one keepalive
+  interval late. Without it, the stream runs until the command
+  ends, and only a read silent for the client's timeout fails.
+- `connect_timeout` - Timeout in seconds for connecting to the executor,
+  10 by default and never more than timeout
   
 
 **Yields**:
@@ -2059,6 +2077,11 @@ output. For simple commands where buffered output is acceptable, use run() inste
   
   - error event (if command fails to start):
 - `{"error"` - "error message"}
+  
+
+**Raises**:
+
+- `SandboxTimeoutError` - If connecting, a read or the timeout budget times out
   
 
 **Example**:
@@ -2455,7 +2478,8 @@ async def run_streaming(
         cmd: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None) -> AsyncIterator[Dict[str, Any]]
+        timeout: Optional[float] = None,
+        connect_timeout: float = 10.0) -> AsyncIterator[Dict[str, Any]]
 ```
 
 Execute a shell command in the sandbox and stream the output in real-time.
@@ -2469,7 +2493,13 @@ output. For simple commands where buffered output is acceptable, use run() inste
 - `cmd` - The shell command to execute
 - `cwd` - Optional working directory for command execution
 - `env` - Optional environment variables to set/override
-- `timeout` - Optional timeout in seconds for the streaming request
+- `timeout` - Optional time budget in seconds for the whole stream. Once
+  it has passed, the stream is closed and SandboxTimeoutError is
+  raised. Whether the command then stops is up to the executor.
+  Without it, the stream runs until the command ends, and only a
+  read silent for the client's timeout fails.
+- `connect_timeout` - Timeout in seconds for connecting to the executor,
+  10 by default and never more than timeout
   
 
 **Yields**:
@@ -2484,6 +2514,11 @@ output. For simple commands where buffered output is acceptable, use run() inste
   
   - error event (if command fails to start):
 - `{"error"` - "error message"}
+  
+
+**Raises**:
+
+- `SandboxTimeoutError` - If connecting, a read or the timeout budget times out
   
 
 **Example**:
