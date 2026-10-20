@@ -5,6 +5,7 @@ Sync and async Python clients for interacting with the Sandbox Executor API.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -326,6 +327,45 @@ class SandboxClient:
         # Unreachable in practice: every terminal path returns or raises.
         raise SandboxError(f"Request to {url} failed after {max_retries} retries")
 
+    @contextlib.contextmanager
+    def _open_stream(
+        self,
+        request: httpx.Request,
+        expires_at: Optional[float],
+        max_retries: int = 3,
+        initial_backoff: float = 1.0,
+    ) -> Iterator[httpx.Response]:
+        """
+        Send a streaming request, retrying only a failed connect.
+
+        A failed connect never reached the executor, so the command did not
+        start and can be sent again, with the same backoff as
+        _request_with_retry. Nothing is retried once a response has come back,
+        nor past expires_at (a time.monotonic() deadline).
+        """
+        backoff = initial_backoff
+        attempt = 0
+        while True:
+            try:
+                response = self._client.send(request, stream=True)
+                break
+            except httpx.ConnectError as e:
+                attempt += 1
+                if attempt > max_retries or (
+                    expires_at is not None and time.monotonic() + backoff >= expires_at
+                ):
+                    raise
+                logger.debug(
+                    f"Connect failed, retrying... "
+                    f"(attempt {attempt}/{max_retries + 1}): {e}"
+                )
+                time.sleep(backoff)
+                backoff *= 2
+        try:
+            yield response
+        finally:
+            response.close()
+
     def health(self) -> Dict[str, str]:
         """
         Check the health status of the server.
@@ -446,13 +486,14 @@ class SandboxClient:
             connect_timeout = min(connect_timeout, timeout)
         request_timeout = httpx.Timeout(read_timeout, connect=connect_timeout)
         expires_at = time.monotonic() + timeout if timeout is not None else None
+        request = self._client.build_request(
+            "POST",
+            f"{self.base_url}/run_streaming",
+            json=payload,
+            timeout=request_timeout,
+        )
         try:
-            with self._client.stream(
-                "POST",
-                f"{self.base_url}/run_streaming",
-                json=payload,
-                timeout=request_timeout,
-            ) as response:
+            with self._open_stream(request, expires_at) as response:
                 if response.status_code >= 500:
                     response.read()
                     raise SandboxServiceError(
@@ -1257,6 +1298,45 @@ class AsyncSandboxClient:
         # Unreachable in practice: every terminal path returns or raises.
         raise SandboxError(f"Request to {url} failed after {max_retries} retries")
 
+    @contextlib.asynccontextmanager
+    async def _open_stream(
+        self,
+        request: httpx.Request,
+        expires_at: Optional[float],
+        max_retries: int = 3,
+        initial_backoff: float = 1.0,
+    ) -> AsyncIterator[httpx.Response]:
+        """
+        Send a streaming request, retrying only a failed connect.
+
+        A failed connect never reached the executor, so the command did not
+        start and can be sent again, with the same backoff as
+        _request_with_retry. Nothing is retried once a response has come back,
+        nor past expires_at (a time.monotonic() deadline).
+        """
+        backoff = initial_backoff
+        attempt = 0
+        while True:
+            try:
+                response = await self._client.send(request, stream=True)
+                break
+            except httpx.ConnectError as e:
+                attempt += 1
+                if attempt > max_retries or (
+                    expires_at is not None and time.monotonic() + backoff >= expires_at
+                ):
+                    raise
+                logger.debug(
+                    f"Connect failed, retrying... "
+                    f"(attempt {attempt}/{max_retries + 1}): {e}"
+                )
+                await asyncio.sleep(backoff)
+                backoff *= 2
+        try:
+            yield response
+        finally:
+            await response.aclose()
+
     async def health(self) -> Dict[str, str]:
         """
         Check the health status of the server.
@@ -1375,13 +1455,14 @@ class AsyncSandboxClient:
             connect_timeout = min(connect_timeout, timeout)
         request_timeout = httpx.Timeout(read_timeout, connect=connect_timeout)
         expires_at = time.monotonic() + timeout if timeout is not None else None
+        request = self._client.build_request(
+            "POST",
+            f"{self.base_url}/run_streaming",
+            json=payload,
+            timeout=request_timeout,
+        )
         try:
-            async with self._client.stream(
-                "POST",
-                f"{self.base_url}/run_streaming",
-                json=payload,
-                timeout=request_timeout,
-            ) as response:
+            async with self._open_stream(request, expires_at) as response:
                 if response.status_code >= 500:
                     await response.aread()
                     raise SandboxServiceError(
