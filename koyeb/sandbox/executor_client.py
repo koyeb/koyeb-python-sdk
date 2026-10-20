@@ -9,7 +9,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, Iterator, Optional
+from typing import Any, AsyncIterator, Dict, Iterator, Optional, Union
 
 import httpx
 
@@ -24,6 +24,14 @@ from .errors import (
 DEFAULT_HTTP_TIMEOUT = 30  # seconds for HTTP requests
 
 logger = logging.getLogger(__name__)
+
+
+def _command_timed_out(timeout: Optional[float]) -> SandboxTimeoutError:
+    """The error raised when a command's timeout runs out."""
+    return SandboxTimeoutError(
+        f"Command timed out after {timeout:g}s "
+        "(pass a larger timeout, or timeout=None for no limit)"
+    )
 
 
 @dataclass
@@ -238,7 +246,7 @@ class SandboxClient:
         cmd: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None,
+        timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> Dict[str, Any]:
         """
         Execute a shell command in the sandbox.
@@ -247,7 +255,9 @@ class SandboxClient:
             cmd: The shell command to execute
             cwd: Optional working directory for command execution
             env: Optional environment variables to set/override
-            timeout: Optional timeout in seconds for the request
+            timeout: Optional timeout in seconds for the request, or an
+                httpx.Timeout (httpx.Timeout(None) for no limit). Defaults to
+                the client's timeout
 
         Returns:
             Dict containing stdout, stderr, error (if any), and exit code
@@ -349,7 +359,7 @@ class SandboxClient:
                 response.raise_for_status()
                 for line in response.iter_lines():
                     if expires_at is not None and time.monotonic() >= expires_at:
-                        raise SandboxTimeoutError(f"Request timed out after {timeout}s")
+                        raise _command_timed_out(timeout)
                     event = _parse_sse_line(line)
                     if event is not None:
                         yield event
@@ -762,7 +772,7 @@ class AsyncSandboxClient:
         cmd: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None,
+        timeout: Optional[Union[float, httpx.Timeout]] = None,
     ) -> Dict[str, Any]:
         """
         Execute a shell command in the sandbox.
@@ -771,7 +781,9 @@ class AsyncSandboxClient:
             cmd: The shell command to execute
             cwd: Optional working directory for command execution
             env: Optional environment variables to set/override
-            timeout: Optional timeout in seconds for the request
+            timeout: Optional timeout in seconds for the request, or an
+                httpx.Timeout (httpx.Timeout(None) for no limit). Defaults to
+                the client's timeout
 
         Returns:
             Dict containing stdout, stderr, error (if any), and exit code
@@ -881,9 +893,7 @@ class AsyncSandboxClient:
                     except StopAsyncIteration:
                         break
                     except asyncio.TimeoutError as e:
-                        raise SandboxTimeoutError(
-                            f"Request timed out after {timeout}s"
-                        ) from e
+                        raise _command_timed_out(timeout) from e
                     event = _parse_sse_line(line)
                     if event is not None:
                         yield event

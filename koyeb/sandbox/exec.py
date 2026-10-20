@@ -10,10 +10,12 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
-from .executor_client import AsyncSandboxClient, SandboxClient
-from .errors import SandboxError
+import httpx
+
+from .executor_client import AsyncSandboxClient, SandboxClient, _command_timed_out
+from .errors import SandboxError, SandboxTimeoutError
 
 if TYPE_CHECKING:
     from .sandbox import Sandbox
@@ -71,6 +73,12 @@ def _check_result(result: CommandResult, raise_on_error: bool) -> CommandResult:
             result=result,
         )
     return result
+
+
+def _run_timeout(timeout: Optional[int]) -> Union[float, httpx.Timeout]:
+    """The /run request timeout: /run answers only once the command ends."""
+    # run() reads None as the client's default (30 s), so no limit is explicit.
+    return float(timeout) if timeout is not None else httpx.Timeout(None)
 
 
 class _EventFold:
@@ -158,7 +166,7 @@ class SandboxExecutor:
         command: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: int = 300,
+        timeout: Optional[int] = 300,
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
         stream: bool = True,
@@ -179,7 +187,8 @@ class SandboxExecutor:
             timeout: Total time budget for the command, in seconds (default:
                 300). When it runs out, SandboxTimeoutError is raised and the
                 connection to the executor is closed, whether or not the
-                command streams output.
+                command streams output. None sets no limit; with stream=False
+                the gateway still ends the command after 5 minutes without data.
                 When streaming, the budget is checked as output or a keepalive
                 (every 10 s) arrives, so a silent command can overrun it by up
                 to 10 s; AsyncSandboxExecutor enforces it on time.
@@ -218,7 +227,7 @@ class SandboxExecutor:
                 cmd=command,
                 cwd=cwd,
                 env=env,
-                timeout=float(timeout),
+                timeout=float(timeout) if timeout is not None else None,
             ):
                 failed_start = fold.feed(event)
                 if failed_start is not None:
@@ -228,7 +237,12 @@ class SandboxExecutor:
 
         # Use regular run for non-streaming execution
         client = self._get_client()
-        response = client.run(cmd=command, cwd=cwd, env=env, timeout=float(timeout))
+        try:
+            response = client.run(
+                cmd=command, cwd=cwd, env=env, timeout=_run_timeout(timeout)
+            )
+        except SandboxTimeoutError as e:
+            raise _command_timed_out(timeout) from e
 
         stdout = response.get("stdout", "")
         stderr = response.get("stderr", "")
@@ -267,7 +281,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
         command: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: int = 300,
+        timeout: Optional[int] = 300,
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
         stream: bool = True,
@@ -288,7 +302,8 @@ class AsyncSandboxExecutor(SandboxExecutor):
             timeout: Total time budget for the command, in seconds (default:
                 300). When it runs out, SandboxTimeoutError is raised and the
                 connection to the executor is closed, whether or not the
-                command streams output.
+                command streams output. None sets no limit; with stream=False
+                the gateway still ends the command after 5 minutes without data.
             on_stdout: Optional callback called with each stdout line, without
                 its line ending. When a callback is set, output is not buffered
                 in the result.
@@ -324,7 +339,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
                 cmd=command,
                 cwd=cwd,
                 env=env,
-                timeout=float(timeout),
+                timeout=float(timeout) if timeout is not None else None,
             ):
                 failed_start = fold.feed(event)
                 if failed_start is not None:
@@ -334,9 +349,12 @@ class AsyncSandboxExecutor(SandboxExecutor):
 
         # Use native async for non-streaming execution
         client = self._get_async_client()
-        response = await client.run(
-            cmd=command, cwd=cwd, env=env, timeout=float(timeout)
-        )
+        try:
+            response = await client.run(
+                cmd=command, cwd=cwd, env=env, timeout=_run_timeout(timeout)
+            )
+        except SandboxTimeoutError as e:
+            raise _command_timed_out(timeout) from e
 
         stdout = response.get("stdout", "")
         stderr = response.get("stderr", "")
