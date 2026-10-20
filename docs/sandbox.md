@@ -1762,7 +1762,7 @@ For async usage, use AsyncSandboxExecutor instead.
 def __call__(command: str,
              cwd: Optional[str] = None,
              env: Optional[Dict[str, str]] = None,
-             timeout: int = 300,
+             timeout: Optional[int] = 300,
              on_stdout: Optional[Callable[[str], None]] = None,
              on_stderr: Optional[Callable[[str], None]] = None,
              stream: bool = True,
@@ -1784,7 +1784,8 @@ server error, since it may have run already.
 - `timeout` - Total time budget for the command, in seconds (default:
   300). When it runs out, SandboxTimeoutError is raised and the
   connection to the executor is closed, whether or not the
-  command streams output.
+  command streams output. None sets no limit; with stream=False
+  the gateway still ends the command after 5 minutes without data.
   When streaming, the budget is checked as output or a keepalive
   (every 10 s) arrives, so a silent command can overrun it by up
   to 10 s; AsyncSandboxExecutor enforces it on time.
@@ -1840,7 +1841,7 @@ using native async I/O via AsyncSandboxClient.
 async def __call__(command: str,
                    cwd: Optional[str] = None,
                    env: Optional[Dict[str, str]] = None,
-                   timeout: int = 300,
+                   timeout: Optional[int] = 300,
                    on_stdout: Optional[Callable[[str], None]] = None,
                    on_stderr: Optional[Callable[[str], None]] = None,
                    stream: bool = True,
@@ -1862,7 +1863,8 @@ server error, since it may have run already.
 - `timeout` - Total time budget for the command, in seconds (default:
   300). When it runs out, SandboxTimeoutError is raised and the
   connection to the executor is closed, whether or not the
-  command streams output.
+  command streams output. None sets no limit; with stream=False
+  the gateway still ends the command after 5 minutes without data.
 - `on_stdout` - Optional callback called with each stdout line, without
   its line ending. When a callback is set, output is not buffered
   in the result.
@@ -2014,7 +2016,8 @@ already handle polling with backoff.
 def run(cmd: str,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None) -> Dict[str, Any]
+        timeout: Optional[Union[float,
+                                httpx.Timeout]] = None) -> Dict[str, Any]
 ```
 
 Execute a shell command in the sandbox.
@@ -2024,7 +2027,9 @@ Execute a shell command in the sandbox.
 - `cmd` - The shell command to execute
 - `cwd` - Optional working directory for command execution
 - `env` - Optional environment variables to set/override
-- `timeout` - Optional timeout in seconds for the request
+- `timeout` - Optional timeout in seconds for the request, or an
+  httpx.Timeout (httpx.Timeout(None) for no limit). Defaults to
+  the client's timeout
   
 
 **Returns**:
@@ -2449,10 +2454,12 @@ already handle polling with backoff.
 #### run
 
 ```python
-async def run(cmd: str,
-              cwd: Optional[str] = None,
-              env: Optional[Dict[str, str]] = None,
-              timeout: Optional[float] = None) -> Dict[str, Any]
+async def run(
+        cmd: str,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        timeout: Optional[Union[float,
+                                httpx.Timeout]] = None) -> Dict[str, Any]
 ```
 
 Execute a shell command in the sandbox.
@@ -2462,7 +2469,9 @@ Execute a shell command in the sandbox.
 - `cmd` - The shell command to execute
 - `cwd` - Optional working directory for command execution
 - `env` - Optional environment variables to set/override
-- `timeout` - Optional timeout in seconds for the request
+- `timeout` - Optional timeout in seconds for the request, or an
+  httpx.Timeout (httpx.Timeout(None) for no limit). Defaults to
+  the client's timeout
   
 
 **Returns**:

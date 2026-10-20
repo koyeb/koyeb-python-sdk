@@ -200,6 +200,119 @@ class TestConnectTimeout(unittest.TestCase):
             list(client.run_streaming("echo hi", timeout=60, connect_timeout=2))
 
 
+class TestNoTimeout(unittest.TestCase):
+    """exec(timeout=None) sets no deadline, streamed or not."""
+
+    def test_sync_streaming_runs_past_any_deadline(self):
+        stream = _SyncStream(interval=0.05, count=4, tail=_DONE)
+        executor = SandboxExecutor(None)
+        with patch.object(
+            SandboxExecutor, "_get_client", return_value=_sync_client(stream)
+        ):
+            result = executor("echo hi", timeout=None)
+        self.assertEqual((result.stdout, result.exit_code), ("hi\n", 0))
+
+    def test_async_streaming_runs_past_any_deadline(self):
+        stream = _AsyncStream(interval=0.05, count=4, tail=_DONE)
+        executor = AsyncSandboxExecutor(None)
+        with patch.object(
+            AsyncSandboxExecutor,
+            "_get_async_client",
+            return_value=_async_client(stream),
+        ):
+            result = asyncio.run(executor("echo hi", timeout=None))
+        self.assertEqual((result.stdout, result.exit_code), ("hi\n", 0))
+
+    def test_run_has_no_request_timeout(self):
+        # run() alone would fall back to the client's 30 s default.
+        for timeout, expected in ((None, None), (120, 120)):
+            seen = {}
+
+            def handler(request):
+                seen.update(request.extensions["timeout"])
+                return httpx.Response(200, json={"stdout": "hi\n", "code": 0})
+
+            client = SandboxClient(_CONN)
+            client._client = httpx.Client(transport=httpx.MockTransport(handler))
+            with patch.object(SandboxExecutor, "_get_client", return_value=client):
+                SandboxExecutor(None)("echo hi", timeout=timeout, stream=False)
+            self.assertEqual(seen["read"], expected, timeout)
+
+    def test_async_run_has_no_request_timeout(self):
+        seen = {}
+
+        def handler(request):
+            seen.update(request.extensions["timeout"])
+            return httpx.Response(200, json={"stdout": "hi\n", "code": 0})
+
+        client = AsyncSandboxClient(_CONN)
+        client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        executor = AsyncSandboxExecutor(None)
+        with patch.object(
+            AsyncSandboxExecutor, "_get_async_client", return_value=client
+        ):
+            asyncio.run(executor("echo hi", timeout=None, stream=False))
+        self.assertIsNone(seen["read"])
+
+
+class TestTimeoutMessage(unittest.TestCase):
+    """The deadline error says how to give the command more time."""
+
+    _HINT = r"Command timed out after 1s \(pass a larger timeout, or timeout=None"
+
+    def test_sync_streaming(self):
+        stream = _SyncStream(interval=0.05, count=200)
+        with patch.object(
+            SandboxExecutor, "_get_client", return_value=_sync_client(stream)
+        ):
+            with self.assertRaisesRegex(SandboxTimeoutError, self._HINT):
+                SandboxExecutor(None)("sleep 60", timeout=1)
+
+    def test_async_streaming(self):
+        stream = _AsyncStream(interval=10, count=1)
+        with patch.object(
+            AsyncSandboxExecutor,
+            "_get_async_client",
+            return_value=_async_client(stream),
+        ):
+            with self.assertRaisesRegex(SandboxTimeoutError, self._HINT):
+                asyncio.run(AsyncSandboxExecutor(None)("sleep 60", timeout=1))
+
+    def test_sync_run(self):
+        def handler(request):
+            raise httpx.ReadTimeout("timed out", request=request)
+
+        client = SandboxClient(_CONN)
+        client._client = httpx.Client(transport=httpx.MockTransport(handler))
+        with patch.object(SandboxExecutor, "_get_client", return_value=client):
+            with self.assertRaisesRegex(SandboxTimeoutError, self._HINT):
+                SandboxExecutor(None)("sleep 60", timeout=1, stream=False)
+
+    def test_async_run(self):
+        def handler(request):
+            raise httpx.ReadTimeout("timed out", request=request)
+
+        client = AsyncSandboxClient(_CONN)
+        client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        with patch.object(
+            AsyncSandboxExecutor, "_get_async_client", return_value=client
+        ):
+            with self.assertRaisesRegex(SandboxTimeoutError, self._HINT):
+                asyncio.run(
+                    AsyncSandboxExecutor(None)("sleep 60", timeout=1, stream=False)
+                )
+
+    def test_connect_timeout_keeps_its_own_message(self):
+        def handler(request):
+            raise httpx.ConnectTimeout("timed out", request=request)
+
+        client = SandboxClient(_CONN)
+        client._client = httpx.Client(transport=httpx.MockTransport(handler))
+        with patch.object(SandboxExecutor, "_get_client", return_value=client):
+            with self.assertRaisesRegex(SandboxTimeoutError, "Connection timed out"):
+                SandboxExecutor(None)("echo hi", timeout=60)
+
+
 class TestDefaultTimeout(unittest.TestCase):
     def test_default_timeout_is_five_minutes(self):
         # Now that the budget covers the whole command, the default leaves
