@@ -87,18 +87,18 @@ async def _collect(agen):
 
 
 class TestSyncStreamingDeadline(unittest.TestCase):
-    def test_keepalives_do_not_extend_total_timeout(self):
+    def test_keepalives_do_not_extend_timeout(self):
         stream = _SyncStream(interval=0.05, count=200)
         client = _sync_client(stream)
         start = time.monotonic()
         with self.assertRaises(SandboxTimeoutError):
-            list(client.run_streaming("sleep 60", timeout=5, total_timeout=0.3))
+            list(client.run_streaming("sleep 60", timeout=0.3))
         self.assertLess(time.monotonic() - start, 1.0)
         self.assertTrue(stream.closed)
 
-    def test_without_total_timeout_stream_runs_to_the_end(self):
+    def test_without_timeout_stream_runs_to_the_end(self):
         client = _sync_client(_SyncStream(interval=0.05, count=4, tail=_DONE))
-        events = list(client.run_streaming("echo hi", timeout=5))
+        events = list(client.run_streaming("echo hi"))
         self.assertEqual(events[-1], {"code": 0, "error": False})
 
     def test_exec_timeout_raises_while_only_keepalives_arrive(self):
@@ -124,35 +124,29 @@ class TestSyncStreamingDeadline(unittest.TestCase):
 
 
 class TestAsyncStreamingDeadline(unittest.TestCase):
-    def test_keepalives_do_not_extend_total_timeout(self):
+    def test_keepalives_do_not_extend_timeout(self):
         stream = _AsyncStream(interval=0.05, count=200)
         client = _async_client(stream)
         start = time.monotonic()
         with self.assertRaises(SandboxTimeoutError):
-            asyncio.run(
-                _collect(client.run_streaming("sleep 60", timeout=5, total_timeout=0.3))
-            )
+            asyncio.run(_collect(client.run_streaming("sleep 60", timeout=0.3)))
         self.assertLess(time.monotonic() - start, 1.0)
         self.assertTrue(stream.closed)
 
-    def test_total_timeout_fires_during_silence(self):
+    def test_timeout_fires_during_silence(self):
         # Async enforcement does not wait for the next line: one keepalive, then
         # a 10 s silence, still times out at the deadline.
         stream = _AsyncStream(interval=10, count=1)
         client = _async_client(stream)
         start = time.monotonic()
         with self.assertRaises(SandboxTimeoutError):
-            asyncio.run(
-                _collect(
-                    client.run_streaming("sleep 60", timeout=30, total_timeout=0.3)
-                )
-            )
+            asyncio.run(_collect(client.run_streaming("sleep 60", timeout=0.3)))
         self.assertLess(time.monotonic() - start, 1.0)
         self.assertTrue(stream.closed)
 
-    def test_without_total_timeout_stream_runs_to_the_end(self):
+    def test_without_timeout_stream_runs_to_the_end(self):
         client = _async_client(_AsyncStream(interval=0.05, count=4, tail=_DONE))
-        events = asyncio.run(_collect(client.run_streaming("echo hi", timeout=5)))
+        events = asyncio.run(_collect(client.run_streaming("echo hi")))
         self.assertEqual(events[-1], {"code": 0, "error": False})
 
     def test_exec_timeout_raises_while_only_keepalives_arrive(self):
@@ -172,6 +166,38 @@ class TestAsyncStreamingDeadline(unittest.TestCase):
                 asyncio.run(run())
         self.assertLess(time.monotonic() - start, 2.0)
         self.assertTrue(stream.closed)
+
+
+class TestConnectTimeout(unittest.TestCase):
+    def _client(self, handler):
+        client = SandboxClient(_CONN)
+        client._client = httpx.Client(transport=httpx.MockTransport(handler))
+        return client
+
+    def _timeouts(self, **kwargs):
+        seen = {}
+
+        def handler(request):
+            seen.update(request.extensions["timeout"])
+            return httpx.Response(200, content=_DONE)
+
+        list(self._client(handler).run_streaming("echo hi", **kwargs))
+        return seen
+
+    def test_connect_defaults_to_ten_seconds(self):
+        seen = self._timeouts(timeout=300)
+        self.assertEqual((seen["connect"], seen["read"]), (10, 300))
+
+    def test_connect_is_capped_by_timeout(self):
+        self.assertEqual(self._timeouts(timeout=3)["connect"], 3)
+
+    def test_connect_timeout_raises_sandbox_timeout(self):
+        def handler(request):
+            raise httpx.ConnectTimeout("timed out", request=request)
+
+        client = self._client(handler)
+        with self.assertRaisesRegex(SandboxTimeoutError, "Connection timed out"):
+            list(client.run_streaming("echo hi", timeout=60, connect_timeout=2))
 
 
 class TestDefaultTimeout(unittest.TestCase):

@@ -219,7 +219,6 @@ class SandboxExecutor:
                 cwd=cwd,
                 env=env,
                 timeout=float(timeout),
-                total_timeout=float(timeout),
             ):
                 failed_start = fold.feed(event)
                 if failed_start is not None:
@@ -326,7 +325,6 @@ class AsyncSandboxExecutor(SandboxExecutor):
                 cwd=cwd,
                 env=env,
                 timeout=float(timeout),
-                total_timeout=float(timeout),
             ):
                 failed_start = fold.feed(event)
                 if failed_start is not None:

@@ -2036,12 +2036,11 @@ Execute a shell command in the sandbox.
 #### run\_streaming
 
 ```python
-def run_streaming(
-        cmd: str,
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None,
-        total_timeout: Optional[float] = None) -> Iterator[Dict[str, Any]]
+def run_streaming(cmd: str,
+                  cwd: Optional[str] = None,
+                  env: Optional[Dict[str, str]] = None,
+                  timeout: Optional[float] = None,
+                  connect_timeout: float = 10.0) -> Iterator[Dict[str, Any]]
 ```
 
 Execute a shell command in the sandbox and stream the output in real-time.
@@ -2055,14 +2054,15 @@ output. For simple commands where buffered output is acceptable, use run() inste
 - `cmd` - The shell command to execute
 - `cwd` - Optional working directory for command execution
 - `env` - Optional environment variables to set/override
-- `timeout` - Optional timeout in seconds for connecting and for each read.
-  The executor sends a keepalive every 10 s, so on its own it does
-  not bound how long the stream runs: use total_timeout for that.
-- `total_timeout` - Optional time budget in seconds for the whole stream.
-  Once it has passed, the stream is closed and SandboxTimeoutError
-  is raised. Whether the command then stops is up to the executor.
+- `timeout` - Optional time budget in seconds for the whole stream. Once
+  it has passed, the stream is closed and SandboxTimeoutError is
+  raised. Whether the command then stops is up to the executor.
   The budget is checked whenever a line arrives, keepalives
-  included, so the error can come up to one keepalive interval late.
+  (every 10 s) included, so the error can come up to one keepalive
+  interval late. Without it, the stream runs until the command
+  ends, and only a read silent for the client's timeout fails.
+- `connect_timeout` - Timeout in seconds for connecting to the executor,
+  10 by default and never more than timeout
   
 
 **Yields**:
@@ -2081,7 +2081,7 @@ output. For simple commands where buffered output is acceptable, use run() inste
 
 **Raises**:
 
-- `SandboxTimeoutError` - If a read or the total_timeout budget times out
+- `SandboxTimeoutError` - If connecting, a read or the timeout budget times out
   
 
 **Example**:
@@ -2479,8 +2479,7 @@ async def run_streaming(
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
-        total_timeout: Optional[float] = None
-) -> AsyncIterator[Dict[str, Any]]
+        connect_timeout: float = 10.0) -> AsyncIterator[Dict[str, Any]]
 ```
 
 Execute a shell command in the sandbox and stream the output in real-time.
@@ -2494,12 +2493,13 @@ output. For simple commands where buffered output is acceptable, use run() inste
 - `cmd` - The shell command to execute
 - `cwd` - Optional working directory for command execution
 - `env` - Optional environment variables to set/override
-- `timeout` - Optional timeout in seconds for connecting and for each read.
-  The executor sends a keepalive every 10 s, so on its own it does
-  not bound how long the stream runs: use total_timeout for that.
-- `total_timeout` - Optional time budget in seconds for the whole stream.
-  Once it has passed, the stream is closed and SandboxTimeoutError
-  is raised. Whether the command then stops is up to the executor.
+- `timeout` - Optional time budget in seconds for the whole stream. Once
+  it has passed, the stream is closed and SandboxTimeoutError is
+  raised. Whether the command then stops is up to the executor.
+  Without it, the stream runs until the command ends, and only a
+  read silent for the client's timeout fails.
+- `connect_timeout` - Timeout in seconds for connecting to the executor,
+  10 by default and never more than timeout
   
 
 **Yields**:
@@ -2518,7 +2518,7 @@ output. For simple commands where buffered output is acceptable, use run() inste
 
 **Raises**:
 
-- `SandboxTimeoutError` - If a read or the total_timeout budget times out
+- `SandboxTimeoutError` - If connecting, a read or the timeout budget times out
   
 
 **Example**:
