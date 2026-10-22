@@ -17,7 +17,6 @@ Name | Type | Description | Notes
 **status** | [**ServicePoolStatus**](ServicePoolStatus.md) |  | [optional] [default to ServicePoolStatus.UNSPECIFIED]
 **messages** | **List[str]** |  | [optional] 
 **generation** | **str** |  | [optional] 
-**customer_id** | **str** |  | [optional] 
 
 ## Example
 

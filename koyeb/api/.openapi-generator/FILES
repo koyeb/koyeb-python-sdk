@@ -212,6 +212,7 @@ koyeb/api/docs/ExecCommandRequestTerminalSize.md
 koyeb/api/docs/GCPContainerRegistryConfiguration.md
 koyeb/api/docs/GRPCHealthCheck.md
 koyeb/api/docs/GetAppReply.md
+koyeb/api/docs/GetArchiveReply.md
 koyeb/api/docs/GetBudgetReply.md
 koyeb/api/docs/GetCatalogInstanceReply.md
 koyeb/api/docs/GetCredentialReply.md
@@ -669,6 +670,7 @@ koyeb/api/models/exec_command_request_id_type.py
 koyeb/api/models/exec_command_request_terminal_size.py
 koyeb/api/models/gcp_container_registry_configuration.py
 koyeb/api/models/get_app_reply.py
+koyeb/api/models/get_archive_reply.py
 koyeb/api/models/get_budget_reply.py
 koyeb/api/models/get_catalog_instance_reply.py
 koyeb/api/models/get_credential_reply.py
@@ -948,7 +950,5 @@ koyeb/api/models/verify_docker_image_reply.py
 koyeb/api/models/verify_docker_image_reply_err_code.py
 koyeb/api/rest.py
 koyeb/api/test/__init__.py
-koyeb/api/test/test_docker_deployment_metadata.py
-koyeb/api/test/test_grpc_health_check.py
-koyeb/api/test/test_regional_deployment_metadata.py
+koyeb/api/test/test_get_archive_reply.py
 koyeb/api_README.md

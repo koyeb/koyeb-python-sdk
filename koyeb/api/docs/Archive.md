@@ -11,6 +11,8 @@ Name | Type | Description | Notes
 **size** | **str** | The provisioned space for the archive. | [optional] 
 **created_at** | **datetime** | Date of creation of the archive. | [optional] 
 **deleted_at** | **datetime** | This field is automatically set by Koyeb when the archive is garbage collected. | [optional] 
+**download_url** | **str** | A signed URL to download the archive. Getting an archive signs a new one when it has less than 5 minutes left, valid for 24 hours. | [optional] 
+**download_url_deadline** | **datetime** | When download_url expires. | [optional] 
 
 ## Example
 
