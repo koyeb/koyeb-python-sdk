@@ -6,6 +6,7 @@ Koyeb Sandbox Snapshot - Snapshot functionality for Koyeb sandboxes
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -446,6 +447,25 @@ class DeclarativeSnapshot:
         self._copy_ops.append((src, dst))
         return self
 
+    def _copy(self, src: str, dst: str) -> None:
+        """Copy one local file or directory into the builder sandbox.
+
+        On executors v0.0.24+ a directory travels as one archive push
+        through filesystem.sync — binary-safe, with modes, mtimes and
+        symlinks kept — and a single file through the streamed
+        upload_file. Old executors keep the per-file legacy walk.
+        """
+        fs = self._builder_sandbox.filesystem
+        if os.path.isdir(src):
+            # The client probe is this package's own seam; a fresh
+            # builder sandbox makes sync's push a full copy.
+            if fs._get_client().has_files_routes():
+                fs.sync(src, dst)
+                return
+            self._copy_directory(src, dst)
+            return
+        fs.upload_file(src, dst)
+
     def run(self, command: str, cwd: Optional[str] = None) -> DeclarativeSnapshot:
         """
         Run a command during build.
@@ -507,14 +527,7 @@ class DeclarativeSnapshot:
             # Copy local files/directories
             for src, dst in self._copy_ops:
                 self._operations.append(f"copy: {src} -> {dst}")
-                if os.path.isdir(src):
-                    # Copy directory recursively
-                    self._copy_directory(src, dst)
-                else:
-                    # Copy single file
-                    with open(src, "r") as f:
-                        content = f.read()
-                    self._builder_sandbox.filesystem.write_file(dst, content)
+                self._copy(src, dst)
 
             # Run commands
             for command in self._commands:

@@ -726,7 +726,7 @@ class SandboxFilesystem:
             path = file_info["path"]
             content = file_info["content"]
             encoding = file_info.get("encoding", "utf-8")
-            SandboxFilesystem.write_file(self, path, content, encoding)
+            self.write_file(path, content, encoding)
 
     def exists(self, path: str) -> bool:
         """Check if file/directory exists synchronously"""
