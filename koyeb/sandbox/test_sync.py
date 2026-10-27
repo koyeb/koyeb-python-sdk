@@ -1,0 +1,450 @@
+"""Pins the pure diff engine behind filesystem.sync().
+
+sync() is one-way like ``rsync -r`` without deltas: list both sides, diff
+on path/type/size/mtime (+sha256 with checksum=True), send the changed set
+as ~50 MiB tar batches. These tests pin the engine's decisions against
+plain data and tmpdir trees — no executor, no network.
+"""
+
+import os
+import tempfile
+import unittest
+
+from koyeb.sandbox.sync import (
+    SyncDiff,
+    diff,
+    excluded,
+    format_mtime,
+    mtime_seconds,
+    path_match,
+    plan_batches,
+    prune_descendants,
+    relative_remote,
+    walk_local,
+)
+
+PART = 50 * 1024 * 1024
+
+
+def _entry(path, type_, size=0, mtime="2026-10-27T10:00:00Z", mode="0644"):
+    return {
+        "path": path,
+        "type": type_,
+        "size": size,
+        "mtime": mtime,
+        "mode": mode,
+    }
+
+
+class TestPathMatch(unittest.TestCase):
+    """Go path.Match semantics: * and ? do not cross the / separator."""
+
+    def test_literal(self):
+        self.assertTrue(path_match("a.txt", "a.txt"))
+        self.assertFalse(path_match("a.txt", "b.txt"))
+
+    def test_star_does_not_cross_separator(self):
+        self.assertTrue(path_match("*.py", "a.py"))
+        self.assertFalse(path_match("*.py", "a/b.py"))
+
+    def test_question_mark_single_nonslash(self):
+        self.assertTrue(path_match("a?c", "abc"))
+        self.assertFalse(path_match("a?c", "a/c"))
+
+    def test_character_class(self):
+        self.assertTrue(path_match("[a-c]x", "bx"))
+        self.assertFalse(path_match("[a-c]x", "dx"))
+
+    def test_star_matches_empty(self):
+        self.assertTrue(path_match("a*", "a"))
+        self.assertTrue(path_match("*", "anything"))
+
+    def test_malformed_class_raises(self):
+        # The executor answers 400 on a bad pattern; the walk mirrors that
+        # by refusing to guess. Cross-checked against Go's path.Match.
+        with self.assertRaises(ValueError):
+            path_match("x[", "x")
+
+    def test_go_cross_checked_arms(self):
+        # Every row verified against Go's path.Match on this machine.
+        rows = [
+            ("*", "a/b", False),
+            ("a/*", "a/b/c", False),
+            ("a/*/c", "a/b/c", True),
+            ("a*b*c", "aXbYc", True),
+            ("a*b*c", "a/b/c", False),
+            ("sub/.git", ".git", False),
+            ("*.log", "sub/a.log", False),
+            # '!' is a literal class member in Go (no negation); '^' negates.
+            ("[!a-c]x", "dx", False),
+            ("[^a-c]x", "dx", True),
+            # An escaped star is a chunk, not a split point.
+            ("a\\*b", "a*b", True),
+            ("a\\*b", "aXb", False),
+            ("", "x", False),
+            ("", "", True),
+        ]
+        for pattern, name, want in rows:
+            self.assertEqual(
+                path_match(pattern, name), want, f"{pattern!r} vs {name!r}"
+            )
+
+
+class TestExcluded(unittest.TestCase):
+    def test_direct_match(self):
+        self.assertTrue(excluded("a.log", ["*.log"]))
+
+    def test_suffix_match(self):
+        self.assertTrue(excluded("sub/a.log", ["*.log"]))
+        self.assertFalse(excluded("sub/a.txt", ["*.log"]))
+
+    def test_no_match(self):
+        self.assertFalse(excluded("a.txt", ["*.log"]))
+        self.assertFalse(excluded("a/b/c.txt", ["*.log", "*.py"]))
+
+    def test_multiple_patterns_any_match(self):
+        self.assertTrue(excluded("a/b.py", ["*.log", "*.py"]))
+
+    def test_directory_entry_matches_by_own_name(self):
+        # The pruning rule: a dir entry matches, the walk never descends.
+        self.assertTrue(excluded(".git", [".git"]))
+        self.assertTrue(excluded("sub/.git", [".git"]))
+
+
+class TestMtimeFormat(unittest.TestCase):
+    def test_nanoseconds_kept_and_trimmed(self):
+        ns = 1774590000_123456789
+        self.assertTrue(format_mtime(ns).endswith(".123456789Z"))
+        self.assertTrue(format_mtime(1774590000_500000000).endswith(".5Z"))
+        self.assertTrue(format_mtime(1774590000_000001000).endswith(".000001Z"))
+
+    def test_zero_fraction_omitted(self):
+        formatted = format_mtime(1774590000_000000000)
+        self.assertTrue(formatted.endswith("Z"))
+        self.assertNotIn(".", formatted)
+
+    def test_mtime_seconds_floors(self):
+        self.assertEqual(
+            mtime_seconds("2026-10-27T10:00:00.123456789Z"),
+            mtime_seconds("2026-10-27T10:00:00Z"),
+        )
+        self.assertEqual(
+            mtime_seconds("2026-10-27T10:00:00.999Z"),
+            mtime_seconds("2026-10-27T10:00:00Z"),
+        )
+
+    def test_round_trip(self):
+        for ns in (1774590000_000000000, 1774590000_123456789, 1774590059_500000000):
+            self.assertEqual(mtime_seconds(format_mtime(ns)), ns // 1_000_000_000)
+
+
+class TestWalkLocal(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = self._tmp.name
+        self.addCleanup(self._tmp.cleanup)
+
+    def _make(self, rel, content=b"x"):
+        path = os.path.join(self.root, *rel.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(content)
+        return path
+
+    def test_entries_in_fileentry_shape(self):
+        self._make("a.txt", b"hello")
+        os.makedirs(os.path.join(self.root, "sub"))
+        self._make("sub/b.bin", b"12345")
+        os.symlink("a.txt", os.path.join(self.root, "link.txt"))
+        os.symlink("sub", os.path.join(self.root, "sublink"))
+
+        entries = walk_local(self.root)
+
+        by_path = {e["path"]: e for e in entries}
+        self.assertEqual(
+            sorted(by_path),
+            ["a.txt", "link.txt", "sub", "sub/b.bin", "sublink"],
+        )
+        self.assertEqual(by_path["a.txt"]["type"], "file")
+        self.assertEqual(by_path["a.txt"]["size"], 5)
+        self.assertEqual(by_path["sub"]["type"], "dir")
+        self.assertEqual(by_path["link.txt"]["type"], "symlink")
+        self.assertEqual(by_path["link.txt"]["size"], len("a.txt"))
+        # A symlinked dir is listed as a link, not descended into.
+        self.assertEqual(by_path["sublink"]["type"], "symlink")
+        # Every mtime parses back; modes are 4-digit octal perms.
+        for entry in entries:
+            mtime_seconds(entry["mtime"])
+            self.assertRegex(entry["mode"], r"^[0-7]{4}$")
+
+    def test_root_itself_is_not_an_entry(self):
+        self._make("a.txt")
+        entries = walk_local(self.root)
+        self.assertEqual([e["path"] for e in entries], ["a.txt"])
+
+    def test_special_files_skipped(self):
+        self._make("a.txt")
+        os.mkfifo(os.path.join(self.root, "pipe"))
+        entries = walk_local(self.root)
+        self.assertEqual([e["path"] for e in entries], ["a.txt"])
+
+    def test_excluded_dir_skipped_whole(self):
+        self._make("a.txt")
+        self._make(".git/config")
+        self._make("sub/c.txt")
+        entries = walk_local(self.root, exclude=(".git",))
+        self.assertEqual(sorted(e["path"] for e in entries), ["a.txt", "sub", "sub/c.txt"])
+
+    def test_excluded_file_by_suffix(self):
+        self._make("a.py")
+        self._make("sub/b.py")
+        self._make("sub/c.txt")
+        entries = walk_local(self.root, exclude=("*.py",))
+        self.assertEqual(
+            sorted(e["path"] for e in entries), ["sub", "sub/c.txt"]
+        )
+
+    def test_mode_reflects_real_permissions(self):
+        path = self._make("a.sh")
+        os.chmod(path, 0o755)
+        entry = walk_local(self.root)[0]
+        self.assertEqual(entry["mode"], "0755")
+
+    def test_mtime_reflects_file(self):
+        path = self._make("a.txt")
+        os.utime(path, ns=(1774590000_123456789, 1774590000_123456789))
+        entry = walk_local(self.root)[0]
+        self.assertEqual(mtime_seconds(entry["mtime"]), 1774590000)
+
+
+class TestDiff(unittest.TestCase):
+    def test_new_file_transfers(self):
+        result = diff([_entry("a.txt", "file", 5)], [])
+        self.assertEqual([e["path"] for e in result.to_transfer], ["a.txt"])
+        self.assertEqual(result.bytes, 5)
+
+    def test_identical_file_skipped(self):
+        same = _entry("a.txt", "file", 5, mtime="2026-10-27T10:00:00.100Z")
+        result = diff([same], [same])
+        self.assertEqual(result.to_transfer, [])
+        self.assertEqual(result.skipped, 1)
+
+    def test_size_difference_transfers(self):
+        result = diff(
+            [_entry("a.txt", "file", 5)], [_entry("a.txt", "file", 6)]
+        )
+        self.assertEqual([e["path"] for e in result.to_transfer], ["a.txt"])
+
+    def test_mtime_difference_past_a_second_transfers(self):
+        result = diff(
+            [_entry("a.txt", "file", 5, mtime="2026-10-27T10:00:01Z")],
+            [_entry("a.txt", "file", 5, mtime="2026-10-27T10:00:00Z")],
+        )
+        self.assertEqual([e["path"] for e in result.to_transfer], ["a.txt"])
+
+    def test_mtime_difference_within_the_same_second_skips(self):
+        # tar PAX mtime cannot round-trip nanoseconds; the diff is
+        # whole-second like rsync's default.
+        result = diff(
+            [_entry("a.txt", "file", 5, mtime="2026-10-27T10:00:00.900Z")],
+            [_entry("a.txt", "file", 5, mtime="2026-10-27T10:00:00.100Z")],
+        )
+        self.assertEqual(result.to_transfer, [])
+        self.assertEqual(result.skipped, 1)
+
+    def test_type_change_transfers(self):
+        result = diff(
+            [_entry("a", "dir")], [_entry("a", "file", 5)]
+        )
+        self.assertEqual([e["path"] for e in result.to_transfer], ["a"])
+
+    def test_symlink_target_change_caught_by_size(self):
+        result = diff(
+            [_entry("l", "symlink", size=7)], [_entry("l", "symlink", size=3)]
+        )
+        self.assertEqual([e["path"] for e in result.to_transfer], ["l"])
+
+    def test_remote_only_skipped_without_delete(self):
+        result = diff([], [_entry("gone.txt", "file", 5)])
+        self.assertEqual(result.to_transfer, [])
+        self.assertEqual(result.deletes, [])
+        self.assertEqual(result.skipped, 1)
+
+    def test_remote_only_deleted_with_delete(self):
+        result = diff([], [_entry("gone.txt", "file", 5)], delete=True)
+        self.assertEqual([e["path"] for e in result.deletes], ["gone.txt"])
+        self.assertEqual(result.skipped, 0)
+
+    def test_remote_error_entry_skipped(self):
+        result = diff(
+            [_entry("a.txt", "file", 5)],
+            [{"path": "a.txt", "error": "permission denied"}],
+        )
+        # Cannot prove unchanged: an unreadable entry is not a transfer
+        # candidate, it is skipped.
+        self.assertEqual(result.to_transfer, [])
+        self.assertEqual(result.skipped, 1)
+
+    def test_remote_other_type_skipped(self):
+        result = diff([], [_entry("dev", "other")])
+        self.assertEqual(result.skipped, 1)
+        self.assertEqual(result.deletes, [])
+
+    def test_local_other_type_skipped(self):
+        result = diff([_entry("dev", "other")], [])
+        self.assertEqual(result.to_transfer, [])
+        self.assertEqual(result.skipped, 1)
+
+    def test_checksum_hashes_only_matching_files(self):
+        same = _entry("a.txt", "file", 5)
+        local_calls = []
+        remote_calls = []
+
+        def local_hash(path):
+            local_calls.append(path)
+            return "aa"
+
+        def remote_hash(path):
+            remote_calls.append(path)
+            return "aa"
+
+        result = diff(
+            [same, _entry("b.txt", "file", 5, mtime="2026-10-27T10:00:01Z")],
+            [same, _entry("b.txt", "file", 5, mtime="2026-10-27T10:00:00Z")],
+            local_hash=local_hash,
+            remote_hash=remote_hash,
+        )
+        self.assertEqual(local_calls, ["a.txt"])
+        self.assertEqual(remote_calls, ["a.txt"])
+        # b.txt differs by mtime, so it transfers without any hashing.
+        self.assertEqual([e["path"] for e in result.to_transfer], ["b.txt"])
+
+    def test_checksum_mismatch_transfers(self):
+        same = _entry("a.txt", "file", 5)
+        result = diff(
+            [same],
+            [same],
+            local_hash=lambda p: "aa",
+            remote_hash=lambda p: "bb",
+        )
+        self.assertEqual([e["path"] for e in result.to_transfer], ["a.txt"])
+
+    def test_checksum_none_remote_hash_skips(self):
+        same = _entry("a.txt", "file", 5)
+        result = diff(
+            [same],
+            [same],
+            local_hash=lambda p: "aa",
+            remote_hash=lambda p: None,
+        )
+        self.assertEqual(result.to_transfer, [])
+        self.assertEqual(result.skipped, 1)
+
+    def test_bytes_sum_file_sizes_only(self):
+        result = diff(
+            [
+                _entry("a.txt", "file", 5),
+                _entry("d", "dir"),
+                _entry("l", "symlink", size=3),
+            ],
+            [],
+        )
+        self.assertEqual(result.bytes, 5)
+
+    def test_dir_mtime_difference_transfers(self):
+        result = diff(
+            [_entry("d", "dir", mtime="2026-10-27T10:00:05Z")],
+            [_entry("d", "dir", mtime="2026-10-27T10:00:00Z")],
+        )
+        self.assertEqual([e["path"] for e in result.to_transfer], ["d"])
+
+
+class TestPlanBatches(unittest.TestCase):
+    def test_greedy_fill_within_part_size(self):
+        entries = [
+            _entry("a", "file", 20),
+            _entry("b", "file", 20),
+            _entry("c", "file", 20),
+        ]
+        batches, oversized = plan_batches(entries, part_size=50)
+        self.assertEqual([[e["path"] for e in b] for b in batches], [["a", "b"], ["c"]])
+        self.assertEqual(oversized, [])
+
+    def test_file_never_split(self):
+        entries = [_entry("a", "file", 30), _entry("b", "file", 30)]
+        batches, oversized = plan_batches(entries, part_size=50)
+        self.assertEqual([[e["path"] for e in b] for b in batches], [["a"], ["b"]])
+
+    def test_file_equal_to_part_size_is_not_oversized(self):
+        entries = [_entry("a", "file", 50)]
+        batches, oversized = plan_batches(entries, part_size=50)
+        self.assertEqual(len(batches), 1)
+        self.assertEqual(oversized, [])
+
+    def test_oversized_file_separated(self):
+        entries = [
+            _entry("big", "file", 51),
+            _entry("small", "file", 10),
+        ]
+        batches, oversized = plan_batches(entries, part_size=50)
+        self.assertEqual([[e["path"] for e in b] for b in batches], [["small"]])
+        self.assertEqual([e["path"] for e in oversized], ["big"])
+
+    def test_dirs_and_symlinks_ride_batches(self):
+        entries = [_entry("d", "dir"), _entry("l", "symlink"), _entry("a", "file", 10)]
+        batches, oversized = plan_batches(entries, part_size=50)
+        self.assertEqual(
+            [[e["path"] for e in b] for b in batches], [["d", "l", "a"]]
+        )
+
+    def test_only_dirs_yields_one_batch(self):
+        entries = [_entry("d", "dir"), _entry("d/e", "dir")]
+        batches, oversized = plan_batches(entries, part_size=50)
+        self.assertEqual([[e["path"] for e in b] for b in batches], [["d", "d/e"]])
+        self.assertEqual(oversized, [])
+
+    def test_empty_input(self):
+        batches, oversized = plan_batches([], part_size=50)
+        self.assertEqual(batches, [])
+        self.assertEqual(oversized, [])
+
+
+class TestPruneDescendants(unittest.TestCase):
+    def test_descendants_of_kept_root_dropped(self):
+        self.assertEqual(
+            prune_descendants(["a", "a/b", "a/b/c", "d"]), ["a", "d"]
+        )
+
+    def test_unsorted_input_prunes_to_topmost(self):
+        self.assertEqual(prune_descendants(["a/b", "a"]), ["a"])
+
+    def test_no_descendants_unchanged(self):
+        self.assertEqual(prune_descendants(["a", "b/c"]), ["a", "b/c"])
+
+
+class TestRelativeRemote(unittest.TestCase):
+    def test_relative_path_kept(self):
+        self.assertEqual(relative_remote("project"), "project")
+        self.assertEqual(relative_remote("a/b"), "a/b")
+
+    def test_dot_prefix_normalized(self):
+        self.assertEqual(relative_remote("./project"), "project")
+
+    def test_absolute_path_takes_basename(self):
+        self.assertEqual(relative_remote("/Users/sacha/project"), "project")
+
+    def test_trailing_slash_normalized(self):
+        self.assertEqual(relative_remote("project/"), "project")
+
+
+class TestSyncDiffShape(unittest.TestCase):
+    def test_fields(self):
+        result = diff([_entry("a", "file", 1)], [])
+        self.assertIsInstance(result, SyncDiff)
+        self.assertEqual(result.bytes, 1)
+        self.assertEqual(result.deletes, [])
+        self.assertEqual(result.skipped, 0)
+
+
+if __name__ == "__main__":
+    unittest.main()
