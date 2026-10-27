@@ -69,6 +69,27 @@ class TestPathMatch(unittest.TestCase):
         with self.assertRaises(ValueError):
             path_match("x[", "x")
 
+    def test_malformed_later_chunk_raises_on_earlier_mismatch(self):
+        # Go validates the whole pattern before returning a match result:
+        # an early mismatch with a malformed later chunk still errors.
+        with self.assertRaises(ValueError):
+            path_match("a*x[", "b")
+
+    def test_single_unit_mismatch_is_not_a_match(self):
+        # A chunk whose last unit mismatches is exhausted AND failed — the
+        # verdict must come from the failure, not the chunk length. The
+        # buggy reading matched a*b against b (Go: false).
+        rows = [
+            ("a*b", "b", False),
+            ("a?b", "ab", False),
+            ("ab", "b", False),
+            ("*b", "b", True),
+        ]
+        for pattern, name, want in rows:
+            self.assertEqual(
+                path_match(pattern, name), want, f"{pattern!r} vs {name!r}"
+            )
+
     def test_go_cross_checked_arms(self):
         # Every row verified against Go's path.Match on this machine.
         rows = [

@@ -734,6 +734,45 @@ class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result["deleted"], 1)
 
+    async def test_checksum_detects_content_change(self):
+        local = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(local, "dst")
+        target = os.path.join(self.remote_root, "dst", "a.txt")
+        st = os.stat(target)
+        with open(target, "wb") as f:
+            f.write(b"HELLO")  # same length as "hello"
+        os.utime(target, ns=(st.st_mtime_ns,) * 2)
+        self.fake.calls.clear()
+
+        async with _async_ctx(self.fake) as fs:
+            without = await fs.sync(local, "dst")
+            with_sum = await fs.sync(local, "dst", checksum=True)
+
+        self.assertEqual(without["uploaded"], 0)
+        self.assertEqual(with_sum["uploaded"], 1)
+        # Both file entries passed the size+mtime test, so both hashed.
+        self.assertEqual(len([c for c in self.fake.calls if c[0] == "files_stat"]), 2)
+
+    async def test_pull_delete_removes_local_extras(self):
+        source = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(source, "dst")
+        dest = os.path.join(self.base, "dest")
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(dest, "dst", direction="pull")
+        _write(os.path.join(dest, "stale.txt"))
+        _write(os.path.join(dest, "gonedir", "child.txt"))
+        self.fake.calls.clear()
+
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(dest, "dst", direction="pull", delete=True)
+
+        self.assertFalse(os.path.exists(os.path.join(dest, "stale.txt")))
+        self.assertFalse(os.path.exists(os.path.join(dest, "gonedir")))
+        # A directory counts as one deletion; its descendants ride it.
+        self.assertEqual(result["deleted"], 2)
+
 
 @asynccontextmanager
 async def _async_ctx(client):

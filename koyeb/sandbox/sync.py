@@ -169,7 +169,8 @@ def _match_chunk(chunk: str, s: str) -> Tuple[str, bool]:
     like Go's failed-flag protocol (the post-failure state is
     unobservable, so the match stops at the first mismatch instead).
     """
-    while chunk and s:
+    ok = True
+    while chunk and s and ok:
         c, chunk = chunk[0], chunk[1:]
         if c == "[":
             chunk, ok = _match_class(chunk, s[0])
@@ -177,12 +178,10 @@ def _match_chunk(chunk: str, s: str) -> Tuple[str, bool]:
                 s = s[1:]
         else:
             chunk, s, ok = _match_unit(c, chunk, s)
-        if not ok:
-            break
     if chunk:
         _validate_chunk(chunk)
         return s, False
-    return s, True
+    return s, ok
 
 
 def _star_skip(chunk: str, name: str, pattern: str) -> Optional[str]:
@@ -369,7 +368,7 @@ def diff(
     """
     checksum = local_hash is not None and remote_hash is not None
     result = SyncDiff()
-    remote = {e["path"]: e for e in remote_entries}
+    remote = _index(remote_entries)
     for entry in local_entries:
         if entry.get("type") == "other":
             # The source has something at this path it cannot send: the
@@ -383,25 +382,61 @@ def diff(
         if remote_entry is None:
             _count(result, entry)
             continue
-        if "error" in remote_entry or remote_entry.get("type") == "other":
-            result.skipped += 1
-            continue
-        if _changed(entry, remote_entry):
+        kind = _pair_kind(entry, remote_entry)
+        if kind == "transfer":
             _count(result, entry)
-            continue
-        if checksum and entry["type"] == "file":
-            remote_digest = remote_hash(path)
-            if remote_digest is not None and remote_digest != local_hash(path):
+        elif kind == "match" and checksum and entry["type"] == "file":
+            if _hash_verdict(path, local_hash, remote_hash):
                 _count(result, entry)
             else:
                 result.skipped += 1
-            continue
-        result.skipped += 1
-    if delete:
-        result.deletes = [e for p, e in remote.items() if "error" not in e]
-    else:
-        result.skipped += sum(1 for e in remote.values())
+        else:
+            result.skipped += 1
+    _settle_remaining(result, remote, delete)
     return result
+
+
+def _pair_kind(entry: Dict[str, Any], remote_entry: Dict[str, Any]) -> str:
+    """One pair's verdict before checksum: transfer, skip, or match."""
+    if "error" in remote_entry or remote_entry.get("type") == "other":
+        return "skip"
+    if _changed(entry, remote_entry):
+        return "transfer"
+    return "match"
+
+
+def _index(entries: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Entries by path."""
+    return {e["path"]: e for e in entries}
+
+
+def _hash_verdict(
+    path: str,
+    local_hash: Callable[[str], str],
+    remote_hash: Callable[[str], Optional[str]],
+) -> bool:
+    """Whether a size-and-mtime-equal file's digests prove it changed.
+
+    A remote hash of None (vanished mid-sync, unreadable) proves
+    nothing: not changed, not transferred.
+    """
+    remote_digest = remote_hash(path)
+    return remote_digest is not None and remote_digest != local_hash(path)
+
+
+def _remaining_deletes(remote: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Delete candidates: entries the source lacks; unreadable ones never."""
+    return [e for e in remote.values() if "error" not in e]
+
+
+def _settle_remaining(
+    result: SyncDiff, remote: Dict[str, Dict[str, Any]], delete: bool
+) -> None:
+    """Source-absent entries: delete candidates, or skips without delete."""
+    if delete:
+        result.deletes = _remaining_deletes(remote)
+    else:
+        result.skipped += len(remote)
 
 
 def _changed(local_entry: Dict[str, Any], remote_entry: Dict[str, Any]) -> bool:
@@ -594,9 +629,7 @@ def _clear_member(path: str) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
 
-def _extract_file(
-    tar: "tarfile.TarFile", member: "tarfile.TarInfo", path: str
-) -> None:
+def _extract_file(tar: "tarfile.TarFile", member: "tarfile.TarInfo", path: str) -> None:
     """Stream one regular member to path, then keep its mode and mtime."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     source = tar.extractfile(member)
