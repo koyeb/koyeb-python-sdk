@@ -679,6 +679,122 @@ class SandboxClient:
                 self._files_routes = True
         return self._files_routes
 
+    def files_upload_open(
+        self,
+        path: str,
+        size: int,
+        mode: Optional[str] = None,
+        sha256: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Open a multipart upload session (executor v0.0.24+).
+
+        A file too large for one request uploads as offset-addressed parts:
+        the executor truncates a temp file to `size` up front, so parts land
+        in any order, in parallel, and a retried part overwrites the same
+        bytes. Sessions live in memory — an executor restart or an idle hour
+        loses them, and the upload starts over.
+
+        Args:
+            path: The destination path
+            size: The final size in bytes
+            mode: Octal permission string, e.g. "0644" (the existing
+                destination's mode is kept when omitted)
+            sha256: Expected whole-file digest, checked once at complete
+
+        Returns:
+            {"upload_id", "max_part_size"} — the cap for every part
+        """
+        payload: Dict[str, Any] = {"path": path, "size": size}
+        if mode is not None:
+            payload["mode"] = mode
+        if sha256:
+            payload["sha256"] = sha256
+        response = self._request_with_retry(
+            "POST", f"{self.base_url}/files/uploads", json=payload
+        )
+        return response.json()
+
+    def files_upload_part(
+        self,
+        upload_id: str,
+        offset: int,
+        content: bytes,
+        sha256: Optional[str] = None,
+    ) -> None:
+        """
+        Write one part at its offset (executor v0.0.24+).
+
+        The timeout bounds idle time, not the part's total time. A part is
+        idempotent at the executor (a WriteAt of the same bytes), so
+        transient network errors retry — the bytes must be replayable:
+        callers pass the part's bytes, never a consumed stream.
+
+        Args:
+            upload_id: The session from files_upload_open
+            offset: The part's position in the final file
+            content: The part's bytes
+            sha256: The part's digest, verified while streaming
+        """
+        headers = {"Content-Type": "application/octet-stream"}
+        if sha256:
+            headers["X-Content-SHA256"] = sha256
+        self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files/uploads/{upload_id}",
+            params={"offset": offset},
+            content=content,
+            headers=headers,
+            idempotent=True,
+            timeout=_FILES_TIMEOUT,
+        )
+
+    def files_upload_status(self, upload_id: str) -> Dict[str, Any]:
+        """
+        The ranges received so far (executor v0.0.24+): half-open
+        [start, end) spans, sorted and coalesced, so a live session can
+        resume by sending what is missing.
+
+        Args:
+            upload_id: The session to inspect
+
+        Returns:
+            {"size", "ranges": [{"start", "end"}, ...]}
+        """
+        response = self._request_with_retry(
+            "GET", f"{self.base_url}/files/uploads/{upload_id}"
+        )
+        return response.json()
+
+    def files_upload_complete(self, upload_id: str) -> Dict[str, Any]:
+        """
+        Check coverage and commit (executor v0.0.24+).
+
+        A 409 carries the missing ranges in the error body — the session
+        stays live, so the caller can fill the gaps and complete again. On
+        success the temp file is fsynced and renamed onto the destination;
+        the whole-file sha256 from files_upload_open is checked here.
+
+        Args:
+            upload_id: The session to complete
+
+        Returns:
+            {"size", "sha256"?}
+        """
+        response = self._request_with_retry(
+            "POST", f"{self.base_url}/files/uploads/{upload_id}/complete"
+        )
+        return response.json()
+
+    def files_upload_abort(self, upload_id: str) -> None:
+        """
+        Abort the session and remove its temp file (executor v0.0.24+).
+
+        Args:
+            upload_id: The session to abort
+        """
+        self._request_with_retry("DELETE", f"{self.base_url}/files/uploads/{upload_id}")
+
     def bind_port(self, port: int) -> Dict[str, Any]:
         """
         Bind a port to the TCP proxy for external access.
@@ -1352,6 +1468,124 @@ class AsyncSandboxClient:
             else:
                 self._files_routes = True
         return self._files_routes
+
+    async def files_upload_open(
+        self,
+        path: str,
+        size: int,
+        mode: Optional[str] = None,
+        sha256: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Open a multipart upload session (executor v0.0.24+).
+
+        A file too large for one request uploads as offset-addressed parts:
+        the executor truncates a temp file to `size` up front, so parts land
+        in any order, in parallel, and a retried part overwrites the same
+        bytes. Sessions live in memory — an executor restart or an idle hour
+        loses them, and the upload starts over.
+
+        Args:
+            path: The destination path
+            size: The final size in bytes
+            mode: Octal permission string, e.g. "0644" (the existing
+                destination's mode is kept when omitted)
+            sha256: Expected whole-file digest, checked once at complete
+
+        Returns:
+            {"upload_id", "max_part_size"} — the cap for every part
+        """
+        payload: Dict[str, Any] = {"path": path, "size": size}
+        if mode is not None:
+            payload["mode"] = mode
+        if sha256:
+            payload["sha256"] = sha256
+        response = await self._request_with_retry(
+            "POST", f"{self.base_url}/files/uploads", json=payload
+        )
+        return response.json()
+
+    async def files_upload_part(
+        self,
+        upload_id: str,
+        offset: int,
+        content: bytes,
+        sha256: Optional[str] = None,
+    ) -> None:
+        """
+        Write one part at its offset (executor v0.0.24+).
+
+        The timeout bounds idle time, not the part's total time. A part is
+        idempotent at the executor (a WriteAt of the same bytes), so
+        transient network errors retry — the bytes must be replayable:
+        callers pass the part's bytes, never a consumed stream.
+
+        Args:
+            upload_id: The session from files_upload_open
+            offset: The part's position in the final file
+            content: The part's bytes
+            sha256: The part's digest, verified while streaming
+        """
+        headers = {"Content-Type": "application/octet-stream"}
+        if sha256:
+            headers["X-Content-SHA256"] = sha256
+        await self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files/uploads/{upload_id}",
+            params={"offset": offset},
+            content=content,
+            headers=headers,
+            idempotent=True,
+            timeout=_FILES_TIMEOUT,
+        )
+
+    async def files_upload_status(self, upload_id: str) -> Dict[str, Any]:
+        """
+        The ranges received so far (executor v0.0.24+): half-open
+        [start, end) spans, sorted and coalesced, so a live session can
+        resume by sending what is missing.
+
+        Args:
+            upload_id: The session to inspect
+
+        Returns:
+            {"size", "ranges": [{"start", "end"}, ...]}
+        """
+        response = await self._request_with_retry(
+            "GET", f"{self.base_url}/files/uploads/{upload_id}"
+        )
+        return response.json()
+
+    async def files_upload_complete(self, upload_id: str) -> Dict[str, Any]:
+        """
+        Check coverage and commit (executor v0.0.24+).
+
+        A 409 carries the missing ranges in the error body — the session
+        stays live, so the caller can fill the gaps and complete again. On
+        success the temp file is fsynced and renamed onto the destination;
+        the whole-file sha256 from files_upload_open is checked here.
+
+        Args:
+            upload_id: The session to complete
+
+        Returns:
+            {"size", "sha256"?}
+        """
+        response = await self._request_with_retry(
+            "POST", f"{self.base_url}/files/uploads/{upload_id}/complete"
+        )
+        return response.json()
+
+    async def files_upload_abort(self, upload_id: str) -> None:
+        """
+        Abort the session and remove its temp file (executor v0.0.24+).
+
+        Args:
+            upload_id: The session to abort
+        """
+        await self._request_with_retry(
+            "DELETE", f"{self.base_url}/files/uploads/{upload_id}"
+        )
 
     async def bind_port(self, port: int) -> Dict[str, Any]:
         """

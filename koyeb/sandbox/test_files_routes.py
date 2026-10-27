@@ -7,6 +7,7 @@ side of that contract against httpx.MockTransport, the way
 test_executor_retry.py pins the retry seam.
 """
 
+import json
 import unittest
 
 import httpx
@@ -529,6 +530,231 @@ class TestAsyncFilesReadTimeouts(unittest.IsolatedAsyncioTestCase):
                 pass
 
         self.assertIn("Request to sandbox executor failed", str(cm.exception))
+
+
+class TestFilesUploadOpen(unittest.TestCase):
+    def test_sends_post_and_returns_session(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            seen["body"] = json.loads(request.read())
+            return httpx.Response(
+                200,
+                request=request,
+                json={"upload_id": "u-1", "max_part_size": 104857600},
+            )
+
+        reply = _make_sync_client(handler).files_upload_open(
+            "/tmp/a.bin", 1024, mode="0644", sha256="ab" * 32
+        )
+
+        self.assertEqual(seen["method"], "POST")
+        self.assertEqual(seen["url"], "https://sb.example/files/uploads")
+        self.assertEqual(
+            seen["body"],
+            {"path": "/tmp/a.bin", "size": 1024, "mode": "0644", "sha256": "ab" * 32},
+        )
+        self.assertEqual(reply, {"upload_id": "u-1", "max_part_size": 104857600})
+
+    def test_minimal_payload_omits_optionals(self):
+        seen = {}
+
+        def handler(request):
+            seen["body"] = json.loads(request.read())
+            return httpx.Response(
+                200, request=request, json={"upload_id": "u-2", "max_part_size": 1}
+            )
+
+        _make_sync_client(handler).files_upload_open("/tmp/a.bin", 0)
+
+        self.assertEqual(seen["body"], {"path": "/tmp/a.bin", "size": 0})
+
+
+class TestAsyncFilesUploadOpen(unittest.IsolatedAsyncioTestCase):
+    async def test_sends_post_and_returns_session(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            seen["body"] = json.loads(request.read())
+            return httpx.Response(
+                200, request=request, json={"upload_id": "u-3", "max_part_size": 5}
+            )
+
+        reply = await _make_async_client(handler).files_upload_open("/tmp/b", 7)
+
+        self.assertEqual(seen["method"], "POST")
+        self.assertEqual(seen["url"], "https://sb.example/files/uploads")
+        self.assertEqual(seen["body"], {"path": "/tmp/b", "size": 7})
+        self.assertEqual(reply, {"upload_id": "u-3", "max_part_size": 5})
+
+
+class TestFilesUploadPart(unittest.TestCase):
+    def test_writes_part_at_offset(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            seen["content_type"] = request.headers.get("Content-Type")
+            seen["sha_header"] = request.headers.get("X-Content-SHA256")
+            seen["body"] = request.read()
+            return httpx.Response(204, request=request)
+
+        _make_sync_client(handler).files_upload_part(
+            "u-1", 50, b"abc", sha256="ab" * 32
+        )
+
+        self.assertEqual(seen["method"], "PUT")
+        self.assertEqual(seen["url"], "https://sb.example/files/uploads/u-1?offset=50")
+        self.assertEqual(seen["content_type"], "application/octet-stream")
+        self.assertEqual(seen["sha_header"], "ab" * 32)
+        self.assertEqual(seen["body"], b"abc")
+
+    def test_unknown_session_raises_request_error(self):
+        def handler(request):
+            return httpx.Response(
+                404, request=request, json={"error": "unknown upload session"}
+            )
+
+        with self.assertRaises(SandboxRequestError) as cm:
+            _make_sync_client(handler).files_upload_part("gone", 0, b"abc")
+
+        self.assertEqual(cm.exception.status_code, 404)
+
+
+class TestAsyncFilesUploadPart(unittest.IsolatedAsyncioTestCase):
+    async def test_writes_part_at_offset(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            seen["body"] = request.read()
+            return httpx.Response(204, request=request)
+
+        await _make_async_client(handler).files_upload_part("u-4", 0, b"xyz")
+
+        self.assertEqual(seen["method"], "PUT")
+        self.assertEqual(seen["url"], "https://sb.example/files/uploads/u-4?offset=0")
+        self.assertEqual(seen["body"], b"xyz")
+
+
+class TestFilesUploadStatus(unittest.TestCase):
+    def test_returns_size_and_ranges(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            return httpx.Response(
+                200,
+                request=request,
+                json={
+                    "size": 10,
+                    "ranges": [{"start": 0, "end": 4}, {"start": 6, "end": 10}],
+                },
+            )
+
+        reply = _make_sync_client(handler).files_upload_status("u-1")
+
+        self.assertEqual(seen["method"], "GET")
+        self.assertEqual(seen["url"], "https://sb.example/files/uploads/u-1")
+        self.assertEqual(
+            reply,
+            {"size": 10, "ranges": [{"start": 0, "end": 4}, {"start": 6, "end": 10}]},
+        )
+
+
+class TestAsyncFilesUploadStatus(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_size_and_ranges(self):
+        def handler(request):
+            return httpx.Response(200, request=request, json={"size": 3, "ranges": []})
+
+        reply = await _make_async_client(handler).files_upload_status("u-5")
+
+        self.assertEqual(reply, {"size": 3, "ranges": []})
+
+
+class TestFilesUploadComplete(unittest.TestCase):
+    def test_returns_commit_reply(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            return httpx.Response(
+                200, request=request, json={"size": 10, "sha256": "ab" * 32}
+            )
+
+        reply = _make_sync_client(handler).files_upload_complete("u-1")
+
+        self.assertEqual(seen["method"], "POST")
+        self.assertEqual(seen["url"], "https://sb.example/files/uploads/u-1/complete")
+        self.assertEqual(reply, {"size": 10, "sha256": "ab" * 32})
+
+    def test_missing_ranges_raise_409_with_ranges_in_body(self):
+        def handler(request):
+            return httpx.Response(
+                409,
+                request=request,
+                json={
+                    "error": "2 range(s) of the upload are still missing",
+                    "ranges": [{"start": 0, "end": 2}, {"start": 8, "end": 10}],
+                },
+            )
+
+        with self.assertRaises(SandboxRequestError) as cm:
+            _make_sync_client(handler).files_upload_complete("u-1")
+
+        self.assertEqual(cm.exception.status_code, 409)
+        # The resume signal: the session stays live and the body carries
+        # the missing spans.
+        payload = json.loads(cm.exception.body)
+        self.assertEqual(
+            payload["ranges"], [{"start": 0, "end": 2}, {"start": 8, "end": 10}]
+        )
+
+
+class TestAsyncFilesUploadComplete(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_commit_reply(self):
+        def handler(request):
+            return httpx.Response(200, request=request, json={"size": 4})
+
+        reply = await _make_async_client(handler).files_upload_complete("u-6")
+
+        self.assertEqual(reply, {"size": 4})
+
+
+class TestFilesUploadAbort(unittest.TestCase):
+    def test_deletes_session(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            return httpx.Response(204, request=request)
+
+        self.assertIsNone(_make_sync_client(handler).files_upload_abort("u-1"))
+
+        self.assertEqual(seen["method"], "DELETE")
+        self.assertEqual(seen["url"], "https://sb.example/files/uploads/u-1")
+
+
+class TestAsyncFilesUploadAbort(unittest.IsolatedAsyncioTestCase):
+    async def test_deletes_session(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            return httpx.Response(204, request=request)
+
+        self.assertIsNone(await _make_async_client(handler).files_upload_abort("u-7"))
+
+        self.assertEqual(seen["method"], "DELETE")
 
 
 if __name__ == "__main__":
