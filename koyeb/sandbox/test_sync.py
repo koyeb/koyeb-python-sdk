@@ -197,16 +197,16 @@ class TestWalkLocal(unittest.TestCase):
         self._make(".git/config")
         self._make("sub/c.txt")
         entries = walk_local(self.root, exclude=(".git",))
-        self.assertEqual(sorted(e["path"] for e in entries), ["a.txt", "sub", "sub/c.txt"])
+        self.assertEqual(
+            sorted(e["path"] for e in entries), ["a.txt", "sub", "sub/c.txt"]
+        )
 
     def test_excluded_file_by_suffix(self):
         self._make("a.py")
         self._make("sub/b.py")
         self._make("sub/c.txt")
         entries = walk_local(self.root, exclude=("*.py",))
-        self.assertEqual(
-            sorted(e["path"] for e in entries), ["sub", "sub/c.txt"]
-        )
+        self.assertEqual(sorted(e["path"] for e in entries), ["sub", "sub/c.txt"])
 
     def test_mode_reflects_real_permissions(self):
         path = self._make("a.sh")
@@ -234,9 +234,7 @@ class TestDiff(unittest.TestCase):
         self.assertEqual(result.skipped, 1)
 
     def test_size_difference_transfers(self):
-        result = diff(
-            [_entry("a.txt", "file", 5)], [_entry("a.txt", "file", 6)]
-        )
+        result = diff([_entry("a.txt", "file", 5)], [_entry("a.txt", "file", 6)])
         self.assertEqual([e["path"] for e in result.to_transfer], ["a.txt"])
 
     def test_mtime_difference_past_a_second_transfers(self):
@@ -257,9 +255,7 @@ class TestDiff(unittest.TestCase):
         self.assertEqual(result.skipped, 1)
 
     def test_type_change_transfers(self):
-        result = diff(
-            [_entry("a", "dir")], [_entry("a", "file", 5)]
-        )
+        result = diff([_entry("a", "dir")], [_entry("a", "file", 5)])
         self.assertEqual([e["path"] for e in result.to_transfer], ["a"])
 
     def test_symlink_target_change_caught_by_size(self):
@@ -297,6 +293,17 @@ class TestDiff(unittest.TestCase):
     def test_local_other_type_skipped(self):
         result = diff([_entry("dev", "other")], [])
         self.assertEqual(result.to_transfer, [])
+        self.assertEqual(result.skipped, 1)
+
+    def test_unarchivable_pair_is_never_a_delete(self):
+        # Both sides have an unarchivable entry at the same path: the
+        # source cannot replace it, so the destination must keep it.
+        result = diff(
+            [_entry("dev", "other")],
+            [_entry("dev", "other")],
+            delete=True,
+        )
+        self.assertEqual(result.deletes, [])
         self.assertEqual(result.skipped, 1)
 
     def test_checksum_hashes_only_matching_files(self):
@@ -420,9 +427,7 @@ class TestPlanBatches(unittest.TestCase):
     def test_dirs_and_symlinks_ride_batches(self):
         entries = [_entry("d", "dir"), _entry("l", "symlink"), _entry("a", "file", 10)]
         batches, oversized = plan_batches(entries, part_size=50)
-        self.assertEqual(
-            [[e["path"] for e in b] for b in batches], [["d", "l", "a"]]
-        )
+        self.assertEqual([[e["path"] for e in b] for b in batches], [["d", "l", "a"]])
 
     def test_only_dirs_yields_one_batch(self):
         entries = [_entry("d", "dir"), _entry("d/e", "dir")]
@@ -438,9 +443,7 @@ class TestPlanBatches(unittest.TestCase):
 
 class TestPruneDescendants(unittest.TestCase):
     def test_descendants_of_kept_root_dropped(self):
-        self.assertEqual(
-            prune_descendants(["a", "a/b", "a/b/c", "d"]), ["a", "d"]
-        )
+        self.assertEqual(prune_descendants(["a", "a/b", "a/b/c", "d"]), ["a", "d"])
 
     def test_unsorted_input_prunes_to_topmost(self):
         self.assertEqual(prune_descendants(["a/b", "a"]), ["a"])
@@ -508,7 +511,9 @@ class TestBuildExtractArchive(unittest.TestCase):
         build_archive(self.src, entries, self.archive)
         extracted = extract_archive(self.archive, self.dst)
 
-        self.assertEqual(sorted(extracted), ["a.txt", "empty", "link", "sub", "sub/b.bin"])
+        self.assertEqual(
+            sorted(extracted), ["a.txt", "empty", "link", "sub", "sub/b.bin"]
+        )
         with open(os.path.join(self.dst, "a.txt"), "rb") as f:
             self.assertEqual(f.read(), b"hello")
         self.assertEqual(
@@ -521,12 +526,8 @@ class TestBuildExtractArchive(unittest.TestCase):
         )
         with open(os.path.join(self.dst, "sub", "b.bin"), "rb") as f:
             self.assertEqual(f.read(), b"\x00\xff")
-        self.assertTrue(
-            os.path.islink(os.path.join(self.dst, "link"))
-        )
-        self.assertEqual(
-            os.readlink(os.path.join(self.dst, "link")), "a.txt"
-        )
+        self.assertTrue(os.path.islink(os.path.join(self.dst, "link")))
+        self.assertEqual(os.readlink(os.path.join(self.dst, "link")), "a.txt")
         self.assertTrue(os.path.isdir(os.path.join(self.dst, "empty")))
 
     def test_extraction_replaces_existing_members(self):

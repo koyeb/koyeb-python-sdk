@@ -57,6 +57,7 @@ SYNC_BATCH_BYTES = 50 * 1024 * 1024
 # the semantics are ported faithfully; a malformed pattern raises
 # ValueError the way the executor answers 400.
 
+
 def _scan_chunk(pattern: str) -> Tuple[bool, str, str]:
     """Whether the chunk starts with *, the chunk, and the rest. (Go scanChunk.)
 
@@ -97,59 +98,106 @@ def _get_esc(chunk: str) -> Tuple[str, str]:
     return chunk[0], chunk[1:]
 
 
+def _match_class(chunk: str, r: str) -> Tuple[str, bool]:
+    """One [...] class (chunk starts after the '[') against r. (Go's arm.)
+
+    Returns (rest-of-chunk, matched); a malformed class raises
+    ValueError, the way the executor answers 400.
+    """
+    negated = chunk.startswith("^")
+    if negated:
+        chunk = chunk[1:]
+    matched = False
+    nrange = 0
+    while True:
+        if chunk.startswith("]") and nrange > 0:
+            chunk = chunk[1:]
+            break
+        lo, chunk = _get_esc(chunk)
+        hi = lo
+        if chunk.startswith("-"):
+            hi, chunk = _get_esc(chunk[1:])
+        if lo <= r <= hi:
+            matched = True
+        nrange += 1
+    return chunk, matched != negated
+
+
+def _match_unit(c: str, chunk: str, s: str) -> Tuple[str, str, bool]:
+    """One single-character unit against s[0].
+
+    '?' is any non-separator, a literal must equal itself, and a
+    backslash escapes the next pattern character. Returns
+    (rest-of-chunk, rest-of-s, matched).
+    """
+    if c == "?":
+        if s[0] == "/":
+            return chunk, s, False
+        return chunk, s[1:], True
+    if c == "\\":
+        if not chunk:
+            raise ValueError("bad exclude pattern")
+        if chunk[0] != s[0]:
+            return chunk[1:], s, False
+        return chunk[1:], s[1:], True
+    if c != s[0]:
+        return chunk, s, False
+    return chunk, s[1:], True
+
+
+def _validate_chunk(chunk: str) -> None:
+    """Raise on a malformed remainder. (Go validates after any mismatch.)"""
+    i = 0
+    while i < len(chunk):
+        c = chunk[i]
+        i += 1
+        if c == "\\":
+            if i >= len(chunk):
+                raise ValueError("bad exclude pattern")
+            i += 1
+        elif c == "[":
+            rest, _ = _match_class(chunk[i:], "")
+            i = len(chunk) - len(rest)
+
+
 def _match_chunk(chunk: str, s: str) -> Tuple[str, bool]:
     """Match one pattern chunk at the head of s. (Go matchChunk.)
 
     Returns (rest-of-s, matched); raises ValueError on a malformed chunk.
-    After the match fails the chunk is still validated, exactly like Go.
+    A chunk that cannot match — wrong literal, exhausted s — is still
+    validated for the same errors a matching one would raise, exactly
+    like Go's failed-flag protocol (the post-failure state is
+    unobservable, so the match stops at the first mismatch instead).
     """
-    failed = False
-    while chunk:
-        if not failed and not s:
-            failed = True
+    while chunk and s:
         c, chunk = chunk[0], chunk[1:]
         if c == "[":
-            if not failed:
-                r, s = s[0], s[1:]
-            else:
-                r = ""
-            negated = chunk.startswith("^")
-            if negated:
-                chunk = chunk[1:]
-            matched = False
-            nrange = 0
-            while True:
-                if chunk.startswith("]") and nrange > 0:
-                    chunk = chunk[1:]
-                    break
-                lo, chunk = _get_esc(chunk)
-                hi = lo
-                if chunk.startswith("-"):
-                    hi, chunk = _get_esc(chunk[1:])
-                if lo <= r <= hi:
-                    matched = True
-                nrange += 1
-            if matched == negated:
-                failed = True
-        elif c == "?":
-            if not failed:
-                if s[:1] == "/":
-                    failed = True
+            chunk, ok = _match_class(chunk, s[0])
+            if ok:
                 s = s[1:]
-        elif c == "\\":
-            if not chunk:
-                raise ValueError(f"bad exclude pattern")
-            if not failed:
-                if chunk[0] != s[:1]:
-                    failed = True
-                s = s[1:]
-            chunk = chunk[1:]
         else:
-            if not failed:
-                if c != s[:1]:
-                    failed = True
-                s = s[1:]
-    return s, not failed
+            chunk, s, ok = _match_unit(c, chunk, s)
+        if not ok:
+            break
+    if chunk:
+        _validate_chunk(chunk)
+        return s, False
+    return s, True
+
+
+def _star_skip(chunk: str, name: str, pattern: str) -> Optional[str]:
+    """Try the chunk at every skip point before a separator.
+
+    Returns the advanced name on a match, None when none fits. A last
+    chunk must exhaust the name — a longer rest keeps scanning.
+    """
+    i = 0
+    while i < len(name) and name[i] != "/":
+        rest, ok = _match_chunk(chunk, name[i + 1 :])
+        if ok and not (not pattern and rest):
+            return rest
+        i += 1
+    return None
 
 
 def path_match(pattern: str, name: str) -> bool:
@@ -164,20 +212,9 @@ def path_match(pattern: str, name: str) -> bool:
             name = rest
             continue
         if star:
-            # Look for a match skipping i+1 bytes of the name.
-            matched_at = None
-            i = 0
-            while i < len(name) and name[i] != "/":
-                rest, ok = _match_chunk(chunk, name[i + 1 :])
-                if ok:
-                    if not pattern and rest:
-                        i += 1
-                        continue
-                    matched_at = rest
-                    break
-                i += 1
-            if matched_at is not None:
-                name = matched_at
+            advanced = _star_skip(chunk, name, pattern)
+            if advanced is not None:
+                name = advanced
                 continue
         # Before returning False, validate the rest of the pattern.
         while pattern:
@@ -213,6 +250,7 @@ def excluded(rel: str, patterns: Sequence[str]) -> bool:
 # zeros trimmed); the diff compares whole seconds, because tar's PAX mtime
 # cannot round-trip nanosecond precision — the same default as rsync.
 
+
 def format_mtime(ns: int) -> str:
     """Nanoseconds since the epoch as the executor formats mtime."""
     seconds, nanos = divmod(ns, 1_000_000_000)
@@ -233,6 +271,7 @@ def mtime_seconds(mtime: str) -> int:
 
 # --------------------------------------------------------------------------
 # local walk
+
 
 def _rel_path(root: str, dirpath: str, name: str) -> str:
     rel = os.path.relpath(os.path.join(dirpath, name), root)
@@ -295,6 +334,7 @@ def walk_local(root: str, exclude: Sequence[str] = ()) -> List[Dict[str, Any]]:
 # --------------------------------------------------------------------------
 # diff
 
+
 @dataclass
 class SyncDiff:
     """What sync() must do with one pair of trees, before any transfer.
@@ -332,6 +372,10 @@ def diff(
     remote = {e["path"]: e for e in remote_entries}
     for entry in local_entries:
         if entry.get("type") == "other":
+            # The source has something at this path it cannot send: the
+            # destination keeps whatever it has there — an unarchivable
+            # pair is skipped on both sides, never a delete candidate.
+            remote.pop(entry["path"], None)
             result.skipped += 1
             continue
         path = entry["path"]
@@ -406,6 +450,7 @@ def _count(result: SyncDiff, entry: Dict[str, Any]) -> None:
 # --------------------------------------------------------------------------
 # batch planning
 
+
 def plan_batches(
     entries: Sequence[Dict[str, Any]], part_size: int
 ) -> Tuple[List[List[Dict[str, Any]]], List[Dict[str, Any]]]:
@@ -440,6 +485,7 @@ def plan_batches(
 
 # --------------------------------------------------------------------------
 # deletes and the remote default
+
 
 def remote_join(remote: str, rel: str) -> str:
     """A remote path for a relative entry path (remote paths are POSIX)."""
@@ -487,6 +533,7 @@ def relative_remote(local: str) -> str:
 # long names working; mtimes are whole seconds, exactly what the diff
 # compares. Owners are not kept (uid/gid 0), per the design.
 
+
 def _tar_member(entry: Dict[str, Any]) -> "tarfile.TarInfo":
     info = tarfile.TarInfo(entry["path"])
     info.mode = int(entry["mode"], 8)
@@ -505,9 +552,7 @@ def _tar_member(entry: Dict[str, Any]) -> "tarfile.TarInfo":
     return info
 
 
-def build_archive(
-    root: str, entries: Sequence[Dict[str, Any]], dest: str
-) -> None:
+def build_archive(root: str, entries: Sequence[Dict[str, Any]], dest: str) -> None:
     """Write the changed entries as a gzip'd tar spooled to dest.
 
     Members mirror the executor's archive: paths relative and
@@ -540,6 +585,46 @@ def _clean_member(name: str) -> str:
     return normalized
 
 
+def _clear_member(path: str) -> None:
+    """Make room for a symlink: replace whatever sits at its path."""
+    if os.path.isdir(path) and not os.path.islink(path):
+        shutil.rmtree(path)
+    elif os.path.lexists(path):
+        os.unlink(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+
+def _extract_file(
+    tar: "tarfile.TarFile", member: "tarfile.TarInfo", path: str
+) -> None:
+    """Stream one regular member to path, then keep its mode and mtime."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    source = tar.extractfile(member)
+    if source is None:
+        return
+    with open(path, "wb") as out:
+        shutil.copyfileobj(source, out, 1 << 20)
+    os.chmod(path, member.mode)
+    os.utime(path, (int(member.mtime), int(member.mtime)))
+
+
+def _extract_member(
+    tar: "tarfile.TarFile", member: "tarfile.TarInfo", path: str
+) -> str:
+    """Extract one member at path; returns its kind (dir|sym|file|skip)."""
+    if member.isdir():
+        os.makedirs(path, exist_ok=True)
+        return "dir"
+    if member.issym():
+        _clear_member(path)
+        os.symlink(member.linkname, path)
+        return "sym"
+    if member.isfile():
+        _extract_file(tar, member, path)
+        return "file"
+    return "skip"
+
+
 def extract_archive(
     archive_path: str, dest: str, keep: Optional[Set[str]] = None
 ) -> List[str]:
@@ -560,27 +645,11 @@ def extract_archive(
             if keep is not None and name not in keep:
                 continue
             path = os.path.join(dest, *name.split("/"))
-            if member.isdir():
-                os.makedirs(path, exist_ok=True)
-                dirs.append((path, member.mode, int(member.mtime)))
-            elif member.issym():
-                if os.path.lexists(path) and not os.path.isdir(path):
-                    os.unlink(path)
-                elif os.path.isdir(path):
-                    shutil.rmtree(path)
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                os.symlink(member.linkname, path)
-            elif member.isfile():
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                source = tar.extractfile(member)
-                if source is None:
-                    continue
-                with open(path, "wb") as out:
-                    shutil.copyfileobj(source, out, 1 << 20)
-                os.chmod(path, member.mode)
-                os.utime(path, (int(member.mtime), int(member.mtime)))
-            else:
+            kind = _extract_member(tar, member, path)
+            if kind == "skip":
                 continue
+            if kind == "dir":
+                dirs.append((path, member.mode, int(member.mtime)))
             extracted.append(name)
     # Directory modes and mtimes last, deepest first, like the executor.
     for path, mode, mtime in sorted(dirs, key=lambda d: d[0], reverse=True):

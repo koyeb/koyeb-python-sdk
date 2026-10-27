@@ -48,9 +48,7 @@ class SnapshotCopyTestCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.base = self._tmp.name
         self.addCleanup(self._tmp.cleanup)
-        self.snap = DeclarativeSnapshot(
-            name="t", image="img", api_token="token"
-        )
+        self.snap = DeclarativeSnapshot(name="t", image="img", api_token="token")
 
     def _fs(self, new_routes):
         fs = _FakeFS(new_routes)

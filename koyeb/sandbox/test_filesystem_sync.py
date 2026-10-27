@@ -299,9 +299,7 @@ def _fs(client):
 @contextmanager
 def _async_fs(client):
     fs = AsyncSandboxFilesystem(sandbox=None)
-    with patch.object(
-        AsyncSandboxFilesystem, "_get_async_client", return_value=client
-    ):
+    with patch.object(AsyncSandboxFilesystem, "_get_async_client", return_value=client):
         yield fs
 
 
@@ -316,9 +314,7 @@ def _local_tree(base, name="src"):
     os.chmod(os.path.join(root, "a.txt"), 0o755)
     os.utime(os.path.join(root, "a.txt"), ns=(1774590000_000000000,) * 2)
     _write(os.path.join(root, "sub", "b.bin"), b"\x00\xff")
-    os.utime(
-        os.path.join(root, "sub", "b.bin"), ns=(1774590000_000000000,) * 2
-    )
+    os.utime(os.path.join(root, "sub", "b.bin"), ns=(1774590000_000000000,) * 2)
     os.symlink("a.txt", os.path.join(root, "link"))
     os.makedirs(os.path.join(root, "empty"))
     return root
@@ -354,7 +350,9 @@ class TestSyncPush(SyncTestCase):
         target = os.path.join(self.remote_root, "dst")
         with open(os.path.join(target, "a.txt"), "rb") as f:
             self.assertEqual(f.read(), b"hello")
-        self.assertEqual(oct(os.stat(os.path.join(target, "a.txt")).st_mode & 0o7777), oct(0o755))
+        self.assertEqual(
+            oct(os.stat(os.path.join(target, "a.txt")).st_mode & 0o7777), oct(0o755)
+        )
         with open(os.path.join(target, "sub", "b.bin"), "rb") as f:
             self.assertEqual(f.read(), b"\x00\xff")
         self.assertTrue(os.path.islink(os.path.join(target, "link")))
@@ -428,15 +426,9 @@ class TestSyncPush(SyncTestCase):
         with _fs(self.fake) as fs:
             result = fs.sync(local, "dst", delete=True)
 
-        self.assertFalse(
-            os.path.exists(os.path.join(self.remote_root, "dst", "gone"))
-        )
-        self.assertEqual(
-            [c[1] for c in self._calls("delete_dir")], ["dst/gone"]
-        )
-        self.assertEqual(
-            [c[1] for c in self._calls("delete_file")], []
-        )
+        self.assertFalse(os.path.exists(os.path.join(self.remote_root, "dst", "gone")))
+        self.assertEqual([c[1] for c in self._calls("delete_dir")], ["dst/gone"])
+        self.assertEqual([c[1] for c in self._calls("delete_file")], [])
         self.assertEqual(result["deleted"], 1)
 
     def test_push_oversized_file_routes_through_upload_file(self):
@@ -577,7 +569,9 @@ class TestSyncPull(SyncTestCase):
 
         with open(os.path.join(dest, "a.txt"), "rb") as f:
             self.assertEqual(f.read(), b"hello")
-        self.assertEqual(oct(os.stat(os.path.join(dest, "a.txt")).st_mode & 0o7777), oct(0o755))
+        self.assertEqual(
+            oct(os.stat(os.path.join(dest, "a.txt")).st_mode & 0o7777), oct(0o755)
+        )
         self.assertTrue(os.path.islink(os.path.join(dest, "link")))
         self.assertTrue(os.path.isdir(os.path.join(dest, "empty")))
         self.assertEqual(
@@ -698,9 +692,7 @@ class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["uploaded"], 5)
         self.assertEqual(again["uploaded"], 0)
-        self.assertTrue(
-            os.path.exists(os.path.join(self.remote_root, "dst", "a.txt"))
-        )
+        self.assertTrue(os.path.exists(os.path.join(self.remote_root, "dst", "a.txt")))
 
     async def test_pull_into_empty_tree(self):
         source = _local_tree(self.base)
@@ -722,7 +714,9 @@ class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
         async with _async_ctx(self.fake) as fs:
             result = await fs.sync(local, "dst", dry_run=True)
 
-        self.assertEqual([c for c in self.fake.calls if c[0] == "files_archive_put"], [])
+        self.assertEqual(
+            [c for c in self.fake.calls if c[0] == "files_archive_put"], []
+        )
         self.assertEqual(result["uploaded"], 5)
 
     async def test_push_delete(self):
@@ -744,9 +738,7 @@ class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
 @asynccontextmanager
 async def _async_ctx(client):
     fs = AsyncSandboxFilesystem(sandbox=None)
-    with patch.object(
-        AsyncSandboxFilesystem, "_get_async_client", return_value=client
-    ):
+    with patch.object(AsyncSandboxFilesystem, "_get_async_client", return_value=client):
         yield fs
 
 

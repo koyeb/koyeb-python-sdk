@@ -1219,6 +1219,18 @@ class TestAsyncFilesList(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
+    async def test_400_raises_request_error(self):
+        def handler(request):
+            return httpx.Response(
+                400, request=request, json={"error": "path is required"}
+            )
+
+        with self.assertRaises(SandboxRequestError) as ctx:
+            async for _ in _make_async_client(handler).files_list("/tmp"):
+                pass
+
+        self.assertEqual(ctx.exception.status_code, 400)
+
 
 class TestFilesListTimeouts(unittest.TestCase):
     def test_idle_stall_names_the_bound(self):
@@ -1312,6 +1324,20 @@ class TestAsyncFilesArchiveGet(unittest.IsolatedAsyncioTestCase):
             "https://sb.example/files/archive?path=%2Ftmp&exclude=%2A.log",
         )
         self.assertEqual(b"".join(chunks), b"\x1f\x8barchive-bytes")
+
+    async def test_400_on_bad_pattern_raises(self):
+        def handler(request):
+            return httpx.Response(
+                400, request=request, json={"error": "bad exclude pattern \"[\""}
+            )
+
+        with self.assertRaises(SandboxRequestError) as ctx:
+            async for _ in _make_async_client(handler).files_archive_get(
+                "/tmp", exclude=("[",)
+            ):
+                pass
+
+        self.assertEqual(ctx.exception.status_code, 400)
 
 
 class TestFilesArchiveGetTimeouts(unittest.TestCase):

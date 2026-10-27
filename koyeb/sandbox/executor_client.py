@@ -573,9 +573,7 @@ class SandboxClient:
         )
         return response.json()
 
-    def files_stat(
-        self, path: str, hash: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def files_stat(self, path: str, hash: Optional[str] = None) -> Dict[str, Any]:
         """
         Stat a file on the streamed /files routes (executor v0.0.24+).
 
@@ -1514,9 +1512,7 @@ class AsyncSandboxClient:
         )
         return response.json()
 
-    async def files_stat(
-        self, path: str, hash: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def files_stat(self, path: str, hash: Optional[str] = None) -> Dict[str, Any]:
         """
         Stat a file on the streamed /files routes (executor v0.0.24+).
 
