@@ -7,16 +7,20 @@ Using SandboxClient HTTP API
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
 import os
 import shlex
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncIterator,
     BinaryIO,
     Callable,
@@ -25,6 +29,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Tuple,
     Union,
 )
 
@@ -33,6 +38,7 @@ from .errors import (
     SandboxError,
     SandboxRequestError,
     SandboxServiceError,
+    SandboxTimeoutError,
 )
 
 if TYPE_CHECKING:
@@ -229,6 +235,98 @@ def _progress_chunks(
         reporter.update(done)
         yield chunk
     reporter.finish(done)
+
+
+# Multipart uploads: a file larger than one request's budget goes up as
+# offset-addressed parts. The defaults follow the platform contract: 50 MiB
+# parts (the executor caps at max_part_size), 4 in flight — memory holds at
+# most part_size * concurrency.
+UPLOAD_PART_SIZE = 50 * 1024 * 1024
+UPLOAD_CONCURRENCY = 4
+
+# A part that times out is split in half rather than failed: a smaller part
+# needs less time on the wire. Below twice this floor a split cannot help —
+# the connection is stalling, not slow.
+_MIN_SPLIT_SIZE = 1024 * 1024
+
+# The executor's sessions live in memory: a restart or the 1 h idle expiry
+# loses them, and a 404 from a part or complete means starting over.
+_LOST_SESSION_MESSAGE = (
+    "Upload session was lost — the executor restarted or the session "
+    "expired; restart the upload"
+)
+
+
+def _part_plan(start: int, end: int, part_size: int) -> List[Tuple[int, int]]:
+    """(offset, length) parts covering [start, end) in part_size slices."""
+    return [(o, min(part_size, end - o)) for o in range(start, end, part_size)]
+
+
+def _read_part_with_digest(path: str, offset: int, length: int) -> Tuple[bytes, str]:
+    """A part's bytes and digest, read from disk at its offset.
+
+    Read per attempt — no part bytes are buffered between retries, so
+    memory holds at most one part per worker.
+    """
+    with open(path, "rb") as f:
+        f.seek(offset)
+        data = f.read(length)
+    return data, hashlib.sha256(data).hexdigest()
+
+
+def _missing_ranges_from_409(body: Optional[str]) -> Optional[List[Tuple[int, int]]]:
+    """The complete-409 body's missing spans, as (start, end) tuples.
+
+    None means the body carried no usable ranges: the resume signal is
+    absent and the failure is the caller's to report.
+    """
+    try:
+        ranges = json.loads(body or "").get("ranges")
+        if not isinstance(ranges, list) or not ranges:
+            return None
+        spans = []
+        for r in ranges:
+            start, end = r["start"], r["end"]
+            if not isinstance(start, int) or not isinstance(end, int):
+                return None
+            if start < 0 or end <= start:
+                return None
+            spans.append((start, end))
+        return spans
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None
+
+
+def _split_worthy(e: BaseException) -> bool:
+    """Whether a failed part should be retried as smaller halves.
+
+    The transport already retries transient network errors; what it never
+    retries is a fired timeout — the idle bound (SandboxTimeoutError) or
+    Cloudflare's origin cap (524, surfaced as SandboxServiceError after
+    the transport's own retries). Those are the fs layer's to split: a
+    smaller part needs less time on the wire.
+    """
+    if isinstance(e, SandboxTimeoutError):
+        return True
+    return isinstance(e, SandboxServiceError) and e.status_code == 524
+
+
+class _PartProgress:
+    """Byte counter across concurrent parts: progress(done, total) as they land."""
+
+    def __init__(self, progress: Optional[Callable[[int, int], None]], total: int):
+        self._reporter = _ProgressReporter(progress, total)
+        self._done = 0
+        self._lock = threading.Lock()
+
+    def add(self, n: int) -> None:
+        with self._lock:
+            self._done += n
+            self._reporter.update(self._done)
+
+    def finish(self) -> None:
+        with self._lock:
+            self._reporter.finish(self._done)
 
 
 @dataclass
@@ -638,14 +736,21 @@ class SandboxFilesystem:
         encoding: str = "utf-8",
         *,
         progress: Optional[Callable[[int, int], None]] = None,
+        timeout: Optional[float] = None,
+        part_size: int = UPLOAD_PART_SIZE,
+        concurrency: int = UPLOAD_CONCURRENCY,
     ) -> None:
         """
         Upload a local file to the sandbox synchronously.
 
         On executors v0.0.24+ the file streams from disk through PUT
         /files — binary-safe, constant memory — with optional progress
-        callbacks. Older executors keep the legacy JSON behavior (the
-        encoding parameter applies there only).
+        callbacks. A file larger than part_size uploads as a multipart
+        session: up to `concurrency` parts in flight, each read from disk
+        at its offset, per-part sha256, timed-out parts split into
+        halves, and a complete that reports missing ranges fills them
+        and completes again. Older executors keep the legacy JSON
+        behavior (the encoding parameter applies there only).
 
         Args:
             local_path: Path to the local file
@@ -654,9 +759,13 @@ class SandboxFilesystem:
                 streamed routes are binary-safe and ignore it
             progress: Optional callback(done, total), called at most every
                 100 ms during the transfer plus a final call
-
-        The transfer is bounded by a 60 s idle timeout only; a per-call
-        timeout override parameter is planned with the multipart slice.
+            timeout: Seconds without progress before the transfer's
+                requests fail (default: the 60 s idle bound)
+            part_size: Bytes per multipart part (default 50 MiB, capped by
+                the executor's max_part_size); a file at or below it takes
+                the single streamed PUT
+            concurrency: Parts in flight for a multipart upload (default 4;
+                memory holds at most part_size x concurrency)
 
         Raises:
             SandboxFileNotFoundError: If local file doesn't exist
@@ -666,26 +775,236 @@ class SandboxFilesystem:
 
         client = self._get_client()
         if client.has_files_routes():
-            reporter = _ProgressReporter(progress, os.path.getsize(local_path))
+            if part_size <= 0 or concurrency <= 0:
+                raise SandboxFilesystemError(
+                    "part_size and concurrency must be positive"
+                )
+            size = os.path.getsize(local_path)
             with _translating_files_errors("upload file", remote_path):
-                digest = _file_sha256(local_path)
-                with open(local_path, "rb") as f:
-                    reply = client.files_put(
+                if size > part_size:
+                    self._upload_multipart(
+                        client,
+                        local_path,
                         remote_path,
-                        _progress_chunks(f, reporter),
-                        sha256=digest,
+                        size,
+                        part_size=part_size,
+                        concurrency=concurrency,
+                        timeout=timeout,
+                        progress=progress,
                     )
-                if reply["sha256"] != digest:
-                    raise SandboxFilesystemError(
-                        f"Upload corrupted in transit: executor sha256 "
-                        f"{reply['sha256']} != {digest}"
-                    )
+                else:
+                    reporter = _ProgressReporter(progress, size)
+                    digest = _file_sha256(local_path)
+                    with open(local_path, "rb") as f:
+                        reply = client.files_put(
+                            remote_path,
+                            _progress_chunks(f, reporter),
+                            sha256=digest,
+                            timeout=timeout,
+                        )
+                    if reply["sha256"] != digest:
+                        raise SandboxFilesystemError(
+                            f"Upload corrupted in transit: executor sha256 "
+                            f"{reply['sha256']} != {digest}"
+                        )
             return
 
         with open(local_path, "rb") as f:
             content_bytes = f.read()
 
         self.write_file(remote_path, content_bytes, encoding=encoding)
+
+    def _upload_multipart(
+        self,
+        client: SandboxClient,
+        local_path: str,
+        remote_path: str,
+        size: int,
+        *,
+        part_size: int,
+        concurrency: int,
+        timeout: Optional[float],
+        progress: Optional[Callable[[int, int], None]],
+    ) -> None:
+        """The session flow: open, parts, complete — abort on any failure.
+
+        Sessions live at the executor: a lost one (restart, idle expiry)
+        cannot be resumed, only restarted.
+        """
+        digest = _file_sha256(local_path)
+        session = client.files_upload_open(
+            remote_path, size, sha256=digest, timeout=timeout
+        )
+        upload_id = session.get("upload_id")
+        if not isinstance(upload_id, str) or not upload_id:
+            raise SandboxFilesystemError(
+                f"Upload session reply missing upload_id: {session}"
+            )
+        cap = session.get("max_part_size")
+        if not isinstance(cap, int) or cap < 1:
+            raise SandboxFilesystemError(
+                f"Upload session reply missing max_part_size: {session}"
+            )
+        effective = min(part_size, cap)
+        counter = _PartProgress(progress, size)
+        try:
+            self._put_parts(
+                client,
+                local_path,
+                upload_id,
+                [(0, size)],
+                effective,
+                concurrency,
+                timeout,
+                counter,
+            )
+            reply = self._complete_filling_gaps(
+                client, local_path, upload_id, effective, concurrency, timeout, counter
+            )
+            if reply["sha256"] != digest:
+                raise SandboxFilesystemError(
+                    f"Upload corrupted in transit: executor sha256 "
+                    f"{reply['sha256']} != {digest}"
+                )
+        except BaseException:
+            try:
+                client.files_upload_abort(upload_id, timeout=timeout)
+            except SandboxError:
+                pass  # never mask the failure that caused the abort
+            raise
+        counter.finish()
+
+    def _put_parts(
+        self,
+        client: SandboxClient,
+        local_path: str,
+        upload_id: str,
+        ranges: List[Tuple[int, int]],
+        part_size: int,
+        concurrency: int,
+        timeout: Optional[float],
+        counter: _PartProgress,
+    ) -> None:
+        """PUT the given ranges as parts, `concurrency` in flight, fail fast."""
+        plan: List[Tuple[int, int]] = []
+        for start, end in ranges:
+            plan.extend(_part_plan(start, end, part_size))
+        if not plan:
+            return
+        queue = iter(plan)
+        stop = threading.Event()
+
+        def work() -> None:
+            while not stop.is_set():
+                part = next(queue, None)
+                if part is None:
+                    return
+                try:
+                    self._put_one_part(
+                        client,
+                        local_path,
+                        upload_id,
+                        part[0],
+                        part[1],
+                        timeout,
+                        counter,
+                    )
+                except BaseException:
+                    stop.set()
+                    raise
+
+        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+            futures = [pool.submit(work) for _ in range(min(concurrency, len(plan)))]
+            first: Optional[BaseException] = None
+            for future in futures:
+                try:
+                    future.result()
+                except BaseException as e:
+                    if first is None:
+                        first = e
+        if first is not None:
+            raise first
+
+    def _put_one_part(
+        self,
+        client: SandboxClient,
+        local_path: str,
+        upload_id: str,
+        offset: int,
+        length: int,
+        timeout: Optional[float],
+        counter: _PartProgress,
+    ) -> None:
+        """PUT one range; a timed-out part splits into halves and retries."""
+        pending = [(offset, length)]
+        while pending:
+            off, ln = pending.pop()
+            data, digest = _read_part_with_digest(local_path, off, ln)
+            try:
+                client.files_upload_part(
+                    upload_id, off, data, sha256=digest, timeout=timeout
+                )
+            except SandboxError as e:
+                # Split-worthy first: a 524 arrives as SandboxServiceError,
+                # a subclass of SandboxRequestError.
+                if _split_worthy(e) and ln >= 2 * _MIN_SPLIT_SIZE:
+                    half = ln // 2
+                    pending.append((off + half, ln - half))
+                    pending.append((off, half))
+                    continue
+                if isinstance(e, SandboxRequestError) and e.status_code == 404:
+                    raise SandboxFilesystemError(_LOST_SESSION_MESSAGE) from e
+                raise
+            counter.add(ln)
+
+    def _complete_filling_gaps(
+        self,
+        client: SandboxClient,
+        local_path: str,
+        upload_id: str,
+        part_size: int,
+        concurrency: int,
+        timeout: Optional[float],
+        counter: _PartProgress,
+    ) -> Dict[str, Any]:
+        """Complete; a 409's missing ranges are filled and complete retried.
+
+        The session stays live across a 409 — it is the resume signal.
+        Every fill must shrink the missing bytes; a set that does not is
+        the executor not recording the fills, and that loop is cut here
+        rather than spun forever.
+        """
+        previous: Optional[int] = None
+        while True:
+            try:
+                return client.files_upload_complete(upload_id, timeout=timeout)
+            except SandboxRequestError as e:
+                if e.status_code == 404:
+                    raise SandboxFilesystemError(_LOST_SESSION_MESSAGE) from e
+                if e.status_code != 409:
+                    raise
+                missing = _missing_ranges_from_409(e.body)
+                if not missing:
+                    raise SandboxFilesystemError(
+                        f"Upload incomplete and the missing-ranges reply was "
+                        f"unusable: {e.body!r}"
+                    ) from e
+                missing_bytes = sum(end - start for start, end in missing)
+                if previous is not None and missing_bytes >= previous:
+                    raise SandboxFilesystemError(
+                        f"Upload made no progress filling missing ranges: {missing}"
+                    ) from e
+                previous = missing_bytes
+                self._put_parts(
+                    client,
+                    local_path,
+                    upload_id,
+                    missing,
+                    part_size,
+                    concurrency,
+                    timeout,
+                    counter,
+                )
 
     def download_file(
         self,
@@ -694,6 +1013,7 @@ class SandboxFilesystem:
         encoding: str = "utf-8",
         *,
         progress: Optional[Callable[[int, int], None]] = None,
+        timeout: Optional[float] = None,
     ) -> None:
         """
         Download a file from the sandbox to a local path synchronously.
@@ -710,9 +1030,8 @@ class SandboxFilesystem:
                 streamed routes are binary-safe and ignore it
             progress: Optional callback(done, total), called at most every
                 100 ms during the transfer plus a final call
-
-        The transfer is bounded by a 60 s idle timeout only; a per-call
-        timeout override parameter is planned with the multipart slice.
+            timeout: Seconds without progress before the transfer's stream
+                fails (default: the 60 s idle bound)
 
         Raises:
             SandboxFileNotFoundError: If remote file doesn't exist
@@ -727,7 +1046,7 @@ class SandboxFilesystem:
                 renamed = False
                 try:
                     with open(part_path, "wb") as out:
-                        for chunk in client.files_read(remote_path):
+                        for chunk in client.files_read(remote_path, timeout=timeout):
                             out.write(chunk)
                             done += len(chunk)
                             reporter.update(done)
@@ -1179,14 +1498,21 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         encoding: str = "utf-8",
         *,
         progress: Optional[Callable[[int, int], None]] = None,
+        timeout: Optional[float] = None,
+        part_size: int = UPLOAD_PART_SIZE,
+        concurrency: int = UPLOAD_CONCURRENCY,
     ) -> None:
         """
         Upload a local file to the sandbox asynchronously.
 
         On executors v0.0.24+ the file streams from disk through PUT
         /files — binary-safe, constant memory — with optional progress
-        callbacks. Older executors keep the legacy JSON behavior (the
-        encoding parameter applies there only).
+        callbacks. A file larger than part_size uploads as a multipart
+        session: up to `concurrency` parts in flight, each read from disk
+        at its offset, per-part sha256, timed-out parts split into
+        halves, and a complete that reports missing ranges fills them
+        and completes again. Older executors keep the legacy JSON
+        behavior (the encoding parameter applies there only).
 
         Args:
             local_path: Path to the local file
@@ -1195,9 +1521,13 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                 streamed routes are binary-safe and ignore it
             progress: Optional callback(done, total), called at most every
                 100 ms during the transfer plus a final call
-
-        The transfer is bounded by a 60 s idle timeout only; a per-call
-        timeout override parameter is planned with the multipart slice.
+            timeout: Seconds without progress before the transfer's
+                requests fail (default: the 60 s idle bound)
+            part_size: Bytes per multipart part (default 50 MiB, capped by
+                the executor's max_part_size); a file at or below it takes
+                the single streamed PUT
+            concurrency: Parts in flight for a multipart upload (default 4;
+                memory holds at most part_size x concurrency)
 
         Raises:
             SandboxFileNotFoundError: If local file doesn't exist
@@ -1207,26 +1537,234 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
 
         client = self._get_async_client()
         if await client.has_files_routes():
-            reporter = _ProgressReporter(progress, os.path.getsize(local_path))
+            if part_size <= 0 or concurrency <= 0:
+                raise SandboxFilesystemError(
+                    "part_size and concurrency must be positive"
+                )
+            size = os.path.getsize(local_path)
             with _translating_files_errors("upload file", remote_path):
-                digest = _file_sha256(local_path)
-                with open(local_path, "rb") as f:
-                    reply = await client.files_put(
+                if size > part_size:
+                    await self._upload_multipart(
+                        client,
+                        local_path,
                         remote_path,
-                        _progress_chunks(f, reporter),
-                        sha256=digest,
+                        size,
+                        part_size=part_size,
+                        concurrency=concurrency,
+                        timeout=timeout,
+                        progress=progress,
                     )
-                if reply["sha256"] != digest:
-                    raise SandboxFilesystemError(
-                        f"Upload corrupted in transit: executor sha256 "
-                        f"{reply['sha256']} != {digest}"
-                    )
+                else:
+                    reporter = _ProgressReporter(progress, size)
+                    digest = _file_sha256(local_path)
+                    with open(local_path, "rb") as f:
+                        reply = await client.files_put(
+                            remote_path,
+                            _progress_chunks(f, reporter),
+                            sha256=digest,
+                            timeout=timeout,
+                        )
+                    if reply["sha256"] != digest:
+                        raise SandboxFilesystemError(
+                            f"Upload corrupted in transit: executor sha256 "
+                            f"{reply['sha256']} != {digest}"
+                        )
             return
 
         with open(local_path, "rb") as f:
             content_bytes = f.read()
 
         await self.write_file(remote_path, content_bytes, encoding=encoding)
+
+    async def _upload_multipart(
+        self,
+        client: AsyncSandboxClient,
+        local_path: str,
+        remote_path: str,
+        size: int,
+        *,
+        part_size: int,
+        concurrency: int,
+        timeout: Optional[float],
+        progress: Optional[Callable[[int, int], None]],
+    ) -> None:
+        """The session flow: open, parts, complete — abort on any failure.
+
+        Sessions live at the executor: a lost one (restart, idle expiry)
+        cannot be resumed, only restarted.
+        """
+        digest = _file_sha256(local_path)
+        session = await client.files_upload_open(
+            remote_path, size, sha256=digest, timeout=timeout
+        )
+        upload_id = session.get("upload_id")
+        if not isinstance(upload_id, str) or not upload_id:
+            raise SandboxFilesystemError(
+                f"Upload session reply missing upload_id: {session}"
+            )
+        cap = session.get("max_part_size")
+        if not isinstance(cap, int) or cap < 1:
+            raise SandboxFilesystemError(
+                f"Upload session reply missing max_part_size: {session}"
+            )
+        effective = min(part_size, cap)
+        counter = _PartProgress(progress, size)
+        try:
+            await self._put_parts(
+                client,
+                local_path,
+                upload_id,
+                [(0, size)],
+                effective,
+                concurrency,
+                timeout,
+                counter,
+            )
+            reply = await self._complete_filling_gaps(
+                client, local_path, upload_id, effective, concurrency, timeout, counter
+            )
+            if reply["sha256"] != digest:
+                raise SandboxFilesystemError(
+                    f"Upload corrupted in transit: executor sha256 "
+                    f"{reply['sha256']} != {digest}"
+                )
+        except BaseException:
+            try:
+                await client.files_upload_abort(upload_id, timeout=timeout)
+            except SandboxError:
+                pass  # never mask the failure that caused the abort
+            raise
+        counter.finish()
+
+    async def _put_parts(
+        self,
+        client: AsyncSandboxClient,
+        local_path: str,
+        upload_id: str,
+        ranges: List[Tuple[int, int]],
+        part_size: int,
+        concurrency: int,
+        timeout: Optional[float],
+        counter: _PartProgress,
+    ) -> None:
+        """PUT the given ranges as parts, `concurrency` in flight, fail fast."""
+        plan: List[Tuple[int, int]] = []
+        for start, end in ranges:
+            plan.extend(_part_plan(start, end, part_size))
+        if not plan:
+            return
+        queue = iter(plan)
+        stop = asyncio.Event()
+
+        async def work() -> None:
+            while not stop.is_set():
+                part = next(queue, None)
+                if part is None:
+                    return
+                try:
+                    await self._put_one_part(
+                        client,
+                        local_path,
+                        upload_id,
+                        part[0],
+                        part[1],
+                        timeout,
+                        counter,
+                    )
+                except BaseException:
+                    stop.set()
+                    raise
+
+        results = await asyncio.gather(
+            *[work() for _ in range(min(concurrency, len(plan)))],
+            return_exceptions=True,
+        )
+        errors = [r for r in results if isinstance(r, BaseException)]
+        if errors:
+            raise errors[0]
+
+    async def _put_one_part(
+        self,
+        client: AsyncSandboxClient,
+        local_path: str,
+        upload_id: str,
+        offset: int,
+        length: int,
+        timeout: Optional[float],
+        counter: _PartProgress,
+    ) -> None:
+        """PUT one range; a timed-out part splits into halves and retries."""
+        pending = [(offset, length)]
+        while pending:
+            off, ln = pending.pop()
+            data, digest = await asyncio.to_thread(
+                _read_part_with_digest, local_path, off, ln
+            )
+            try:
+                await client.files_upload_part(
+                    upload_id, off, data, sha256=digest, timeout=timeout
+                )
+            except SandboxError as e:
+                # Split-worthy first: a 524 arrives as SandboxServiceError,
+                # a subclass of SandboxRequestError.
+                if _split_worthy(e) and ln >= 2 * _MIN_SPLIT_SIZE:
+                    half = ln // 2
+                    pending.append((off + half, ln - half))
+                    pending.append((off, half))
+                    continue
+                if isinstance(e, SandboxRequestError) and e.status_code == 404:
+                    raise SandboxFilesystemError(_LOST_SESSION_MESSAGE) from e
+                raise
+            counter.add(ln)
+
+    async def _complete_filling_gaps(
+        self,
+        client: AsyncSandboxClient,
+        local_path: str,
+        upload_id: str,
+        part_size: int,
+        concurrency: int,
+        timeout: Optional[float],
+        counter: _PartProgress,
+    ) -> Dict[str, Any]:
+        """Complete; a 409's missing ranges are filled and complete retried.
+
+        The session stays live across a 409 — it is the resume signal.
+        Every fill must shrink the missing bytes; a set that does not is
+        the executor not recording the fills, and that loop is cut here
+        rather than spun forever.
+        """
+        previous: Optional[int] = None
+        while True:
+            try:
+                return await client.files_upload_complete(upload_id, timeout=timeout)
+            except SandboxRequestError as e:
+                if e.status_code == 404:
+                    raise SandboxFilesystemError(_LOST_SESSION_MESSAGE) from e
+                if e.status_code != 409:
+                    raise
+                missing = _missing_ranges_from_409(e.body)
+                if not missing:
+                    raise SandboxFilesystemError(
+                        f"Upload incomplete and the missing-ranges reply was "
+                        f"unusable: {e.body!r}"
+                    ) from e
+                missing_bytes = sum(end - start for start, end in missing)
+                if previous is not None and missing_bytes >= previous:
+                    raise SandboxFilesystemError(
+                        f"Upload made no progress filling missing ranges: {missing}"
+                    ) from e
+                previous = missing_bytes
+                await self._put_parts(
+                    client,
+                    local_path,
+                    upload_id,
+                    missing,
+                    part_size,
+                    concurrency,
+                    timeout,
+                    counter,
+                )
 
     async def download_file(
         self,
@@ -1235,6 +1773,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         encoding: str = "utf-8",
         *,
         progress: Optional[Callable[[int, int], None]] = None,
+        timeout: Optional[float] = None,
     ) -> None:
         """
         Download a file from the sandbox to a local path asynchronously.
@@ -1251,9 +1790,8 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                 streamed routes are binary-safe and ignore it
             progress: Optional callback(done, total), called at most every
                 100 ms during the transfer plus a final call
-
-        The transfer is bounded by a 60 s idle timeout only; a per-call
-        timeout override parameter is planned with the multipart slice.
+            timeout: Seconds without progress before the transfer's stream
+                fails (default: the 60 s idle bound)
 
         Raises:
             SandboxFileNotFoundError: If remote file doesn't exist
@@ -1268,7 +1806,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                 renamed = False
                 try:
                     with open(part_path, "wb") as out:
-                        async for chunk in client.files_read(remote_path):
+                        async for chunk in client.files_read(
+                            remote_path, timeout=timeout
+                        ):
                             out.write(chunk)
                             done += len(chunk)
                             reporter.update(done)

@@ -4,15 +4,25 @@ and shell fallbacks escape their arguments."""
 
 import asyncio
 import base64
+import hashlib
+import inspect
+import json
 import os
 import tempfile
+import threading
 import unittest
 from contextlib import contextmanager
 from unittest.mock import patch
 
-from koyeb.sandbox.errors import SandboxRequestError
+from koyeb.sandbox.errors import (
+    SandboxRequestError,
+    SandboxServiceError,
+    SandboxTimeoutError,
+)
 from koyeb.sandbox.exec import CommandResult, CommandStatus
 from koyeb.sandbox.filesystem import (
+    UPLOAD_CONCURRENCY,
+    UPLOAD_PART_SIZE,
     AsyncSandboxFilesystem,
     FileInfo,
     SandboxFilesystem,
@@ -59,7 +69,9 @@ class _FakeSyncClient:
     def has_files_routes(self):
         return self.replies.get("has_files_routes", False)
 
-    def files_put(self, path, content, mode=None, parents=False, sha256=None):
+    def files_put(
+        self, path, content, mode=None, parents=False, sha256=None, timeout=None
+    ):
         # The real transport consumes the body inside the call; a lazy
         # generator would dangle past the caller's file close.
         if not isinstance(content, (bytes, bytearray)):
@@ -70,7 +82,7 @@ class _FakeSyncClient:
             raise reply
         return reply
 
-    def files_read(self, path, chunk_size=65536):
+    def files_read(self, path, chunk_size=65536, timeout=None):
         self.calls.append(("files_read", path))
         reply = self.replies.get("files_read", b"")
         if isinstance(reply, Exception):
@@ -103,11 +115,15 @@ class _FakeAsyncClient(_FakeSyncClient):
     async def has_files_routes(self):
         return _FakeSyncClient.has_files_routes(self)
 
-    async def files_put(self, path, content, mode=None, parents=False, sha256=None):
-        return _FakeSyncClient.files_put(self, path, content, mode=mode, sha256=sha256)
+    async def files_put(
+        self, path, content, mode=None, parents=False, sha256=None, timeout=None
+    ):
+        return _FakeSyncClient.files_put(
+            self, path, content, mode=mode, sha256=sha256, timeout=timeout
+        )
 
-    async def files_read(self, path, chunk_size=65536):
-        for chunk in _FakeSyncClient.files_read(self, path):
+    async def files_read(self, path, chunk_size=65536, timeout=None):
+        for chunk in _FakeSyncClient.files_read(self, path, timeout=timeout):
             yield chunk
 
     async def files_stat(self, path):
@@ -1082,6 +1098,804 @@ class TestAsyncWriteFileLegacyErrors(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Failed to write file", str(cm.exception))
 
 
+class _UploadFakeExecutor:
+    """Stateful fake for the multipart session flow (PR #34 semantics).
+
+    Parts land at offsets into a pre-sized buffer; complete answers 409
+    with the true missing ranges until coverage holds, then verifies the
+    whole-file digest the way the executor does. fail_parts / forget_parts
+    / never_record script the faults the fs layer must recover from.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_part_size=1 << 30,
+        fail_parts=None,
+        forget_parts=(),
+        never_record=(),
+        open_reply=None,
+        lie_about_sha=None,
+        raw_409_body=None,
+        abort_error=False,
+        on_part=None,
+    ):
+        self.max_part_size = max_part_size
+        self.fail_parts = dict(fail_parts or {})
+        self.forget_parts = set(forget_parts)
+        self.never_record = set(never_record)
+        self.open_reply = open_reply
+        self.lie_about_sha = lie_about_sha
+        self.raw_409_body = raw_409_body
+        self.abort_error = abort_error
+        self.on_part = on_part
+        self.session = None
+        self.calls = []
+        self.in_flight = 0
+        self.max_in_flight = 0
+        self._lock = threading.Lock()
+
+    # -- executor semantics ----------------------------------------------
+
+    def _enter_part(self):
+        self.in_flight += 1
+        self.max_in_flight = max(self.max_in_flight, self.in_flight)
+
+    def _exit_part(self):
+        self.in_flight -= 1
+
+    def _live(self):
+        if self.session is None:
+            raise SandboxRequestError(
+                404, json.dumps({"error": "unknown upload session"})
+            )
+        return self.session
+
+    def _record(self, start, end):
+        # The executor's addSpan: merge every overlapping-or-adjacent span
+        # into the new one, keep the rest, sort.
+        ns, ne = start, end
+        out = []
+        for sp in self.session["spans"]:
+            if sp[1] >= ns and ne >= sp[0]:
+                ns, ne = min(ns, sp[0]), max(ne, sp[1])
+                continue
+            out.append(sp)
+        out.append((ns, ne))
+        out.sort()
+        self.session["spans"] = out
+
+    def _missing(self):
+        at, missing = 0, []
+        for start, end in self.session["spans"]:
+            if start > at:
+                missing.append((at, start))
+            at = max(at, end)
+        if at < self.session["size"]:
+            missing.append((at, self.session["size"]))
+        return missing
+
+    def _part_core(self, offset, content, sha256, timeout):
+        self.calls.append(("part", offset, bytes(content), sha256, timeout))
+        key = (offset, len(content))
+        if key in self.fail_parts:
+            raise self.fail_parts.pop(key)
+        with self._lock:
+            sess = self._live()
+            if sha256 is not None and hashlib.sha256(content).hexdigest() != sha256:
+                raise SandboxRequestError(
+                    400, json.dumps({"error": "sha256 mismatch on part"})
+                )
+            if offset + len(content) > sess["size"]:
+                raise SandboxRequestError(
+                    400, json.dumps({"error": "part writes past the end"})
+                )
+            if len(content) > self.max_part_size:
+                raise SandboxRequestError(
+                    413, json.dumps({"error": "part is larger than max_part_size"})
+                )
+            sess["data"][offset : offset + len(content)] = content
+            if offset in self.never_record:
+                pass
+            elif offset in self.forget_parts:
+                self.forget_parts.discard(offset)
+            else:
+                self._record(offset, offset + len(content))
+
+    # -- transport surface (the fs layer's seam) --------------------------
+
+    def has_files_routes(self):
+        return True
+
+    def files_stat(self, path):
+        self.calls.append(("files_stat", path))
+        return {
+            "type": "file",
+            "size": 12,
+            "mode": "0644",
+            "mtime": "2026-01-01T00:00:00Z",
+        }
+
+    def files_put(
+        self, path, content, mode=None, parents=False, sha256=None, timeout=None
+    ):
+        content = content if isinstance(content, bytes) else b"".join(content)
+        self.calls.append(("files_put", path, content, sha256, timeout))
+        return {"size": len(content), "sha256": hashlib.sha256(content).hexdigest()}
+
+    def files_read(self, path, chunk_size=65536, timeout=None):
+        self.calls.append(("files_read", path, timeout))
+        return iter([b"remote-bytes"])
+
+    def files_upload_open(self, path, size, mode=None, sha256=None, timeout=None):
+        self.calls.append(("open", path, size, sha256, timeout))
+        if self.open_reply is not None:
+            return dict(self.open_reply)
+        self.session = {
+            "path": path,
+            "size": size,
+            "want": sha256,
+            "data": bytearray(size),
+            "spans": [],
+        }
+        return {"upload_id": "u-1", "max_part_size": self.max_part_size}
+
+    def files_upload_part(self, upload_id, offset, content, sha256=None, timeout=None):
+        self._enter_part()
+        try:
+            if self.on_part is not None:
+                self.on_part()
+            self._part_core(offset, content, sha256, timeout)
+        finally:
+            self._exit_part()
+
+    def files_upload_complete(self, upload_id, timeout=None):
+        self.calls.append(("complete", timeout))
+        sess = self._live()
+        missing = self._missing()
+        if missing:
+            body = (
+                self.raw_409_body
+                if self.raw_409_body is not None
+                else json.dumps(
+                    {
+                        "error": f"{len(missing)} range(s) still missing",
+                        "ranges": [{"start": s, "end": e} for s, e in missing],
+                    }
+                )
+            )
+            raise SandboxRequestError(409, body)
+        digest = hashlib.sha256(bytes(sess["data"])).hexdigest()
+        if sess["want"] is not None and digest != sess["want"]:
+            self.session = None
+            raise SandboxRequestError(
+                400, json.dumps({"error": f"sha256 mismatch: got {digest}"})
+            )
+        return {
+            "size": sess["size"],
+            "sha256": digest if self.lie_about_sha is None else self.lie_about_sha,
+        }
+
+    def files_upload_abort(self, upload_id, timeout=None):
+        self.calls.append(("abort", timeout))
+        if self.abort_error:
+            raise SandboxRequestError(
+                404, json.dumps({"error": "unknown upload session"})
+            )
+        self._live()
+        self.session = None
+
+    # -- readouts for assertions -----------------------------------------
+
+    def kinds(self):
+        return [c[0] for c in self.calls]
+
+    def part_puts(self):
+        """(offset, length) of every part PUT, in call order."""
+        return [(c[1], len(c[2])) for c in self.calls if c[0] == "part"]
+
+    def landed(self):
+        return bytes(self.session["data"]) if self.session else None
+
+
+class _AsyncUploadFakeExecutor(_UploadFakeExecutor):
+    async def has_files_routes(self):
+        return True
+
+    async def files_stat(self, path):
+        return _UploadFakeExecutor.files_stat(self, path)
+
+    async def files_put(
+        self, path, content, mode=None, parents=False, sha256=None, timeout=None
+    ):
+        return _UploadFakeExecutor.files_put(
+            self,
+            path,
+            content,
+            mode=mode,
+            parents=parents,
+            sha256=sha256,
+            timeout=timeout,
+        )
+
+    async def files_read(self, path, chunk_size=65536, timeout=None):
+        for chunk in _UploadFakeExecutor.files_read(self, path, chunk_size, timeout):
+            yield chunk
+
+    async def files_upload_open(self, path, size, mode=None, sha256=None, timeout=None):
+        return _UploadFakeExecutor.files_upload_open(
+            self, path, size, mode=mode, sha256=sha256, timeout=timeout
+        )
+
+    async def files_upload_part(
+        self, upload_id, offset, content, sha256=None, timeout=None
+    ):
+        self._enter_part()
+        try:
+            if self.on_part is not None:
+                maybe = self.on_part()
+                if inspect.isawaitable(maybe):
+                    await maybe
+            self._part_core(offset, content, sha256, timeout)
+        finally:
+            self._exit_part()
+
+    async def files_upload_complete(self, upload_id, timeout=None):
+        return _UploadFakeExecutor.files_upload_complete(
+            self, upload_id, timeout=timeout
+        )
+
+    async def files_upload_abort(self, upload_id, timeout=None):
+        return _UploadFakeExecutor.files_upload_abort(self, upload_id, timeout=timeout)
+
+
+def _local_file(directory, name, data):
+    path = os.path.join(directory, name)
+    with open(path, "wb") as f:
+        f.write(data)
+    return path
+
+
+class TestUploadDefaults(unittest.TestCase):
+    """The ticket's numbers, pinned where the flow reads them."""
+
+    def test_documented_defaults(self):
+        self.assertEqual(UPLOAD_PART_SIZE, 50 * 1024 * 1024)
+        self.assertEqual(UPLOAD_CONCURRENCY, 4)
+
+
+class TestUploadMultipartDispatch(unittest.TestCase):
+    """size > part_size opens a session; otherwise the single streamed PUT."""
+
+    DATA = b"abcdefghijkl"
+
+    def test_small_file_takes_the_single_put(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "small.bin", b"abc")
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/small.bin")
+        self.assertEqual(fake.kinds(), ["files_put"])
+        self.assertIsNone(fake.session)
+
+    def test_size_past_part_size_opens_a_session(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertEqual(fake.kinds()[0], "open")
+        self.assertNotIn("files_put", fake.kinds())
+        self.assertEqual(fake.kinds()[-1], "complete")
+        self.assertEqual(fake.landed(), self.DATA)
+
+    def test_zero_byte_file_takes_the_single_put(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "empty.bin", b"")
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/empty.bin", part_size=4)
+        self.assertEqual(fake.kinds(), ["files_put"])
+
+    def test_part_size_capped_by_max_part_size(self):
+        fake = _UploadFakeExecutor(max_part_size=3)
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4)
+        self.assertEqual(sorted(fake.part_puts()), [(0, 3), (3, 3), (6, 3), (9, 3)])
+        self.assertEqual(fake.landed(), self.DATA)
+
+    def test_invalid_part_size_raises_before_any_wire_call(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "x", b"abc")
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError):
+                    fs.upload_file(local, "/r/x", part_size=0)
+        self.assertEqual(fake.calls, [])
+
+    def test_invalid_concurrency_raises_before_any_wire_call(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "x", b"abc")
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError):
+                    fs.upload_file(local, "/r/x", concurrency=0)
+        self.assertEqual(fake.calls, [])
+
+
+class TestUploadSessionWire(unittest.TestCase):
+    """The session flow's wire contract: open payload, parts, complete."""
+
+    DATA = b"abcdefghijkl"
+
+    def test_open_sends_path_size_and_whole_file_digest(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        open_call = fake.calls[0]
+        self.assertEqual(open_call[0], "open")
+        self.assertEqual(open_call[1], "/r/big.bin")
+        self.assertEqual(open_call[2], 12)
+        self.assertEqual(open_call[3], hashlib.sha256(self.DATA).hexdigest())
+
+    def test_parts_carry_their_bytes_at_offsets_with_per_part_digests(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertEqual(fake.part_puts(), [(0, 4), (4, 4), (8, 4)])
+        for call in fake.calls:
+            if call[0] == "part":
+                self.assertEqual(call[3], hashlib.sha256(call[2]).hexdigest())
+        self.assertEqual(fake.landed(), self.DATA)
+
+    def test_reply_digest_mismatch_raises_corrupted(self):
+        fake = _UploadFakeExecutor(lie_about_sha="ff" * 32)
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    fs.upload_file(local, "/r/big.bin", part_size=4)
+        self.assertIn("corrupted in transit", str(cm.exception))
+        self.assertIn("abort", fake.kinds())
+
+    def test_malformed_open_reply_raises_without_aborting(self):
+        fake = _UploadFakeExecutor(open_reply={"max_part_size": 4})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    fs.upload_file(local, "/r/big.bin", part_size=4)
+        self.assertIn("upload_id", str(cm.exception))
+        self.assertNotIn("abort", fake.kinds())
+        self.assertNotIn("part", fake.kinds())
+
+
+class TestUploadConcurrency(unittest.TestCase):
+    """concurrency=4 parts in flight, each read from disk at its offset."""
+
+    DATA = bytes(range(32))
+
+    def test_four_parts_in_flight(self):
+        # The barrier only passes when four parts are truly simultaneous;
+        # a smaller pool breaks it and the upload fails.
+        barrier = threading.Barrier(4, timeout=10)
+        fake = _UploadFakeExecutor(on_part=barrier.wait)
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4)
+        self.assertEqual(fake.max_in_flight, 4)
+        self.assertEqual(fake.landed(), self.DATA)
+
+    def test_concurrency_one_runs_serially(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertEqual(fake.max_in_flight, 1)
+        self.assertEqual(
+            fake.part_puts(),
+            [(0, 4), (4, 4), (8, 4), (12, 4), (16, 4), (20, 4), (24, 4), (28, 4)],
+        )
+
+
+class TestUploadTimeoutSplit(unittest.TestCase):
+    """A part that times out is split: the fs layer's own retry."""
+
+    DATA = b"abcdefghijkl"
+
+    def test_timed_out_part_is_split_into_halves(self):
+        fake = _UploadFakeExecutor(
+            fail_parts={(0, 8): SandboxTimeoutError("Request timed out after 60s")}
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with patch("koyeb.sandbox.filesystem._MIN_SPLIT_SIZE", 2):
+                    fs.upload_file(local, "/r/big.bin", part_size=8, concurrency=1)
+        # The failed (0, 8) attempt is part of the wire history; the
+        # landed coverage is the two halves plus the untouched tail.
+        self.assertEqual(sorted(fake.part_puts()), [(0, 4), (0, 8), (4, 4), (8, 4)])
+        self.assertEqual(fake.landed(), self.DATA)
+
+    def test_cloudflare_524_is_split_too(self):
+        fake = _UploadFakeExecutor(
+            fail_parts={(0, 8): SandboxServiceError(524, "origin timeout")}
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with patch("koyeb.sandbox.filesystem._MIN_SPLIT_SIZE", 2):
+                    fs.upload_file(local, "/r/big.bin", part_size=8, concurrency=1)
+        self.assertEqual(sorted(fake.part_puts()), [(0, 4), (0, 8), (4, 4), (8, 4)])
+        self.assertEqual(fake.landed(), self.DATA)
+
+    def test_split_recurves_until_a_part_lands(self):
+        fake = _UploadFakeExecutor(
+            fail_parts={
+                (0, 8): SandboxTimeoutError("Request timed out after 60s"),
+                (0, 4): SandboxTimeoutError("Request timed out after 60s"),
+            }
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with patch("koyeb.sandbox.filesystem._MIN_SPLIT_SIZE", 2):
+                    fs.upload_file(local, "/r/big.bin", part_size=8, concurrency=1)
+        self.assertEqual(
+            sorted(fake.part_puts()),
+            [(0, 2), (0, 4), (0, 8), (2, 2), (4, 4), (8, 4)],
+        )
+        self.assertEqual(fake.landed(), self.DATA)
+
+    def test_part_below_split_floor_fails_the_upload(self):
+        fake = _UploadFakeExecutor(
+            fail_parts={(0, 4): SandboxTimeoutError("Request timed out after 60s")}
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with patch("koyeb.sandbox.filesystem._MIN_SPLIT_SIZE", 4):
+                    with self.assertRaises(SandboxFilesystemError) as cm:
+                        fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertIn("timed out", str(cm.exception))
+        self.assertIn("abort", fake.kinds())
+
+
+class TestUploadAbortOnFailure(unittest.TestCase):
+    """A hard failure aborts the session; abort never masks the cause."""
+
+    DATA = b"abcdefghijkl"
+
+    def test_hard_part_failure_aborts_and_raises(self):
+        fake = _UploadFakeExecutor(
+            fail_parts={
+                (4, 4): SandboxRequestError(
+                    400, json.dumps({"error": "sha256 mismatch on part"})
+                )
+            }
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertIn("Failed to upload file", str(cm.exception))
+        self.assertIn("abort", fake.kinds())
+        self.assertIsNone(fake.session)
+
+    def test_abort_failure_does_not_mask_the_original(self):
+        fake = _UploadFakeExecutor(
+            fail_parts={
+                (0, 4): SandboxRequestError(
+                    400, json.dumps({"error": "sha256 mismatch on part"})
+                )
+            },
+            abort_error=True,
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertIn("sha256 mismatch on part", str(cm.exception))
+        self.assertIn("abort", fake.kinds())
+
+    def test_lost_session_names_the_restart(self):
+        fake = _UploadFakeExecutor(
+            fail_parts={
+                (0, 4): SandboxRequestError(
+                    404, json.dumps({"error": "unknown upload session"})
+                )
+            }
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertIn("session was lost", str(cm.exception))
+        self.assertIn("abort", fake.kinds())
+
+
+class TestUpload409Resume(unittest.TestCase):
+    """complete's 409 body carries the missing spans — fill and complete again."""
+
+    DATA = b"abcdefghijkl"
+
+    def test_missing_ranges_from_409_are_filled(self):
+        fake = _UploadFakeExecutor(forget_parts={4})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertEqual(fake.kinds().count("complete"), 2)
+        self.assertEqual(len(fake.part_puts()), 4)  # 3 parts + the one fill
+        self.assertEqual(fake.part_puts()[-1], (4, 4))
+        self.assertEqual(fake.landed(), self.DATA)
+
+    def test_two_missing_ranges_are_both_filled(self):
+        fake = _UploadFakeExecutor(forget_parts={4, 8})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertEqual(fake.kinds().count("complete"), 2)
+        self.assertEqual(len(fake.part_puts()), 5)
+        self.assertEqual(fake.landed(), self.DATA)
+
+    def test_no_progress_raises_instead_of_looping(self):
+        fake = _UploadFakeExecutor(never_record={4})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertIn("no progress", str(cm.exception))
+        self.assertEqual(fake.kinds().count("complete"), 2)
+        self.assertIn("abort", fake.kinds())
+
+    def test_unparseable_409_raises(self):
+        fake = _UploadFakeExecutor(never_record={4}, raw_409_body="not json")
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertIn("missing-ranges reply was unusable", str(cm.exception))
+        self.assertNotIsInstance(cm.exception, SandboxFileExistsError)
+
+
+class TestUploadProgress(unittest.TestCase):
+    DATA = b"abcdefghijkl"
+
+    def test_progress_reaches_the_full_size(self):
+        seen = []
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(
+                    local,
+                    "/r/big.bin",
+                    part_size=4,
+                    concurrency=1,
+                    progress=lambda done, total: seen.append((done, total)),
+                )
+        self.assertTrue(seen)
+        self.assertEqual(seen[-1], (12, 12))
+        dones = [d for d, _ in seen]
+        self.assertEqual(dones, sorted(dones))
+
+
+class TestUploadTimeoutWiring(unittest.TestCase):
+    """The per-call timeout override reaches every call of the transfer."""
+
+    DATA = b"abcdefghijkl"
+
+    def test_multipart_calls_carry_the_override(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4, timeout=90)
+        for call in fake.calls:
+            if call[0] in ("open", "part", "complete"):
+                self.assertEqual(call[-1], 90, f"{call[0]} did not carry the override")
+
+    def test_single_put_carries_the_override(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "small.bin", b"abc")
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/small.bin", timeout=90)
+        self.assertEqual(fake.calls[0][0], "files_put")
+        self.assertEqual(fake.calls[0][-1], 90)
+
+    def test_download_carries_the_override(self):
+        fake = _UploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            target = os.path.join(d, "out.bin")
+            with _fs(fake) as fs:
+                fs.download_file("/r", target, timeout=90)
+            reads = [c for c in fake.calls if c[0] == "files_read"]
+            self.assertEqual(reads[0][-1], 90)
+            with open(target, "rb") as f:
+                self.assertEqual(f.read(), b"remote-bytes")
+
+
+class TestAsyncUploadMultipart(unittest.IsolatedAsyncioTestCase):
+    """The async twin: same contract through asyncio tasks."""
+
+    DATA = b"abcdefghijkl"
+
+    async def test_small_file_takes_the_single_put(self):
+        fake = _AsyncUploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "small.bin", b"abc")
+            with _async_fs(fake) as fs:
+                await fs.upload_file(local, "/r/small.bin")
+        self.assertEqual(fake.kinds(), ["files_put"])
+
+    async def test_size_past_part_size_opens_a_session(self):
+        fake = _AsyncUploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                await fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertEqual(fake.kinds()[0], "open")
+        self.assertEqual(fake.kinds()[-1], "complete")
+        self.assertEqual(fake.part_puts(), [(0, 4), (4, 4), (8, 4)])
+        self.assertEqual(fake.landed(), self.DATA)
+
+    async def test_four_parts_in_flight(self):
+        # The gate only opens once four parts are truly in flight; a
+        # smaller pool times the wait out and the test fails.
+        fake = _AsyncUploadFakeExecutor()
+        gate = asyncio.Event()
+
+        async def on_part():
+            if fake.in_flight == 4:
+                gate.set()
+            else:
+                try:
+                    await asyncio.wait_for(gate.wait(), timeout=10)
+                except asyncio.TimeoutError:
+                    raise AssertionError("never reached 4 parts in flight")
+
+        fake.on_part = on_part
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", bytes(range(32)))
+            with _async_fs(fake) as fs:
+                await fs.upload_file(local, "/r/big.bin", part_size=4)
+        self.assertEqual(fake.max_in_flight, 4)
+        self.assertEqual(fake.landed(), bytes(range(32)))
+
+    async def test_timed_out_part_is_split_into_halves(self):
+        fake = _AsyncUploadFakeExecutor(
+            fail_parts={(0, 8): SandboxTimeoutError("Request timed out after 60s")}
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                with patch("koyeb.sandbox.filesystem._MIN_SPLIT_SIZE", 2):
+                    await fs.upload_file(
+                        local, "/r/big.bin", part_size=8, concurrency=1
+                    )
+        self.assertEqual(sorted(fake.part_puts()), [(0, 4), (0, 8), (4, 4), (8, 4)])
+        self.assertEqual(fake.landed(), self.DATA)
+
+    async def test_lost_session_names_the_restart(self):
+        fake = _AsyncUploadFakeExecutor(
+            fail_parts={
+                (0, 4): SandboxRequestError(
+                    404, json.dumps({"error": "unknown upload session"})
+                )
+            }
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    await fs.upload_file(
+                        local, "/r/big.bin", part_size=4, concurrency=1
+                    )
+        self.assertIn("session was lost", str(cm.exception))
+        self.assertIn("abort", fake.kinds())
+
+    async def test_malformed_open_reply_raises_without_aborting(self):
+        fake = _AsyncUploadFakeExecutor(open_reply={"max_part_size": 4})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    await fs.upload_file(local, "/r/big.bin", part_size=4)
+        self.assertIn("upload_id", str(cm.exception))
+        self.assertNotIn("abort", fake.kinds())
+
+    async def test_no_progress_raises_instead_of_looping(self):
+        fake = _AsyncUploadFakeExecutor(never_record={4})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    await fs.upload_file(
+                        local, "/r/big.bin", part_size=4, concurrency=1
+                    )
+        self.assertIn("no progress", str(cm.exception))
+        self.assertEqual(fake.kinds().count("complete"), 2)
+        self.assertIn("abort", fake.kinds())
+
+    async def test_hard_part_failure_aborts_and_raises(self):
+        fake = _AsyncUploadFakeExecutor(
+            fail_parts={
+                (0, 4): SandboxRequestError(
+                    400, json.dumps({"error": "sha256 mismatch on part"})
+                )
+            }
+        )
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError):
+                    await fs.upload_file(
+                        local, "/r/big.bin", part_size=4, concurrency=1
+                    )
+        self.assertIn("abort", fake.kinds())
+
+    async def test_missing_ranges_from_409_are_filled(self):
+        fake = _AsyncUploadFakeExecutor(forget_parts={4})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                await fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertEqual(fake.kinds().count("complete"), 2)
+        self.assertEqual(len(fake.part_puts()), 4)
+        self.assertEqual(fake.landed(), self.DATA)
+
+    async def test_progress_reaches_the_full_size(self):
+        seen = []
+        fake = _AsyncUploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                await fs.upload_file(
+                    local,
+                    "/r/big.bin",
+                    part_size=4,
+                    concurrency=1,
+                    progress=lambda done, total: seen.append((done, total)),
+                )
+        self.assertTrue(seen)
+        self.assertEqual(seen[-1], (12, 12))
+
+    async def test_multipart_calls_carry_the_timeout_override(self):
+        fake = _AsyncUploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                await fs.upload_file(local, "/r/big.bin", part_size=4, timeout=90)
+        for call in fake.calls:
+            if call[0] in ("open", "part", "complete"):
+                self.assertEqual(call[-1], 90, f"{call[0]} did not carry the override")
+
+    async def test_download_carries_the_timeout_override(self):
+        fake = _AsyncUploadFakeExecutor()
+        with tempfile.TemporaryDirectory() as d:
+            target = os.path.join(d, "out.bin")
+            with _async_fs(fake) as fs:
+                await fs.download_file("/r", target, timeout=90)
+        reads = [c for c in fake.calls if c[0] == "files_read"]
+        self.assertEqual(reads[0][-1], 90)
+
+
 class TestMainGuardIsLast(unittest.TestCase):
     """The direct-run entry point must sit after every test class.
 
@@ -1136,7 +1950,7 @@ class TestNewRoutesErrorArms(unittest.TestCase):
             has_files_routes=True, files_stat={"type": "file", "size": 4}
         )
 
-        def blow(path, chunk_size=65536):
+        def blow(path, chunk_size=65536, timeout=None):
             raise RuntimeError("wire cut")
             yield b""
 
@@ -1238,7 +2052,7 @@ class TestAsyncNewRoutesErrorArms(unittest.IsolatedAsyncioTestCase):
             has_files_routes=True, files_stat={"type": "file", "size": 4}
         )
 
-        async def blow(path, chunk_size=65536):
+        async def blow(path, chunk_size=65536, timeout=None):
             raise RuntimeError("wire cut")
             yield b""
 
