@@ -17,15 +17,20 @@ archive agree on what is in the tree.
 """
 
 import os
+import posixpath
+import shutil
 import stat as stat_module
+import tarfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 __all__ = [
     "SyncDiff",
+    "build_archive",
     "diff",
     "excluded",
+    "extract_archive",
     "format_mtime",
     "mtime_seconds",
     "path_match",
@@ -429,3 +434,113 @@ def relative_remote(local: str) -> str:
     if os.path.isabs(normalized):
         normalized = os.path.basename(normalized)
     return normalized.replace(os.sep, "/")
+
+
+# --------------------------------------------------------------------------
+# tar batches
+#
+# A batch is built spooled to disk, then streamed into PUT /files/archive
+# (constant memory, bounded disk: one batch ~ part_size). PAX headers keep
+# long names working; mtimes are whole seconds, exactly what the diff
+# compares. Owners are not kept (uid/gid 0), per the design.
+
+def _tar_member(entry: Dict[str, Any]) -> "tarfile.TarInfo":
+    info = tarfile.TarInfo(entry["path"])
+    info.mode = int(entry["mode"], 8)
+    info.mtime = mtime_seconds(entry["mtime"])
+    info.uid = 0
+    info.gid = 0
+    if entry["type"] == "dir":
+        info.type = tarfile.DIRTYPE
+        info.size = 0
+    elif entry["type"] == "symlink":
+        info.type = tarfile.SYMTYPE
+        info.size = 0
+    else:
+        info.type = tarfile.REGTYPE
+        info.size = entry["size"]
+    return info
+
+
+def build_archive(
+    root: str, entries: Sequence[Dict[str, Any]], dest: str
+) -> None:
+    """Write the changed entries as a gzip'd tar spooled to dest.
+
+    Members mirror the executor's archive: paths relative and
+    /-separated, modes and whole-second mtimes kept, symlinks as links.
+    """
+    with tarfile.open(dest, "w:gz", format=tarfile.PAX_FORMAT) as tar:
+        for entry in entries:
+            info = _tar_member(entry)
+            if entry["type"] == "symlink":
+                full = os.path.join(root, *entry["path"].split("/"))
+                info.linkname = os.readlink(full)
+                tar.addfile(info)
+            elif entry["type"] == "dir":
+                tar.addfile(info)
+            else:
+                full = os.path.join(root, *entry["path"].split("/"))
+                with open(full, "rb") as f:
+                    tar.addfile(info, f)
+
+
+def _clean_member(name: str) -> str:
+    """A member path safe to write under the destination, or ValueError.
+
+    The same refusal the executor applies to archives it extracts:
+    absolute paths and .. escapes never touch the filesystem.
+    """
+    normalized = posixpath.normpath(name)
+    if normalized.startswith("/") or normalized == ".." or normalized.startswith("../"):
+        raise ValueError(f"refusing archive member outside destination: {name!r}")
+    return normalized
+
+
+def extract_archive(
+    archive_path: str, dest: str, keep: Optional[Set[str]] = None
+) -> List[str]:
+    """Extract a spooled archive into dest, mirroring the executor.
+
+    Missing parents are created; members in the way are replaced;
+    directory modes and mtimes are applied after the contents (writing
+    into a directory bumps its mtime, and a restrictive mode applied
+    early would lock the contents out). With keep, only those members are
+    extracted — the pull side's changed set. Returns the member paths
+    extracted.
+    """
+    extracted: List[str] = []
+    dirs: List[Tuple[str, int, int]] = []
+    with tarfile.open(archive_path, "r:gz") as tar:
+        for member in tar:
+            name = _clean_member(member.name)
+            if keep is not None and name not in keep:
+                continue
+            path = os.path.join(dest, *name.split("/"))
+            if member.isdir():
+                os.makedirs(path, exist_ok=True)
+                dirs.append((path, member.mode, int(member.mtime)))
+            elif member.issym():
+                if os.path.lexists(path) and not os.path.isdir(path):
+                    os.unlink(path)
+                elif os.path.isdir(path):
+                    shutil.rmtree(path)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                os.symlink(member.linkname, path)
+            elif member.isfile():
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                source = tar.extractfile(member)
+                if source is None:
+                    continue
+                with open(path, "wb") as out:
+                    shutil.copyfileobj(source, out, 1 << 20)
+                os.chmod(path, member.mode)
+                os.utime(path, (int(member.mtime), int(member.mtime)))
+            else:
+                continue
+            extracted.append(name)
+    # Directory modes and mtimes last, deepest first, like the executor.
+    for path, mode, mtime in sorted(dirs, key=lambda d: d[0], reverse=True):
+        os.chmod(path, mode)
+        os.utime(path, (mtime, mtime))
+    return extracted

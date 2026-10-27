@@ -6,14 +6,17 @@ as ~50 MiB tar batches. These tests pin the engine's decisions against
 plain data and tmpdir trees — no executor, no network.
 """
 
+import io
 import os
 import tempfile
 import unittest
 
 from koyeb.sandbox.sync import (
     SyncDiff,
+    build_archive,
     diff,
     excluded,
+    extract_archive,
     format_mtime,
     mtime_seconds,
     path_match,
@@ -444,6 +447,109 @@ class TestSyncDiffShape(unittest.TestCase):
         self.assertEqual(result.bytes, 1)
         self.assertEqual(result.deletes, [])
         self.assertEqual(result.skipped, 0)
+
+
+class TestBuildExtractArchive(unittest.TestCase):
+    """Round-trip the tar batches through the real engine: what sync() sends
+    is what the executor will extract, and what sync() extracts locally is
+    what the executor streamed."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = self._tmp.name
+        self.addCleanup(self._tmp.cleanup)
+        self.src = os.path.join(self.root, "src")
+        self.dst = os.path.join(self.root, "dst")
+        self.archive = os.path.join(self.root, "batch.tgz")
+        os.makedirs(self.src)
+        os.makedirs(self.dst)
+
+    def _tree(self):
+        with open(os.path.join(self.src, "a.txt"), "wb") as f:
+            f.write(b"hello")
+        os.chmod(os.path.join(self.src, "a.txt"), 0o755)
+        os.utime(
+            os.path.join(self.src, "a.txt"),
+            ns=(1774590000_123456789, 1774590000_123456789),
+        )
+        os.makedirs(os.path.join(self.src, "sub"))
+        with open(os.path.join(self.src, "sub", "b.bin"), "wb") as f:
+            f.write(b"\x00\xff")
+        os.symlink("a.txt", os.path.join(self.src, "link"))
+        os.makedirs(os.path.join(self.src, "empty"))
+        return walk_local(self.src)
+
+    def test_round_trip_preserves_everything(self):
+        entries = self._tree()
+        build_archive(self.src, entries, self.archive)
+        extracted = extract_archive(self.archive, self.dst)
+
+        self.assertEqual(sorted(extracted), ["a.txt", "empty", "link", "sub", "sub/b.bin"])
+        with open(os.path.join(self.dst, "a.txt"), "rb") as f:
+            self.assertEqual(f.read(), b"hello")
+        self.assertEqual(
+            oct(os.stat(os.path.join(self.dst, "a.txt")).st_mode & 0o7777),
+            oct(0o755),
+        )
+        self.assertEqual(
+            os.stat(os.path.join(self.dst, "a.txt")).st_mtime_ns // 1_000_000_000,
+            1774590000,
+        )
+        with open(os.path.join(self.dst, "sub", "b.bin"), "rb") as f:
+            self.assertEqual(f.read(), b"\x00\xff")
+        self.assertTrue(
+            os.path.islink(os.path.join(self.dst, "link"))
+        )
+        self.assertEqual(
+            os.readlink(os.path.join(self.dst, "link")), "a.txt"
+        )
+        self.assertTrue(os.path.isdir(os.path.join(self.dst, "empty")))
+
+    def test_extraction_replaces_existing_members(self):
+        entries = self._tree()
+        with open(os.path.join(self.dst, "a.txt"), "wb") as f:
+            f.write(b"stale")
+        build_archive(self.src, entries, self.archive)
+        extract_archive(self.archive, self.dst)
+        with open(os.path.join(self.dst, "a.txt"), "rb") as f:
+            self.assertEqual(f.read(), b"hello")
+
+    def test_keep_filter_extracts_only_changed_set(self):
+        entries = self._tree()
+        # A local tree that already has everything but b.bin.
+        with open(os.path.join(self.dst, "a.txt"), "wb") as f:
+            f.write(b"old-content")
+        build_archive(self.src, entries, self.archive)
+        keep = {"sub", "sub/b.bin"}
+        extracted = extract_archive(self.archive, self.dst, keep=keep)
+
+        self.assertEqual(sorted(extracted), ["sub", "sub/b.bin"])
+        with open(os.path.join(self.dst, "a.txt"), "rb") as f:
+            self.assertEqual(f.read(), b"old-content")
+        with open(os.path.join(self.dst, "sub", "b.bin"), "rb") as f:
+            self.assertEqual(f.read(), b"\x00\xff")
+
+    def test_traversal_members_refused(self):
+        import tarfile
+
+        with tarfile.open(self.archive, "w:gz") as tar:
+            info = tarfile.TarInfo("../evil.txt")
+            info.size = 2
+            tar.addfile(info, io.BytesIO(b"hi"))
+
+        with self.assertRaises(ValueError):
+            extract_archive(self.archive, self.dst)
+
+    def test_absolute_members_refused(self):
+        import tarfile
+
+        with tarfile.open(self.archive, "w:gz") as tar:
+            info = tarfile.TarInfo("/etc/evil.txt")
+            info.size = 2
+            tar.addfile(info, io.BytesIO(b"hi"))
+
+        with self.assertRaises(ValueError):
+            extract_archive(self.archive, self.dst)
 
 
 if __name__ == "__main__":
