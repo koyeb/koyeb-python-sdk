@@ -573,21 +573,28 @@ class SandboxClient:
         )
         return response.json()
 
-    def files_stat(self, path: str) -> Dict[str, Any]:
+    def files_stat(
+        self, path: str, hash: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Stat a file on the streamed /files routes (executor v0.0.24+).
 
         Args:
             path: The file path to stat
+            hash: "sha256" to add the file's digest to the reply (regular
+                files only; the executor answers 400 otherwise)
 
         Returns:
             FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-            string), mtime (RFC 3339 UTC, nanoseconds)
+            string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
         """
+        params: Dict[str, Any] = {"path": path}
+        if hash is not None:
+            params["hash"] = hash
         response = self._request_with_retry(
             "GET",
             f"{self.base_url}/files/stat",
-            params={"path": path},
+            params=params,
         )
         return response.json()
 
@@ -1507,21 +1514,28 @@ class AsyncSandboxClient:
         )
         return response.json()
 
-    async def files_stat(self, path: str) -> Dict[str, Any]:
+    async def files_stat(
+        self, path: str, hash: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Stat a file on the streamed /files routes (executor v0.0.24+).
 
         Args:
             path: The file path to stat
+            hash: "sha256" to add the file's digest to the reply (regular
+                files only; the executor answers 400 otherwise)
 
         Returns:
             FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-            string), mtime (RFC 3339 UTC, nanoseconds)
+            string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
         """
+        params: Dict[str, Any] = {"path": path}
+        if hash is not None:
+            params["hash"] = hash
         response = await self._request_with_retry(
             "GET",
             f"{self.base_url}/files/stat",
-            params={"path": path},
+            params=params,
         )
         return response.json()
 

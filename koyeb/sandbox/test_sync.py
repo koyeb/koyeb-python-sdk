@@ -18,6 +18,7 @@ from koyeb.sandbox.sync import (
     excluded,
     extract_archive,
     format_mtime,
+    hash_candidates,
     mtime_seconds,
     path_match,
     plan_batches,
@@ -360,6 +361,29 @@ class TestDiff(unittest.TestCase):
             [_entry("d", "dir", mtime="2026-10-27T10:00:00Z")],
         )
         self.assertEqual([e["path"] for e in result.to_transfer], ["d"])
+
+    def test_hash_candidates_are_only_matching_files(self):
+        from koyeb.sandbox.sync import hash_candidates
+
+        same = _entry("same.txt", "file", 5)
+        candidates = hash_candidates(
+            [
+                same,
+                _entry("changed.txt", "file", 5, mtime="2026-10-27T10:00:01Z"),
+                _entry("resized.txt", "file", 6),
+                _entry("new.txt", "file", 5),
+                _entry("d", "dir"),
+                _entry("l", "symlink", size=3),
+            ],
+            [
+                same,
+                _entry("changed.txt", "file", 5, mtime="2026-10-27T10:00:00Z"),
+                _entry("resized.txt", "file", 5),
+                _entry("d", "dir"),
+                _entry("l", "symlink", size=3),
+            ],
+        )
+        self.assertEqual(candidates, ["same.txt"])
 
 
 class TestPlanBatches(unittest.TestCase):

@@ -26,19 +26,27 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 __all__ = [
+    "SYNC_BATCH_BYTES",
     "SyncDiff",
     "build_archive",
     "diff",
     "excluded",
     "extract_archive",
     "format_mtime",
+    "hash_candidates",
+    "join_local",
     "mtime_seconds",
     "path_match",
     "plan_batches",
     "prune_descendants",
     "relative_remote",
+    "remote_join",
     "walk_local",
 ]
+
+# One tar batch's raw content budget: the multipart part size (50 MiB),
+# comfortably inside the 100 MiB body cap with tar/gzip overhead on top.
+SYNC_BATCH_BYTES = 50 * 1024 * 1024
 
 
 # --------------------------------------------------------------------------
@@ -364,6 +372,31 @@ def _changed(local_entry: Dict[str, Any], remote_entry: Dict[str, Any]) -> bool:
     return False
 
 
+def hash_candidates(
+    source_entries: Iterable[Dict[str, Any]],
+    dest_entries: Iterable[Dict[str, Any]],
+) -> List[str]:
+    """Paths that only a sha256 comparison can settle.
+
+    Files present on both sides, matching on type, size and mtime: the
+    candidates checksum=True must hash. The caller prefetches the
+    executor-side digests for these in one pass (async has no other way
+    to feed the pure, synchronous diff).
+    """
+    dest = {e["path"]: e for e in dest_entries}
+    candidates: List[str] = []
+    for entry in source_entries:
+        other = dest.get(entry["path"])
+        if (
+            entry.get("type") == "file"
+            and other is not None
+            and other.get("type") == "file"
+            and not _changed(entry, other)
+        ):
+            candidates.append(entry["path"])
+    return candidates
+
+
 def _count(result: SyncDiff, entry: Dict[str, Any]) -> None:
     result.to_transfer.append(entry)
     if entry["type"] == "file":
@@ -407,6 +440,16 @@ def plan_batches(
 
 # --------------------------------------------------------------------------
 # deletes and the remote default
+
+def remote_join(remote: str, rel: str) -> str:
+    """A remote path for a relative entry path (remote paths are POSIX)."""
+    return posixpath.join(remote, rel)
+
+
+def join_local(root: str, rel: str) -> str:
+    """A local path for a relative entry path, on any platform."""
+    return os.path.join(root, *rel.split("/"))
+
 
 def prune_descendants(paths: Sequence[str]) -> List[str]:
     """Topmost paths only: deleting a directory takes its descendants.

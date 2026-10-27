@@ -13,10 +13,12 @@ import hashlib
 import json
 import os
 import shlex
+import shutil
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
@@ -29,11 +31,26 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Sequence,
     Tuple,
     Union,
 )
 
 from .executor_client import AsyncSandboxClient, SandboxClient
+from .sync import (
+    SYNC_BATCH_BYTES,
+    SyncDiff,
+    build_archive,
+    diff,
+    extract_archive,
+    hash_candidates,
+    join_local,
+    plan_batches,
+    prune_descendants,
+    relative_remote,
+    remote_join,
+    walk_local,
+)
 from .errors import (
     SandboxError,
     SandboxRequestError,
@@ -1137,6 +1154,248 @@ class SandboxFilesystem:
         """
         return SandboxFileIO(self, path, mode, encoding)
 
+    def sync(
+        self,
+        local: str,
+        remote: Optional[str] = None,
+        *,
+        direction: str = "push",
+        delete: bool = False,
+        exclude: Sequence[str] = (),
+        checksum: bool = False,
+        dry_run: bool = False,
+    ) -> Dict[str, int]:
+        """
+        Sync a directory with the sandbox, one way like ``rsync -r``.
+
+        Both sides are listed (a local walk against the executor's
+        NDJSON listing) and diffed on path, type, size and mtime —
+        whole seconds, like rsync's default; ``checksum=True`` adds a
+        sha256 comparison for files that pass that test. The changed set
+        travels as ~50 MiB gzip'd tar batches through /files/archive;
+        files larger than one part go through upload_file/download_file
+        instead (multipart on executors v0.0.24+, resumable downloads).
+        Symlinks travel as links, modes are kept, owners are not.
+
+        A no-op sync sends nothing: nothing is transferred, deleted or
+        even requested beyond the listing. With ``delete=True`` the
+        destination is pruned to match (a directory counts as one
+        deletion); deletes ride the legacy routes, which every executor
+        serves. ``dry_run=True`` computes the result without touching
+        either side.
+
+        Args:
+            local: Local directory path
+            remote: Destination path in the sandbox; relative paths
+                resolve under the sandbox workdir. None uses local's
+                relative form (its basename when absolute), rsync-style
+            direction: "push" (local → sandbox) or "pull" (sandbox → local)
+            delete: Remove destination entries absent from the source
+            exclude: Glob patterns; a matching path (or any /-separated
+                suffix of it) is skipped, a matching directory whole
+            checksum: Compare sha256 for size-and-mtime-equal files
+            dry_run: Compute the plan only, transfer nothing
+
+        Returns:
+            {"uploaded"|"downloaded", "deleted", "skipped", "bytes"}
+
+        Raises:
+            SandboxFilesystemError: On any failure, the filesystem taxonomy
+        """
+        if direction not in ("push", "pull"):
+            raise ValueError(
+                f"direction must be 'push' or 'pull', not {direction!r}"
+            )
+        if remote is None:
+            remote = relative_remote(local)
+        client = self._get_client()
+        if not client.has_files_routes():
+            raise SandboxFilesystemError(
+                "sync requires executor v0.0.24+ (the streamed /files "
+                "routes); this sandbox's executor is older"
+            )
+        with _translating_files_errors(f"sync {direction}", local):
+            if direction == "push":
+                return self._sync_push(
+                    local, remote, client, delete, exclude, checksum, dry_run
+                )
+            return self._sync_pull(
+                local, remote, client, delete, exclude, checksum, dry_run
+            )
+
+    def _sync_push(
+        self,
+        local: str,
+        remote: str,
+        client: SandboxClient,
+        delete: bool,
+        exclude: Sequence[str],
+        checksum: bool,
+        dry_run: bool,
+    ) -> Dict[str, int]:
+        local_entries = walk_local(local, exclude)
+        try:
+            remote_entries = list(client.files_list(remote, recursive=True))
+        except SandboxRequestError as e:
+            # A missing remote tree is an empty one: the archive PUT
+            # creates the root (MkdirAll), like rsync creating its dest.
+            if e.status_code != 404:
+                raise
+            remote_entries = []
+
+        hashes = self._sync_hashes(
+            client, local, remote, checksum, False, local_entries, remote_entries
+        )
+        result = diff(local_entries, remote_entries, delete=delete, **hashes)
+        batches, oversized = plan_batches(result.to_transfer, SYNC_BATCH_BYTES)
+        if not dry_run:
+            for batch in batches:
+                fd, spool = tempfile.mkstemp(suffix=".koyeb-sync.tgz")
+                os.close(fd)
+                try:
+                    build_archive(local, batch, spool)
+                    with open(spool, "rb") as f:
+                        client.files_archive_put(remote, f)
+                finally:
+                    with suppress(OSError):
+                        os.unlink(spool)
+            for entry in oversized:
+                self.upload_file(
+                    join_local(local, entry["path"]),
+                    remote_join(remote, entry["path"]),
+                )
+            deleted = self._sync_remote_deletes(remote, result, delete)
+        else:
+            deleted = len(prune_descendants([e["path"] for e in result.deletes]))
+        return {
+            "uploaded": len(result.to_transfer),
+            "deleted": deleted,
+            "skipped": result.skipped,
+            "bytes": result.bytes,
+        }
+
+    def _sync_remote_deletes(
+        self, remote: str, result: SyncDiff, delete: bool
+    ) -> int:
+        if not delete:
+            return 0
+        by_path = {e["path"]: e for e in result.deletes}
+        count = 0
+        for path in prune_descendants(list(by_path)):
+            if by_path[path].get("type") == "dir":
+                self.delete_dir(remote_join(remote, path))
+            else:
+                self.delete_file(remote_join(remote, path))
+            count += 1
+        return count
+
+    def _sync_hashes(
+        self,
+        client: SandboxClient,
+        local: str,
+        remote: str,
+        checksum: bool,
+        pull: bool,
+        source_entries: List[Dict[str, Any]],
+        dest_entries: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """diff()'s hash callables, with the executor side prefetched.
+
+        In diff()'s terms the source is always `local_entries`: on push
+        that is the local tree, on pull the remote one. The executor-side
+        digests are prefetched in one pass — the pure, synchronous diff
+        cannot await — and a vanished file (404) hashes as None:
+        unprovable, not changed.
+        """
+        if not checksum:
+            return {}
+        stats: Dict[str, Optional[str]] = {}
+        for path in hash_candidates(source_entries, dest_entries):
+            try:
+                entry = client.files_stat(remote_join(remote, path), hash="sha256")
+            except SandboxRequestError as e:
+                if e.status_code != 404:
+                    raise
+                stats[path] = None
+            else:
+                stats[path] = (entry or {}).get("sha256")
+
+        def executor_sha(path: str) -> Optional[str]:
+            return stats.get(path)
+
+        def disk_sha(path: str) -> str:
+            return _file_sha256(join_local(local, path))
+
+        if pull:
+            # The remote tree is diff()'s source side on pull.
+            return {"local_hash": executor_sha, "remote_hash": disk_sha}
+        return {"local_hash": disk_sha, "remote_hash": executor_sha}
+
+    def _sync_pull(
+        self,
+        local: str,
+        remote: str,
+        client: SandboxClient,
+        delete: bool,
+        exclude: Sequence[str],
+        checksum: bool,
+        dry_run: bool,
+    ) -> Dict[str, int]:
+        local_entries = walk_local(local, exclude)
+        remote_entries = list(client.files_list(remote, recursive=True))
+        hashes = self._sync_hashes(
+            client, local, remote, checksum, True, remote_entries, local_entries
+        )
+        result = diff(remote_entries, local_entries, delete=delete, **hashes)
+        batches, oversized = plan_batches(result.to_transfer, SYNC_BATCH_BYTES)
+        if not dry_run:
+            if batches:
+                fd, spool = tempfile.mkstemp(suffix=".koyeb-sync.tgz")
+                os.close(fd)
+                try:
+                    with open(spool, "wb") as out:
+                        for chunk in client.files_archive_get(remote, exclude):
+                            out.write(chunk)
+                    keep = {
+                        entry["path"]
+                        for batch in batches
+                        for entry in batch
+                    }
+                    extract_archive(spool, local, keep=keep)
+                finally:
+                    with suppress(OSError):
+                        os.unlink(spool)
+            for entry in oversized:
+                self.download_file(
+                    remote_join(remote, entry["path"]),
+                    join_local(local, entry["path"]),
+                )
+            deleted = self._sync_local_deletes(local, result, delete)
+        else:
+            deleted = len(prune_descendants([e["path"] for e in result.deletes]))
+        return {
+            "downloaded": len(result.to_transfer),
+            "deleted": deleted,
+            "skipped": result.skipped,
+            "bytes": result.bytes,
+        }
+
+    def _sync_local_deletes(
+        self, local: str, result: SyncDiff, delete: bool
+    ) -> int:
+        if not delete:
+            return 0
+        by_path = {e["path"]: e for e in result.deletes}
+        count = 0
+        for path in prune_descendants(list(by_path)):
+            target = join_local(local, path)
+            if os.path.isdir(target) and not os.path.islink(target):
+                shutil.rmtree(target)
+            else:
+                os.unlink(target)
+            count += 1
+        return count
+
 
 class AsyncSandboxFilesystem(SandboxFilesystem):
     """
@@ -1903,6 +2162,262 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             AsyncSandboxFileIO: Async file handle
         """
         return AsyncSandboxFileIO(self, path, mode, encoding)
+
+    async def sync(
+        self,
+        local: str,
+        remote: Optional[str] = None,
+        *,
+        direction: str = "push",
+        delete: bool = False,
+        exclude: Sequence[str] = (),
+        checksum: bool = False,
+        dry_run: bool = False,
+    ) -> Dict[str, int]:
+        """
+        Sync a directory with the sandbox, one way like ``rsync -r``.
+
+        Both sides are listed (a local walk against the executor's
+        NDJSON listing) and diffed on path, type, size and mtime —
+        whole seconds, like rsync's default; ``checksum=True`` adds a
+        sha256 comparison for files that pass that test. The changed set
+        travels as ~50 MiB gzip'd tar batches through /files/archive;
+        files larger than one part go through upload_file/download_file
+        instead (multipart on executors v0.0.24+, resumable downloads).
+        Symlinks travel as links, modes are kept, owners are not.
+
+        A no-op sync sends nothing: nothing is transferred, deleted or
+        even requested beyond the listing. With ``delete=True`` the
+        destination is pruned to match (a directory counts as one
+        deletion); deletes ride the legacy routes, which every executor
+        serves. ``dry_run=True`` computes the result without touching
+        either side.
+
+        Args:
+            local: Local directory path
+            remote: Destination path in the sandbox; relative paths
+                resolve under the sandbox workdir. None uses local's
+                relative form (its basename when absolute), rsync-style
+            direction: "push" (local → sandbox) or "pull" (sandbox → local)
+            delete: Remove destination entries absent from the source
+            exclude: Glob patterns; a matching path (or any /-separated
+                suffix of it) is skipped, a matching directory whole
+            checksum: Compare sha256 for size-and-mtime-equal files
+            dry_run: Compute the plan only, transfer nothing
+
+        Returns:
+            {"uploaded"|"downloaded", "deleted", "skipped", "bytes"}
+
+        Raises:
+            SandboxFilesystemError: On any failure, the filesystem taxonomy
+        """
+        if direction not in ("push", "pull"):
+            raise ValueError(
+                f"direction must be 'push' or 'pull', not {direction!r}"
+            )
+        if remote is None:
+            remote = relative_remote(local)
+        client = self._get_async_client()
+        if not await client.has_files_routes():
+            raise SandboxFilesystemError(
+                "sync requires executor v0.0.24+ (the streamed /files "
+                "routes); this sandbox's executor is older"
+            )
+        with _translating_files_errors(f"sync {direction}", local):
+            if direction == "push":
+                return await self._sync_push(
+                    local, remote, client, delete, exclude, checksum, dry_run
+                )
+            return await self._sync_pull(
+                local, remote, client, delete, exclude, checksum, dry_run
+            )
+
+    async def _sync_push(
+        self,
+        local: str,
+        remote: str,
+        client: AsyncSandboxClient,
+        delete: bool,
+        exclude: Sequence[str],
+        checksum: bool,
+        dry_run: bool,
+    ) -> Dict[str, int]:
+        local_entries = walk_local(local, exclude)
+        try:
+            remote_entries = [
+                entry
+                async for entry in client.files_list(remote, recursive=True)
+            ]
+        except SandboxRequestError as e:
+            # A missing remote tree is an empty one: the archive PUT
+            # creates the root (MkdirAll), like rsync creating its dest.
+            if e.status_code != 404:
+                raise
+            remote_entries = []
+
+        hashes = await self._sync_hashes(
+            client, local, remote, checksum, False, local_entries, remote_entries
+        )
+        result = diff(local_entries, remote_entries, delete=delete, **hashes)
+        batches, oversized = plan_batches(result.to_transfer, SYNC_BATCH_BYTES)
+        if not dry_run:
+            for batch in batches:
+                fd, spool = tempfile.mkstemp(suffix=".koyeb-sync.tgz")
+                os.close(fd)
+                try:
+                    build_archive(local, batch, spool)
+                    with open(spool, "rb") as f:
+                        await client.files_archive_put(remote, f)
+                finally:
+                    with suppress(OSError):
+                        os.unlink(spool)
+            for entry in oversized:
+                await self.upload_file(
+                    join_local(local, entry["path"]),
+                    remote_join(remote, entry["path"]),
+                )
+            deleted = await self._sync_remote_deletes(remote, result, delete)
+        else:
+            deleted = len(prune_descendants([e["path"] for e in result.deletes]))
+        return {
+            "uploaded": len(result.to_transfer),
+            "deleted": deleted,
+            "skipped": result.skipped,
+            "bytes": result.bytes,
+        }
+
+    async def _sync_pull(
+        self,
+        local: str,
+        remote: str,
+        client: AsyncSandboxClient,
+        delete: bool,
+        exclude: Sequence[str],
+        checksum: bool,
+        dry_run: bool,
+    ) -> Dict[str, int]:
+        local_entries = walk_local(local, exclude)
+        remote_entries = [
+            entry async for entry in client.files_list(remote, recursive=True)
+        ]
+        hashes = await self._sync_hashes(
+            client, local, remote, checksum, True, remote_entries, local_entries
+        )
+        result = diff(remote_entries, local_entries, delete=delete, **hashes)
+        batches, oversized = plan_batches(result.to_transfer, SYNC_BATCH_BYTES)
+        if not dry_run:
+            if batches:
+                fd, spool = tempfile.mkstemp(suffix=".koyeb-sync.tgz")
+                os.close(fd)
+                try:
+                    with open(spool, "wb") as out:
+                        async for chunk in client.files_archive_get(remote, exclude):
+                            out.write(chunk)
+                    keep = {
+                        entry["path"]
+                        for batch in batches
+                        for entry in batch
+                    }
+                    extract_archive(spool, local, keep=keep)
+                finally:
+                    with suppress(OSError):
+                        os.unlink(spool)
+            for entry in oversized:
+                await self.download_file(
+                    remote_join(remote, entry["path"]),
+                    join_local(local, entry["path"]),
+                )
+            deleted = self._sync_local_deletes(local, result, delete)
+        else:
+            deleted = len(prune_descendants([e["path"] for e in result.deletes]))
+        return {
+            "downloaded": len(result.to_transfer),
+            "deleted": deleted,
+            "skipped": result.skipped,
+            "bytes": result.bytes,
+        }
+
+    async def _sync_hashes(
+        self,
+        client: AsyncSandboxClient,
+        local: str,
+        remote: str,
+        checksum: bool,
+        pull: bool,
+        source_entries: List[Dict[str, Any]],
+        dest_entries: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """diff()'s hash callables, with the executor side prefetched.
+
+        In diff()'s terms the source is always `local_entries`: on push
+        that is the local tree, on pull the remote one. The executor-side
+        digests are gathered in one pass — the pure, synchronous diff
+        cannot await — and a vanished file (404) hashes as None:
+        unprovable, not changed.
+        """
+        if not checksum:
+            return {}
+
+        async def fetch(path: str):
+            try:
+                entry = await client.files_stat(
+                    remote_join(remote, path), hash="sha256"
+                )
+            except SandboxRequestError as e:
+                if e.status_code != 404:
+                    raise
+                return path, None
+            return path, (entry or {}).get("sha256")
+
+        stats = dict(
+            await asyncio.gather(
+                *(fetch(path) for path in hash_candidates(source_entries, dest_entries))
+            )
+        )
+
+        def executor_sha(path: str) -> Optional[str]:
+            return stats.get(path)
+
+        def disk_sha(path: str) -> str:
+            return _file_sha256(join_local(local, path))
+
+        if pull:
+            # The remote tree is diff()'s source side on pull.
+            return {"local_hash": executor_sha, "remote_hash": disk_sha}
+        return {"local_hash": disk_sha, "remote_hash": executor_sha}
+
+    async def _sync_remote_deletes(
+        self, remote: str, result: SyncDiff, delete: bool
+    ) -> int:
+        if not delete:
+            return 0
+        by_path = {e["path"]: e for e in result.deletes}
+        count = 0
+        for path in prune_descendants(list(by_path)):
+            if by_path[path].get("type") == "dir":
+                await self.delete_dir(remote_join(remote, path))
+            else:
+                await self.delete_file(remote_join(remote, path))
+            count += 1
+        return count
+
+    def _sync_local_deletes(
+        self, local: str, result: SyncDiff, delete: bool
+    ) -> int:
+        """Local pruning is plain filesystem work — no await, but the
+        signature matches the sync twin so the parity sweep holds."""
+        if not delete:
+            return 0
+        by_path = {e["path"]: e for e in result.deletes}
+        count = 0
+        for path in prune_descendants(list(by_path)):
+            target = join_local(local, path)
+            if os.path.isdir(target) and not os.path.islink(target):
+                shutil.rmtree(target)
+            else:
+                os.unlink(target)
+            count += 1
+        return count
 
 
 class SandboxFileIO:

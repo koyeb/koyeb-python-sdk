@@ -118,6 +118,31 @@ class TestFilesStat(unittest.TestCase):
 
         self.assertEqual(ctx.exception.status_code, 404)
 
+    def test_hash_param_requests_sha256(self):
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            return httpx.Response(
+                200,
+                request=request,
+                json={
+                    "type": "file",
+                    "size": 5,
+                    "mode": "0644",
+                    "mtime": "2026-10-27T10:00:00Z",
+                    "sha256": "ab" * 32,
+                },
+            )
+
+        entry = _make_sync_client(handler).files_stat("/tmp/a.txt", hash="sha256")
+
+        self.assertEqual(
+            seen["url"],
+            "https://sb.example/files/stat?path=%2Ftmp%2Fa.txt&hash=sha256",
+        )
+        self.assertEqual(entry["sha256"], "ab" * 32)
+
 
 class TestAsyncFilesStat(unittest.IsolatedAsyncioTestCase):
     async def test_sends_get_and_returns_entry(self):
@@ -137,6 +162,30 @@ class TestAsyncFilesStat(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seen["method"], "GET")
         self.assertEqual(seen["url"], "https://sb.example/files/stat?path=%2Ftmp")
         self.assertEqual(entry["type"], "dir")
+
+    async def test_hash_param_requests_sha256(self):
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            return httpx.Response(
+                200,
+                request=request,
+                json={
+                    "type": "file",
+                    "size": 5,
+                    "mode": "0644",
+                    "mtime": "2026-10-27T10:00:00Z",
+                    "sha256": "cd" * 32,
+                },
+            )
+
+        entry = await _make_async_client(handler).files_stat("/tmp/a.txt", hash="sha256")
+
+        self.assertTrue(
+            seen["url"].endswith("&hash=sha256"), seen["url"]
+        )
+        self.assertEqual(entry["sha256"], "cd" * 32)
 
 
 class TestFilesPut(unittest.TestCase):
