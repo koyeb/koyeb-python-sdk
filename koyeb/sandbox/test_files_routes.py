@@ -1051,5 +1051,361 @@ class TestAsyncFilesUploadTimeoutOverride(unittest.IsolatedAsyncioTestCase):
         )
 
 
+class TestFilesList(unittest.TestCase):
+    def test_streams_ndjson_entries(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            body = (
+                b'{"path": "a.txt", "type": "file", "size": 3, '
+                b'"mode": "0644", "mtime": "2026-10-27T10:00:00Z"}\n'
+                b'{"path": "sub", "type": "dir", "size": 0, '
+                b'"mode": "0755", "mtime": "2026-10-27T10:00:00Z"}\n'
+            )
+            return httpx.Response(
+                200,
+                request=request,
+                content=body,
+                headers={"Content-Type": "application/x-ndjson"},
+            )
+
+        entries = list(_make_sync_client(handler).files_list("/tmp", recursive=True))
+
+        self.assertEqual(seen["method"], "GET")
+        self.assertEqual(
+            seen["url"], "https://sb.example/files/list?path=%2Ftmp&recursive=1"
+        )
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(entries[0]["path"], "a.txt")
+        self.assertEqual(entries[0]["type"], "file")
+        self.assertEqual(entries[1]["path"], "sub")
+        self.assertEqual(entries[1]["type"], "dir")
+
+    def test_recursive_flag_omitted_by_default(self):
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            return httpx.Response(
+                200,
+                request=request,
+                content=b"",
+                headers={"Content-Type": "application/x-ndjson"},
+            )
+
+        list(_make_sync_client(handler).files_list("/tmp"))
+
+        self.assertEqual(seen["url"], "https://sb.example/files/list?path=%2Ftmp")
+
+    def test_error_entry_passes_through(self):
+        def handler(request):
+            body = (
+                b'{"path": "a.txt", "type": "file", "size": 3, '
+                b'"mode": "0644", "mtime": "2026-10-27T10:00:00Z"}\n'
+                b'{"path": "b.txt", "error": "permission denied"}\n'
+            )
+            return httpx.Response(
+                200,
+                request=request,
+                content=body,
+                headers={"Content-Type": "application/x-ndjson"},
+            )
+
+        entries = list(_make_sync_client(handler).files_list("/tmp"))
+
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(entries[1], {"path": "b.txt", "error": "permission denied"})
+
+    def test_404_raises_request_error(self):
+        def handler(request):
+            return httpx.Response(
+                404, request=request, json={"error": "no such file or directory"}
+            )
+
+        with self.assertRaises(SandboxRequestError) as ctx:
+            list(_make_sync_client(handler).files_list("/tmp/missing"))
+
+        self.assertEqual(ctx.exception.status_code, 404)
+
+
+class TestAsyncFilesList(unittest.IsolatedAsyncioTestCase):
+    async def test_streams_ndjson_entries(self):
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            body = (
+                b'{"path": "a.txt", "type": "file", "size": 3, '
+                b'"mode": "0644", "mtime": "2026-10-27T10:00:00Z"}\n'
+            )
+            return httpx.Response(
+                200,
+                request=request,
+                content=body,
+                headers={"Content-Type": "application/x-ndjson"},
+            )
+
+        entries = [
+            e
+            async for e in _make_async_client(handler).files_list(
+                "/tmp", recursive=True
+            )
+        ]
+
+        self.assertEqual(
+            seen["url"], "https://sb.example/files/list?path=%2Ftmp&recursive=1"
+        )
+        self.assertEqual(
+            entries,
+            [
+                {
+                    "path": "a.txt",
+                    "type": "file",
+                    "size": 3,
+                    "mode": "0644",
+                    "mtime": "2026-10-27T10:00:00Z",
+                }
+            ],
+        )
+
+
+class TestFilesListTimeouts(unittest.TestCase):
+    def test_idle_stall_names_the_bound(self):
+        def handler(request):
+            raise httpx.ReadTimeout("idle", request=request)
+
+        with self.assertRaises(SandboxTimeoutError) as cm:
+            list(_make_sync_client(handler).files_list("/tmp"))
+
+        self.assertEqual(str(cm.exception), "Request timed out after 60s")
+
+
+class TestAsyncFilesListTimeouts(unittest.IsolatedAsyncioTestCase):
+    async def test_idle_stall_names_the_bound(self):
+        def handler(request):
+            raise httpx.ReadTimeout("idle", request=request)
+
+        with self.assertRaises(SandboxTimeoutError) as cm:
+            async for _ in _make_async_client(handler).files_list("/tmp"):
+                pass
+
+        self.assertEqual(str(cm.exception), "Request timed out after 60s")
+
+
+class TestFilesArchiveGet(unittest.TestCase):
+    def test_streams_archive_bytes_with_excludes(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            return httpx.Response(
+                200, request=request, content=b"\x1f\x8barchive-bytes"
+            )
+
+        chunks = list(
+            _make_sync_client(handler).files_archive_get(
+                "/tmp", exclude=("*.log", ".git")
+            )
+        )
+
+        self.assertEqual(seen["method"], "GET")
+        self.assertEqual(
+            seen["url"],
+            "https://sb.example/files/archive?path=%2Ftmp&exclude=%2A.log&exclude=.git",
+        )
+        self.assertEqual(b"".join(chunks), b"\x1f\x8barchive-bytes")
+
+    def test_no_excludes_omits_param(self):
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            return httpx.Response(200, request=request, content=b"")
+
+        list(_make_sync_client(handler).files_archive_get("/tmp"))
+
+        self.assertEqual(seen["url"], "https://sb.example/files/archive?path=%2Ftmp")
+
+    def test_400_on_bad_pattern_raises(self):
+        def handler(request):
+            return httpx.Response(
+                400, request=request, json={"error": 'bad exclude pattern "["'}
+            )
+
+        with self.assertRaises(SandboxRequestError) as ctx:
+            list(_make_sync_client(handler).files_archive_get("/tmp", exclude=("[",)))
+
+        self.assertEqual(ctx.exception.status_code, 400)
+
+
+class TestAsyncFilesArchiveGet(unittest.IsolatedAsyncioTestCase):
+    async def test_streams_archive_bytes_with_excludes(self):
+        seen = {}
+
+        def handler(request):
+            seen["url"] = str(request.url)
+            return httpx.Response(
+                200, request=request, content=b"\x1f\x8barchive-bytes"
+            )
+
+        chunks = [
+            c
+            async for c in _make_async_client(handler).files_archive_get(
+                "/tmp", exclude=("*.log",)
+            )
+        ]
+
+        self.assertEqual(
+            seen["url"],
+            "https://sb.example/files/archive?path=%2Ftmp&exclude=%2A.log",
+        )
+        self.assertEqual(b"".join(chunks), b"\x1f\x8barchive-bytes")
+
+
+class TestFilesArchiveGetTimeouts(unittest.TestCase):
+    def test_idle_stall_names_the_bound(self):
+        def handler(request):
+            raise httpx.ReadTimeout("idle", request=request)
+
+        with self.assertRaises(SandboxTimeoutError) as cm:
+            list(_make_sync_client(handler).files_archive_get("/tmp"))
+
+        self.assertEqual(str(cm.exception), "Request timed out after 60s")
+
+
+class TestAsyncFilesArchiveGetTimeouts(unittest.IsolatedAsyncioTestCase):
+    async def test_idle_stall_names_the_bound(self):
+        def handler(request):
+            raise httpx.ReadTimeout("idle", request=request)
+
+        with self.assertRaises(SandboxTimeoutError) as cm:
+            async for _ in _make_async_client(handler).files_archive_get("/tmp"):
+                pass
+
+        self.assertEqual(str(cm.exception), "Request timed out after 60s")
+
+
+class TestFilesArchivePut(unittest.TestCase):
+    def test_streams_body_and_returns_counts(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            seen["content_type"] = request.headers.get("Content-Type")
+            seen["body"] = request.read()
+            return httpx.Response(200, request=request, json={"files": 2, "bytes": 10})
+
+        reply = _make_sync_client(handler).files_archive_put("/tmp", b"tar-bytes")
+
+        self.assertEqual(seen["method"], "PUT")
+        self.assertEqual(seen["url"], "https://sb.example/files/archive?path=%2Ftmp")
+        self.assertEqual(seen["content_type"], "application/octet-stream")
+        self.assertEqual(seen["body"], b"tar-bytes")
+        self.assertEqual(reply, {"files": 2, "bytes": 10})
+
+    def test_accepts_iterable_content(self):
+        seen = {}
+
+        def handler(request):
+            seen["body"] = request.read()
+            return httpx.Response(200, request=request, json={"files": 0, "bytes": 0})
+
+        def chunks():
+            yield b"tar-"
+            yield b"bytes"
+
+        reply = _make_sync_client(handler).files_archive_put("/tmp", chunks())
+
+        self.assertEqual(seen["body"], b"tar-bytes")
+        self.assertEqual(reply, {"files": 0, "bytes": 0})
+
+    def test_400_on_bad_gzip_raises(self):
+        def handler(request):
+            return httpx.Response(
+                400,
+                request=request,
+                json={"error": "reading gzip stream: gzip: invalid header"},
+            )
+
+        with self.assertRaises(SandboxRequestError) as ctx:
+            _make_sync_client(handler).files_archive_put("/tmp", b"not-gzip")
+
+        self.assertEqual(ctx.exception.status_code, 400)
+
+
+class TestAsyncFilesArchivePut(unittest.IsolatedAsyncioTestCase):
+    async def test_streams_body_and_returns_counts(self):
+        seen = {}
+
+        def handler(request):
+            seen["method"] = request.method
+            seen["url"] = str(request.url)
+            seen["body"] = request.read()
+            return httpx.Response(200, request=request, json={"files": 1, "bytes": 5})
+
+        reply = await _make_async_client(handler).files_archive_put(
+            "/tmp", b"tar-bytes"
+        )
+
+        self.assertEqual(seen["method"], "PUT")
+        self.assertEqual(seen["url"], "https://sb.example/files/archive?path=%2Ftmp")
+        self.assertEqual(seen["body"], b"tar-bytes")
+        self.assertEqual(reply, {"files": 1, "bytes": 5})
+
+    async def test_accepts_async_iterable_content(self):
+        seen = {}
+
+        def handler(request):
+            seen["body"] = request.read()
+            return httpx.Response(200, request=request, json={"files": 0, "bytes": 0})
+
+        async def chunks():
+            yield b"tar-"
+            yield b"bytes"
+
+        await _make_async_client(handler).files_archive_put("/tmp", chunks())
+
+        self.assertEqual(seen["body"], b"tar-bytes")
+
+    async def test_accepts_file_object_content(self):
+        import io
+
+        seen = {}
+
+        def handler(request):
+            seen["body"] = request.read()
+            return httpx.Response(200, request=request, json={"files": 0, "bytes": 0})
+
+        await _make_async_client(handler).files_archive_put("/tmp", io.BytesIO(b"xyz"))
+
+        self.assertEqual(seen["body"], b"xyz")
+
+
+class TestFilesArchivePutTimeouts(unittest.TestCase):
+    def test_names_idle_bound_on_timeout(self):
+        def handler(request):
+            raise httpx.ReadTimeout("idle", request=request)
+
+        with self.assertRaises(SandboxTimeoutError) as cm:
+            _make_sync_client(handler).files_archive_put("/tmp", b"tar")
+
+        self.assertEqual(str(cm.exception), "Request timed out after 60s")
+
+
+class TestAsyncFilesArchivePutTimeouts(unittest.IsolatedAsyncioTestCase):
+    async def test_names_idle_bound_on_timeout(self):
+        def handler(request):
+            raise httpx.ReadTimeout("idle", request=request)
+
+        with self.assertRaises(SandboxTimeoutError) as cm:
+            await _make_async_client(handler).files_archive_put("/tmp", b"tar")
+
+        self.assertEqual(str(cm.exception), "Request timed out after 60s")
+
+
 if __name__ == "__main__":
     unittest.main()
