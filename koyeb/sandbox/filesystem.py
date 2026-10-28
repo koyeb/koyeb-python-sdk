@@ -316,12 +316,15 @@ class _PartProgress:
 
     def __init__(self, progress: Optional[Callable[[int, int], None]], total: int):
         self._reporter = _ProgressReporter(progress, total)
+        self._total = total
         self._done = 0
         self._lock = threading.Lock()
 
     def add(self, n: int) -> None:
         with self._lock:
-            self._done += n
+            # A 409-fill re-sends already-counted bytes; done never
+            # passes the file size.
+            self._done = min(self._done + n, self._total)
             self._reporter.update(self._done)
 
     def finish(self) -> None:

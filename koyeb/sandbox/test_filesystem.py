@@ -1745,6 +1745,25 @@ class TestUpload409Resume(unittest.TestCase):
 class TestUploadProgress(unittest.TestCase):
     DATA = b"abcdefghijkl"
 
+    def test_progress_never_passes_the_file_size_across_a_fill(self):
+        # A 409-fill re-sends bytes the counter already counted; the
+        # callback contract caps done at the file size.
+        seen = []
+        fake = _UploadFakeExecutor(forget_parts={4})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(
+                    local,
+                    "/r/big.bin",
+                    part_size=4,
+                    concurrency=1,
+                    progress=lambda done, total: seen.append((done, total)),
+                )
+        self.assertTrue(seen)
+        self.assertEqual(seen[-1], (12, 12))
+        self.assertTrue(all(done <= total for done, total in seen))
+
     def test_progress_reaches_the_full_size(self):
         seen = []
         fake = _UploadFakeExecutor()
