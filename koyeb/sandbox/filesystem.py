@@ -919,14 +919,23 @@ class SandboxFilesystem:
                     raise
 
         with ThreadPoolExecutor(max_workers=concurrency) as pool:
-            futures = [pool.submit(work) for _ in range(min(concurrency, len(plan)))]
             first: Optional[BaseException] = None
-            for future in futures:
-                try:
-                    future.result()
-                except BaseException as e:
-                    if first is None:
-                        first = e
+            try:
+                futures = [
+                    pool.submit(work) for _ in range(min(concurrency, len(plan)))
+                ]
+                for future in futures:
+                    try:
+                        future.result()
+                    except BaseException as e:
+                        if first is None:
+                            first = e
+                        # The stored interrupt must stop the remaining
+                        # parts now, not after the queue drains.
+                        stop.set()
+            finally:
+                # The same stop covers an interrupt during submit.
+                stop.set()
         if first is not None:
             raise first
 

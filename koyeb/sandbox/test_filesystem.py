@@ -8,6 +8,8 @@ import hashlib
 import inspect
 import json
 import os
+import signal
+import sys
 import tempfile
 import threading
 import time
@@ -1604,6 +1606,42 @@ class TestUploadAbortOnFailure(unittest.TestCase):
     """A hard failure aborts the session; abort never masks the cause."""
 
     DATA = b"abcdefghijkl"
+
+    @unittest.skipIf(sys.platform == "win32", "^C replay is POSIX-only")
+    def test_interrupt_aborts_without_draining_the_queue(self):
+        # A ^C mid-upload must surface promptly: the workers finish
+        # their in-flight part and stop instead of draining the plan.
+        first_in_flight = threading.Event()
+        release = threading.Event()
+        signalled = [0.0]
+
+        def on_part():
+            if not first_in_flight.is_set():
+                first_in_flight.set()
+                release.wait(timeout=10)
+            else:
+                time.sleep(0.2)
+
+        def interrupter():
+            first_in_flight.wait(timeout=10)
+            signalled[0] = time.monotonic()
+            os.kill(os.getpid(), signal.SIGINT)
+            time.sleep(0.1)
+            release.set()
+
+        fake = _UploadFakeExecutor(on_part=on_part)
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", bytes(80))
+            with _fs(fake) as fs:
+                thread = threading.Thread(target=interrupter)
+                thread.start()
+                try:
+                    with self.assertRaises(KeyboardInterrupt):
+                        fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=2)
+                finally:
+                    thread.join(timeout=5)
+        self.assertIn("abort", fake.kinds())
+        self.assertLess(time.monotonic() - signalled[0], 1.0)
 
     def test_hard_part_failure_aborts_and_raises(self):
         fake = _UploadFakeExecutor(
