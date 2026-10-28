@@ -1099,7 +1099,7 @@ class TestAsyncWriteFileLegacyErrors(unittest.IsolatedAsyncioTestCase):
 
 
 class _UploadFakeExecutor:
-    """Stateful fake for the multipart session flow (PR #34 semantics).
+    """Stateful fake for the multipart session flow.
 
     Parts land at offsets into a pre-sized buffer; complete answers 409
     with the true missing ranges until coverage holds, then verifies the
@@ -1357,7 +1357,7 @@ def _local_file(directory, name, data):
 
 
 class TestUploadDefaults(unittest.TestCase):
-    """The ticket's numbers, pinned where the flow reads them."""
+    """The documented defaults, pinned where the flow reads them."""
 
     def test_documented_defaults(self):
         self.assertEqual(UPLOAD_PART_SIZE, 50 * 1024 * 1024)
@@ -1899,8 +1899,8 @@ class TestAsyncUploadMultipart(unittest.IsolatedAsyncioTestCase):
 class TestMainGuardIsLast(unittest.TestCase):
     """The direct-run entry point must sit after every test class.
 
-    Appending classes at EOF after the guard is a three-times-recurred
-    mistake (rounds 1-3); this pins the convention structurally.
+    Appending classes at EOF after the guard is a recurring mistake;
+    this pins the convention structurally.
     """
 
     def test_no_class_follows_the_guard(self):
