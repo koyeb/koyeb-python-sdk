@@ -180,11 +180,11 @@ class TestAsyncFilesStat(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-        entry = await _make_async_client(handler).files_stat("/tmp/a.txt", hash="sha256")
-
-        self.assertTrue(
-            seen["url"].endswith("&hash=sha256"), seen["url"]
+        entry = await _make_async_client(handler).files_stat(
+            "/tmp/a.txt", hash="sha256"
         )
+
+        self.assertTrue(seen["url"].endswith("&hash=sha256"), seen["url"])
         self.assertEqual(entry["sha256"], "cd" * 32)
 
 
@@ -900,206 +900,6 @@ class TestAsyncFilesUploadAbort(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seen["method"], "DELETE")
 
 
-class TestFilesPutTimeoutOverride(unittest.TestCase):
-    """upload_file(timeout=) reaches the wire as the streamed PUT's bound."""
-
-    def test_override_replaces_the_idle_bound(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(
-                200, request=request, json={"size": 3, "sha256": "ab" * 32}
-            )
-
-        client = _make_sync_client(handler)
-        with _request_spy(client, seen):
-            client.files_put("/a", b"xyz", timeout=90)
-
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-    def test_default_keeps_the_files_idle_bound(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(
-                200, request=request, json={"size": 3, "sha256": "ab" * 32}
-            )
-
-        client = _make_sync_client(handler)
-        with _request_spy(client, seen):
-            client.files_put("/a", b"xyz")
-
-        self.assertEqual(seen["timeout"], _FILES_TIMEOUT)
-
-
-class TestAsyncFilesPutTimeoutOverride(unittest.IsolatedAsyncioTestCase):
-    async def test_override_replaces_the_idle_bound(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(
-                200, request=request, json={"size": 3, "sha256": "ab" * 32}
-            )
-
-        client = _make_async_client(handler)
-        with _async_request_spy(client, seen):
-            await client.files_put("/a", b"xyz", timeout=90)
-
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-
-class TestFilesReadTimeoutOverride(unittest.TestCase):
-    def test_override_reaches_the_stream(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(200, request=request, content=b"data")
-
-        client = _make_sync_client(handler)
-        with _stream_spy(client, seen):
-            chunks = list(client.files_read("/a", timeout=90))
-
-        self.assertEqual(chunks, [b"data"])
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-
-class TestAsyncFilesReadTimeoutOverride(unittest.IsolatedAsyncioTestCase):
-    async def test_override_reaches_the_stream(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(200, request=request, content=b"data")
-
-        client = _make_async_client(handler)
-        with _stream_spy(client, seen):
-            chunks = [c async for c in client.files_read("/a", timeout=90)]
-
-        self.assertEqual(chunks, [b"data"])
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-
-class TestFilesUploadTimeoutOverride(unittest.TestCase):
-    """The multipart flow's calls take the per-call timeout override.
-
-    Parts keep the idle-bound shape; the control calls (open, complete)
-    get the override as their per-phase bound.
-    """
-
-    def test_part_override_reaches_the_wire(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(204, request=request)
-
-        client = _make_sync_client(handler)
-        with _request_spy(client, seen):
-            client.files_upload_part("u-1", 0, b"abc", timeout=90)
-
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-    def test_part_default_keeps_the_files_idle_bound(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(204, request=request)
-
-        client = _make_sync_client(handler)
-        with _request_spy(client, seen):
-            client.files_upload_part("u-1", 0, b"abc")
-
-        self.assertEqual(seen["timeout"], _FILES_TIMEOUT)
-
-    def test_open_override_reaches_the_wire(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(
-                200, request=request, json={"upload_id": "u", "max_part_size": 1}
-            )
-
-        client = _make_sync_client(handler)
-        with _request_spy(client, seen):
-            client.files_upload_open("/a", 10, timeout=90)
-
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-    def test_complete_override_reaches_the_wire(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(
-                200, request=request, json={"size": 10, "sha256": "ab" * 32}
-            )
-
-        client = _make_sync_client(handler)
-        with _request_spy(client, seen):
-            client.files_upload_complete("u-1", timeout=90)
-
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-
-class TestAsyncFilesUploadTimeoutOverride(unittest.IsolatedAsyncioTestCase):
-    async def test_part_override_reaches_the_wire(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(204, request=request)
-
-        client = _make_async_client(handler)
-        with _async_request_spy(client, seen):
-            await client.files_upload_part("u-1", 0, b"abc", timeout=90)
-
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-    async def test_open_override_reaches_the_wire(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(
-                200, request=request, json={"upload_id": "u", "max_part_size": 1}
-            )
-
-        client = _make_async_client(handler)
-        with _async_request_spy(client, seen):
-            await client.files_upload_open("/a", 10, timeout=90)
-
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-    async def test_complete_override_reaches_the_wire(self):
-        seen = {}
-
-        def handler(request):
-            return httpx.Response(
-                200, request=request, json={"size": 10, "sha256": "ab" * 32}
-            )
-
-        client = _make_async_client(handler)
-        with _async_request_spy(client, seen):
-            await client.files_upload_complete("u-1", timeout=90)
-
-        self.assertEqual(
-            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
-        )
-
-
 class TestFilesList(unittest.TestCase):
     def test_streams_ndjson_entries(self):
         seen = {}
@@ -1328,7 +1128,7 @@ class TestAsyncFilesArchiveGet(unittest.IsolatedAsyncioTestCase):
     async def test_400_on_bad_pattern_raises(self):
         def handler(request):
             return httpx.Response(
-                400, request=request, json={"error": "bad exclude pattern \"[\""}
+                400, request=request, json={"error": 'bad exclude pattern "["'}
             )
 
         with self.assertRaises(SandboxRequestError) as ctx:
@@ -1411,6 +1211,32 @@ class TestFilesArchivePut(unittest.TestCase):
 
         self.assertEqual(ctx.exception.status_code, 400)
 
+    def test_mid_stream_failure_is_not_retried(self):
+        calls = []
+
+        def handler(request):
+            calls.append(1)
+            raise httpx.ReadError("reset mid-stream", request=request)
+
+        with self.assertRaises(SandboxError):
+            _make_sync_client(handler).files_archive_put("/tmp", b"tar-bytes")
+
+        # A consumed stream cannot replay; only a connect-time failure
+        # (the request never left) is retried.
+        self.assertEqual(len(calls), 1)
+
+    def test_5xx_is_not_blindly_retried(self):
+        calls = []
+
+        def handler(request):
+            calls.append(1)
+            return httpx.Response(502, request=request, json={"error": "bad gateway"})
+
+        with self.assertRaises(SandboxRequestError):
+            _make_sync_client(handler).files_archive_put("/tmp", b"tar-bytes")
+
+        self.assertEqual(len(calls), 1)
+
 
 class TestAsyncFilesArchivePut(unittest.IsolatedAsyncioTestCase):
     async def test_streams_body_and_returns_counts(self):
@@ -1459,6 +1285,32 @@ class TestAsyncFilesArchivePut(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(seen["body"], b"xyz")
 
+    async def test_mid_stream_failure_is_not_retried(self):
+        calls = []
+
+        def handler(request):
+            calls.append(1)
+            raise httpx.ReadError("reset mid-stream", request=request)
+
+        with self.assertRaises(SandboxError):
+            await _make_async_client(handler).files_archive_put("/tmp", b"tar-bytes")
+
+        # A consumed stream cannot replay; only a connect-time failure
+        # (the request never left) is retried.
+        self.assertEqual(len(calls), 1)
+
+    async def test_5xx_is_not_blindly_retried(self):
+        calls = []
+
+        def handler(request):
+            calls.append(1)
+            return httpx.Response(502, request=request, json={"error": "bad gateway"})
+
+        with self.assertRaises(SandboxRequestError):
+            await _make_async_client(handler).files_archive_put("/tmp", b"tar-bytes")
+
+        self.assertEqual(len(calls), 1)
+
 
 class TestFilesArchivePutTimeouts(unittest.TestCase):
     def test_names_idle_bound_on_timeout(self):
@@ -1480,6 +1332,206 @@ class TestAsyncFilesArchivePutTimeouts(unittest.IsolatedAsyncioTestCase):
             await _make_async_client(handler).files_archive_put("/tmp", b"tar")
 
         self.assertEqual(str(cm.exception), "Request timed out after 60s")
+
+
+class TestFilesPutTimeoutOverride(unittest.TestCase):
+    """upload_file(timeout=) reaches the wire as the streamed PUT's bound."""
+
+    def test_override_replaces_the_idle_bound(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(
+                200, request=request, json={"size": 3, "sha256": "ab" * 32}
+            )
+
+        client = _make_sync_client(handler)
+        with _request_spy(client, seen):
+            client.files_put("/a", b"xyz", timeout=90)
+
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
+
+    def test_default_keeps_the_files_idle_bound(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(
+                200, request=request, json={"size": 3, "sha256": "ab" * 32}
+            )
+
+        client = _make_sync_client(handler)
+        with _request_spy(client, seen):
+            client.files_put("/a", b"xyz")
+
+        self.assertEqual(seen["timeout"], _FILES_TIMEOUT)
+
+
+class TestAsyncFilesPutTimeoutOverride(unittest.IsolatedAsyncioTestCase):
+    async def test_override_replaces_the_idle_bound(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(
+                200, request=request, json={"size": 3, "sha256": "ab" * 32}
+            )
+
+        client = _make_async_client(handler)
+        with _async_request_spy(client, seen):
+            await client.files_put("/a", b"xyz", timeout=90)
+
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
+
+
+class TestFilesReadTimeoutOverride(unittest.TestCase):
+    def test_override_reaches_the_stream(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(200, request=request, content=b"data")
+
+        client = _make_sync_client(handler)
+        with _stream_spy(client, seen):
+            chunks = list(client.files_read("/a", timeout=90))
+
+        self.assertEqual(chunks, [b"data"])
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
+
+
+class TestAsyncFilesReadTimeoutOverride(unittest.IsolatedAsyncioTestCase):
+    async def test_override_reaches_the_stream(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(200, request=request, content=b"data")
+
+        client = _make_async_client(handler)
+        with _stream_spy(client, seen):
+            chunks = [c async for c in client.files_read("/a", timeout=90)]
+
+        self.assertEqual(chunks, [b"data"])
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
+
+
+class TestFilesUploadTimeoutOverride(unittest.TestCase):
+    """The multipart flow's calls take the per-call timeout override.
+
+    Parts keep the idle-bound shape; the control calls (open, complete)
+    get the override as their per-phase bound.
+    """
+
+    def test_part_override_reaches_the_wire(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(204, request=request)
+
+        client = _make_sync_client(handler)
+        with _request_spy(client, seen):
+            client.files_upload_part("u-1", 0, b"abc", timeout=90)
+
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
+
+    def test_part_default_keeps_the_files_idle_bound(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(204, request=request)
+
+        client = _make_sync_client(handler)
+        with _request_spy(client, seen):
+            client.files_upload_part("u-1", 0, b"abc")
+
+        self.assertEqual(seen["timeout"], _FILES_TIMEOUT)
+
+    def test_open_override_reaches_the_wire(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(
+                200, request=request, json={"upload_id": "u", "max_part_size": 1}
+            )
+
+        client = _make_sync_client(handler)
+        with _request_spy(client, seen):
+            client.files_upload_open("/a", 10, timeout=90)
+
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
+
+    def test_complete_override_reaches_the_wire(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(
+                200, request=request, json={"size": 10, "sha256": "ab" * 32}
+            )
+
+        client = _make_sync_client(handler)
+        with _request_spy(client, seen):
+            client.files_upload_complete("u-1", timeout=90)
+
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
+
+
+class TestAsyncFilesUploadTimeoutOverride(unittest.IsolatedAsyncioTestCase):
+    async def test_part_override_reaches_the_wire(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(204, request=request)
+
+        client = _make_async_client(handler)
+        with _async_request_spy(client, seen):
+            await client.files_upload_part("u-1", 0, b"abc", timeout=90)
+
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
+
+    async def test_open_override_reaches_the_wire(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(
+                200, request=request, json={"upload_id": "u", "max_part_size": 1}
+            )
+
+        client = _make_async_client(handler)
+        with _async_request_spy(client, seen):
+            await client.files_upload_open("/a", 10, timeout=90)
+
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
+
+    async def test_complete_override_reaches_the_wire(self):
+        seen = {}
+
+        def handler(request):
+            return httpx.Response(
+                200, request=request, json={"size": 10, "sha256": "ab" * 32}
+            )
+
+        client = _make_async_client(handler)
+        with _async_request_spy(client, seen):
+            await client.files_upload_complete("u-1", timeout=90)
+
+        self.assertEqual(
+            seen["timeout"], httpx.Timeout(90, connect=DEFAULT_HTTP_TIMEOUT)
+        )
 
 
 if __name__ == "__main__":
