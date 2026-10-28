@@ -1482,6 +1482,19 @@ class TestUploadSessionWire(unittest.TestCase):
         self.assertEqual(fake.landed(), self.DATA)
         self.assertNotIn("abort", fake.kinds())
 
+    def test_open_reply_without_max_part_size_aborts_the_live_session(self):
+        # A valid upload_id means the session exists at the executor;
+        # failing on the cap must abort it, not strand its temp file.
+        fake = _UploadFakeExecutor(open_reply={"upload_id": "u-1"})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertIn("max_part_size", str(cm.exception))
+        self.assertEqual(fake.kinds().count("abort"), 1)
+        self.assertNotIn("part", fake.kinds())
+
     def test_malformed_open_reply_raises_without_aborting(self):
         fake = _UploadFakeExecutor(open_reply={"max_part_size": 4})
         with tempfile.TemporaryDirectory() as d:
@@ -1838,6 +1851,21 @@ class TestAsyncUploadMultipart(unittest.IsolatedAsyncioTestCase):
                 await fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
         self.assertEqual(fake.landed(), self.DATA)
         self.assertNotIn("abort", fake.kinds())
+
+    async def test_open_reply_without_max_part_size_aborts_the_live_session(self):
+        # A valid upload_id means the session exists at the executor;
+        # failing on the cap must abort it, not strand its temp file.
+        fake = _AsyncUploadFakeExecutor(open_reply={"upload_id": "u-1"})
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                with self.assertRaises(SandboxFilesystemError) as cm:
+                    await fs.upload_file(
+                        local, "/r/big.bin", part_size=4, concurrency=1
+                    )
+        self.assertIn("max_part_size", str(cm.exception))
+        self.assertEqual(fake.kinds().count("abort"), 1)
+        self.assertNotIn("part", fake.kinds())
 
     async def test_the_event_loop_stays_responsive_during_the_digest(self):
         # The whole-file hash is disk-and-CPU bound; running it inline

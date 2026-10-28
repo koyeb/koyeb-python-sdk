@@ -840,14 +840,16 @@ class SandboxFilesystem:
             raise SandboxFilesystemError(
                 f"Upload session reply missing upload_id: {session}"
             )
-        cap = session.get("max_part_size")
-        if not isinstance(cap, int) or cap < 1:
-            raise SandboxFilesystemError(
-                f"Upload session reply missing max_part_size: {session}"
-            )
-        effective = min(part_size, cap)
         counter = _PartProgress(progress, size)
         try:
+            # A valid id means the session lives at the executor; every
+            # failure from here on must abort it.
+            cap = session.get("max_part_size")
+            if not isinstance(cap, int) or cap < 1:
+                raise SandboxFilesystemError(
+                    f"Upload session reply missing max_part_size: {session}"
+                )
+            effective = min(part_size, cap)
             self._put_parts(
                 client,
                 local_path,
@@ -1605,14 +1607,16 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             raise SandboxFilesystemError(
                 f"Upload session reply missing upload_id: {session}"
             )
-        cap = session.get("max_part_size")
-        if not isinstance(cap, int) or cap < 1:
-            raise SandboxFilesystemError(
-                f"Upload session reply missing max_part_size: {session}"
-            )
-        effective = min(part_size, cap)
         counter = _PartProgress(progress, size)
         try:
+            # A valid id means the session lives at the executor; every
+            # failure from here on must abort it.
+            cap = session.get("max_part_size")
+            if not isinstance(cap, int) or cap < 1:
+                raise SandboxFilesystemError(
+                    f"Upload session reply missing max_part_size: {session}"
+                )
+            effective = min(part_size, cap)
             await self._put_parts(
                 client,
                 local_path,
