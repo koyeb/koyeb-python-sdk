@@ -1580,6 +1580,253 @@ def create_service_payload(app_id: str) -> Dict[str, Any]
 CreateService payload. FULL snapshots omit the definition (the
 API infers it); every other shape pins one.
 
+<a id="koyeb.sandbox.sync"></a>
+
+# koyeb.sandbox.sync
+
+The pure diff engine behind filesystem.sync().
+
+sync() is one-way like ``rsync -r`` without deltas: list both sides (a
+local walk against GET /files/list NDJSON), diff on path/type/size/mtime
+(+sha256 with checksum=True), and send the changed set as ~50 MiB tar
+batches through /files/archive. This module holds the decisions — walking,
+matching, diffing, planning — with no executor I/O, so every rule is
+testable against plain data and tmpdir trees.
+
+The wire shape on both sides is the executor's FileEntry: ``path``
+(relative, /-separated), ``type`` (file|dir|symlink|other), ``size``,
+``mode`` (4-digit octal permission bits), ``mtime`` (RFC 3339 UTC with
+nanoseconds). Exclude patterns follow the executor's archive-route
+semantics exactly — Go's path.Match, tried against the relative path and
+every /-separated suffix of it — so the local walk and the remote
+archive agree on what is in the tree.
+
+<a id="koyeb.sandbox.sync.path_match"></a>
+
+#### path\_match
+
+```python
+def path_match(pattern: str, name: str) -> bool
+```
+
+Go's path.Match: '*', '?' and [...] never cross the '/' separator.
+
+<a id="koyeb.sandbox.sync.excluded"></a>
+
+#### excluded
+
+```python
+def excluded(rel: str, patterns: Sequence[str]) -> bool
+```
+
+The executor's exclude rule: pattern against rel and every suffix.
+
+A directory that matches is pruned whole by the walker, so its
+descendants never reach this test — matching the archive route, which
+answers SkipDir at the same point.
+
+<a id="koyeb.sandbox.sync.path_excluded"></a>
+
+#### path\_excluded
+
+```python
+def path_excluded(path: str, patterns: Sequence[str]) -> bool
+```
+
+A path, or any directory prefix of it, matches a pattern.
+
+The walker prunes a matching directory whole, so an entry under one
+is effectively excluded even when its own path does not match.
+
+<a id="koyeb.sandbox.sync.format_mtime"></a>
+
+#### format\_mtime
+
+```python
+def format_mtime(ns: int) -> str
+```
+
+Nanoseconds since the epoch as the executor formats mtime.
+
+<a id="koyeb.sandbox.sync.mtime_seconds"></a>
+
+#### mtime\_seconds
+
+```python
+def mtime_seconds(mtime: str) -> int
+```
+
+An RFC 3339 mtime as whole seconds since the epoch (floored).
+
+<a id="koyeb.sandbox.sync.walk_local"></a>
+
+#### walk\_local
+
+```python
+def walk_local(root: str, exclude: Sequence[str] = ()) -> List[Dict[str, Any]]
+```
+
+A local tree as FileEntry dicts, mirroring GET /files/list.
+
+Paths are relative to root and /-separated; the root itself is not an
+entry. Symlinks are listed, not followed (like the executor's walk),
+special files are skipped, and an excluded directory is pruned whole.
+
+<a id="koyeb.sandbox.sync.SyncDiff"></a>
+
+## SyncDiff Objects
+
+```python
+@dataclass
+class SyncDiff()
+```
+
+What sync() must do with one pair of trees, before any transfer.
+
+to_transfer holds source entries (walk order) to copy; deletes holds
+destination entries absent from the source; skipped counts entries
+examined and left alone; bytes is the content bytes to move.
+
+<a id="koyeb.sandbox.sync.diff"></a>
+
+#### diff
+
+```python
+def diff(
+        local_entries: Iterable[Dict[str, Any]],
+        remote_entries: Iterable[Dict[str, Any]],
+        *,
+        delete: bool = False,
+        local_hash: Optional[Callable[[str], str]] = None,
+        remote_hash: Optional[Callable[[str],
+                                       Optional[str]]] = None) -> SyncDiff
+```
+
+Diff two FileEntry trees and plan a one-way copy.
+
+An entry is unchanged when type, size and mtime (whole seconds) match
+on both sides. With hashing callables, files that pass that test are
+compared by sha256 too (checksum=True); a remote hash of None can't
+prove a change and skips. Unreadable remote entries (the ``error``
+field) and unarchivable types (``other``) are never transfer
+candidates.
+
+<a id="koyeb.sandbox.sync.hash_candidates"></a>
+
+#### hash\_candidates
+
+```python
+def hash_candidates(source_entries: Iterable[Dict[str, Any]],
+                    dest_entries: Iterable[Dict[str, Any]]) -> List[str]
+```
+
+Paths that only a sha256 comparison can settle.
+
+Files present on both sides, matching on type, size and mtime: the
+candidates checksum=True must hash. The caller prefetches the
+executor-side digests for these in one pass (async has no other way
+to feed the pure, synchronous diff).
+
+<a id="koyeb.sandbox.sync.plan_batches"></a>
+
+#### plan\_batches
+
+```python
+def plan_batches(
+        entries: Sequence[Dict[str, Any]], part_size: int
+) -> Tuple[List[List[Dict[str, Any]]], List[Dict[str, Any]]]
+```
+
+Cut the changed set into tar batches and oversized files.
+
+Batches accumulate raw file content up to part_size (~50 MiB): a
+file that would cross the boundary starts the next batch, so no file
+is ever split across archives. Files larger than one part go through
+upload_file/download_file instead. Directories and symlinks ride the
+next batch (their wire size is a header); a set of only those still
+produces one batch.
+
+<a id="koyeb.sandbox.sync.remote_join"></a>
+
+#### remote\_join
+
+```python
+def remote_join(remote: str, rel: str) -> str
+```
+
+A remote path for a relative entry path (remote paths are POSIX).
+
+<a id="koyeb.sandbox.sync.join_local"></a>
+
+#### join\_local
+
+```python
+def join_local(root: str, rel: str) -> str
+```
+
+A local path for a relative entry path, on any platform.
+
+<a id="koyeb.sandbox.sync.prune_descendants"></a>
+
+#### prune\_descendants
+
+```python
+def prune_descendants(paths: Sequence[str]) -> List[str]
+```
+
+Topmost paths only: deleting a directory takes its descendants.
+
+Input order is irrelevant; the result is sorted. A descendant of a
+kept path is already covered by its parent's recursive delete, and
+deleting it separately would just miss (it is already gone).
+
+<a id="koyeb.sandbox.sync.relative_remote"></a>
+
+#### relative\_remote
+
+```python
+def relative_remote(local: str) -> str
+```
+
+The remote path used when remote=None: local's relative form.
+
+A relative local path is kept as-is (resolved by the executor against
+the sandbox workdir); an absolute one contributes its basename,
+rsync-style.
+
+<a id="koyeb.sandbox.sync.build_archive"></a>
+
+#### build\_archive
+
+```python
+def build_archive(root: str, entries: Sequence[Dict[str, Any]],
+                  dest: str) -> None
+```
+
+Write the changed entries as a gzip'd tar spooled to dest.
+
+Members mirror the executor's archive: paths relative and
+/-separated, modes and whole-second mtimes kept, symlinks as links.
+
+<a id="koyeb.sandbox.sync.extract_archive"></a>
+
+#### extract\_archive
+
+```python
+def extract_archive(archive_path: str,
+                    dest: str,
+                    keep: Optional[Set[str]] = None) -> List[str]
+```
+
+Extract a spooled archive into dest, mirroring the executor.
+
+Missing parents are created; members in the way are replaced;
+directory modes and mtimes are applied after the contents (writing
+into a directory bumps its mtime, and a restrictive mode applied
+early would lock the contents out). With keep, only those members are
+extracted — the pull side's changed set. Returns the member paths
+extracted.
+
 <a id="koyeb.sandbox.control_plane"></a>
 
 # koyeb.sandbox.control\_plane
@@ -2218,7 +2465,7 @@ List the contents of a directory.
 #### files\_stat
 
 ```python
-def files_stat(path: str) -> Dict[str, Any]
+def files_stat(path: str, hash: Optional[str] = None) -> Dict[str, Any]
 ```
 
 Stat a file on the streamed /files routes (executor v0.0.24+).
@@ -2226,12 +2473,14 @@ Stat a file on the streamed /files routes (executor v0.0.24+).
 **Arguments**:
 
 - `path` - The file path to stat
+- `hash` - "sha256" to add the file's digest to the reply (regular
+  files only; the executor answers 400 otherwise)
   
 
 **Returns**:
 
   FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-  string), mtime (RFC 3339 UTC, nanoseconds)
+  string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
 
 <a id="koyeb.sandbox.executor_client.SandboxClient.files_put"></a>
 
@@ -2322,6 +2571,88 @@ can surface as a Cloudflare 502 on Nomad.
 **Returns**:
 
   True if the streamed /files routes are available
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_list"></a>
+
+#### files\_list
+
+```python
+def files_list(path: str, recursive: bool = False) -> Iterator[Dict[str, Any]]
+```
+
+Stream a directory listing from GET /files/list (executor v0.0.24+).
+
+One JSON entry per line, yielded as the walk goes: a large tree is
+never held in memory. An entry the executor could not read carries
+an "error" field and the listing goes on. The timeout bounds idle
+time, not total listing time.
+
+**Arguments**:
+
+- `path` - The directory to list
+- `recursive` - Walk into subdirectories (a flat listing skips them)
+  
+
+**Yields**:
+
+  FileEntry dicts: path (relative, /-separated), type, size,
+  mode (octal string), mtime (RFC 3339 UTC, nanoseconds)
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_archive_get"></a>
+
+#### files\_archive\_get
+
+```python
+def files_archive_get(
+    path: str, exclude: Sequence[str] = ()) -> Iterator[bytes]
+```
+
+Stream a directory as a gzip'd tar from GET /files/archive
+(executor v0.0.24+).
+
+The root itself is not an entry; symlinks are archived as links and
+special files are skipped. The timeout bounds idle time, not total
+archive time.
+
+**Arguments**:
+
+- `path` - The directory to archive
+- `exclude` - Glob patterns; a matching path (or any /-separated
+  suffix of it) is left out, a matching directory whole
+  
+
+**Yields**:
+
+  The archive's gzip bytes, chunk by chunk
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_archive_put"></a>
+
+#### files\_archive\_put
+
+```python
+def files_archive_put(
+        path: str, content: Union[bytes, Iterator[bytes],
+                                  BinaryIO]) -> Dict[str, Any]
+```
+
+Extract a gzip'd tar into the directory at path (executor v0.0.24+).
+
+The executor creates the directory when missing and refuses
+members that escape it (absolute paths, '..', links leaving the
+root). Entries already extracted stay in place when the stream
+ends short. Not retried on network errors mid-stream: a streamed
+body cannot be replayed; only a connect-time failure (the request
+never left) is retried.
+
+**Arguments**:
+
+- `path` - The destination directory
+- `content` - The archive's gzip bytes, streamed (constant memory)
+  
+
+**Returns**:
+
+- `{"files"` - extracted file count, "bytes": extracted file bytes}
 
 <a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_open"></a>
 
@@ -2896,7 +3227,7 @@ List the contents of a directory.
 #### files\_stat
 
 ```python
-async def files_stat(path: str) -> Dict[str, Any]
+async def files_stat(path: str, hash: Optional[str] = None) -> Dict[str, Any]
 ```
 
 Stat a file on the streamed /files routes (executor v0.0.24+).
@@ -2904,12 +3235,14 @@ Stat a file on the streamed /files routes (executor v0.0.24+).
 **Arguments**:
 
 - `path` - The file path to stat
+- `hash` - "sha256" to add the file's digest to the reply (regular
+  files only; the executor answers 400 otherwise)
   
 
 **Returns**:
 
   FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-  string), mtime (RFC 3339 UTC, nanoseconds)
+  string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
 
 <a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_put"></a>
 
@@ -3001,6 +3334,90 @@ can surface as a Cloudflare 502 on Nomad.
 **Returns**:
 
   True if the streamed /files routes are available
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_list"></a>
+
+#### files\_list
+
+```python
+async def files_list(path: str,
+                     recursive: bool = False) -> AsyncIterator[Dict[str, Any]]
+```
+
+Stream a directory listing from GET /files/list (executor v0.0.24+).
+
+One JSON entry per line, yielded as the walk goes: a large tree is
+never held in memory. An entry the executor could not read carries
+an "error" field and the listing goes on. The timeout bounds idle
+time, not total listing time.
+
+**Arguments**:
+
+- `path` - The directory to list
+- `recursive` - Walk into subdirectories (a flat listing skips them)
+  
+
+**Yields**:
+
+  FileEntry dicts: path (relative, /-separated), type, size,
+  mode (octal string), mtime (RFC 3339 UTC, nanoseconds)
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_archive_get"></a>
+
+#### files\_archive\_get
+
+```python
+async def files_archive_get(
+    path: str, exclude: Sequence[str] = ()) -> AsyncIterator[bytes]
+```
+
+Stream a directory as a gzip'd tar from GET /files/archive
+(executor v0.0.24+).
+
+The root itself is not an entry; symlinks are archived as links and
+special files are skipped. The timeout bounds idle time, not total
+archive time.
+
+**Arguments**:
+
+- `path` - The directory to archive
+- `exclude` - Glob patterns; a matching path (or any /-separated
+  suffix of it) is left out, a matching directory whole
+  
+
+**Yields**:
+
+  The archive's gzip bytes, chunk by chunk
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_archive_put"></a>
+
+#### files\_archive\_put
+
+```python
+async def files_archive_put(
+    path: str, content: Union[bytes, AsyncIterator[bytes], Iterator[bytes],
+                              BinaryIO]
+) -> Dict[str, Any]
+```
+
+Extract a gzip'd tar into the directory at path (executor v0.0.24+).
+
+The executor creates the directory when missing and refuses
+members that escape it (absolute paths, '..', links leaving the
+root). Entries already extracted stay in place when the stream
+ends short. Not retried on network errors mid-stream: a streamed
+body cannot be replayed; only a connect-time failure (the request
+never left) is retried.
+
+**Arguments**:
+
+- `path` - The destination directory
+- `content` - The archive's gzip bytes, streamed (constant memory)
+  
+
+**Returns**:
+
+- `{"files"` - extracted file count, "bytes": extracted file bytes}
 
 <a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_open"></a>
 
@@ -3789,6 +4206,66 @@ Open a file in the sandbox synchronously.
 
 - `SandboxFileIO` - File handle
 
+<a id="koyeb.sandbox.filesystem.SandboxFilesystem.sync"></a>
+
+#### sync
+
+```python
+def sync(local: str,
+         remote: Optional[str] = None,
+         *,
+         direction: str = "push",
+         delete: bool = False,
+         exclude: Sequence[str] = (),
+         checksum: bool = False,
+         dry_run: bool = False) -> Dict[str, int]
+```
+
+Sync a directory with the sandbox, one way like ``rsync -r``.
+
+Both sides are listed (a local walk against the executor's
+NDJSON listing) and diffed on path, type, size and mtime —
+whole seconds, like rsync's default; ``checksum=True`` adds a
+sha256 comparison for files that pass that test. On push, the
+changed set travels as ~50 MiB gzip'd tar batches through
+/files/archive; on pull, the remote tree's archive streams down
+and only the changed set is extracted. Files larger than one
+batch go through upload_file/download_file instead (multipart
+on executors v0.0.24+, resumable downloads), and a pull's
+archive leaves them out so their bytes travel once.
+Symlinks travel as links, modes are kept, owners are not.
+
+A no-op sync sends nothing: nothing is transferred or deleted;
+beyond the listing only ``checksum=True`` asks more — one sha256
+stat per size-and-mtime-equal file. With ``delete=True`` the
+destination is pruned to match (a directory counts as one
+deletion); deletes ride the legacy routes, which every executor
+serves. ``dry_run=True`` computes the result without touching
+either side.
+
+**Arguments**:
+
+- `local` - Local directory path
+- `remote` - Destination path in the sandbox; relative paths
+  resolve under the sandbox workdir. None uses local's
+  relative form (its basename when absolute), rsync-style
+- `direction` - "push" (local → sandbox) or "pull" (sandbox → local)
+- `delete` - Remove destination entries absent from the source
+- `exclude` - Glob patterns; a matching path (or any /-separated
+  suffix of it) is skipped, a matching directory whole
+- `checksum` - Compare sha256 for size-and-mtime-equal files
+- `dry_run` - Compute the plan only, transfer nothing
+  
+
+**Returns**:
+
+  {"uploaded"|"downloaded", "deleted", "skipped", "bytes"}
+  
+
+**Raises**:
+
+- `SandboxFilesystemError` - On any failure, the filesystem taxonomy
+
 <a id="koyeb.sandbox.filesystem.AsyncSandboxFilesystem"></a>
 
 ## AsyncSandboxFilesystem Objects
@@ -4185,6 +4662,66 @@ Open a file in the sandbox asynchronously.
 **Returns**:
 
 - `AsyncSandboxFileIO` - Async file handle
+
+<a id="koyeb.sandbox.filesystem.AsyncSandboxFilesystem.sync"></a>
+
+#### sync
+
+```python
+async def sync(local: str,
+               remote: Optional[str] = None,
+               *,
+               direction: str = "push",
+               delete: bool = False,
+               exclude: Sequence[str] = (),
+               checksum: bool = False,
+               dry_run: bool = False) -> Dict[str, int]
+```
+
+Sync a directory with the sandbox, one way like ``rsync -r``.
+
+Both sides are listed (a local walk against the executor's
+NDJSON listing) and diffed on path, type, size and mtime —
+whole seconds, like rsync's default; ``checksum=True`` adds a
+sha256 comparison for files that pass that test. On push, the
+changed set travels as ~50 MiB gzip'd tar batches through
+/files/archive; on pull, the remote tree's archive streams down
+and only the changed set is extracted. Files larger than one
+batch go through upload_file/download_file instead (multipart
+on executors v0.0.24+, resumable downloads), and a pull's
+archive leaves them out so their bytes travel once.
+Symlinks travel as links, modes are kept, owners are not.
+
+A no-op sync sends nothing: nothing is transferred or deleted;
+beyond the listing only ``checksum=True`` asks more — one sha256
+stat per size-and-mtime-equal file. With ``delete=True`` the
+destination is pruned to match (a directory counts as one
+deletion); deletes ride the legacy routes, which every executor
+serves. ``dry_run=True`` computes the result without touching
+either side.
+
+**Arguments**:
+
+- `local` - Local directory path
+- `remote` - Destination path in the sandbox; relative paths
+  resolve under the sandbox workdir. None uses local's
+  relative form (its basename when absolute), rsync-style
+- `direction` - "push" (local → sandbox) or "pull" (sandbox → local)
+- `delete` - Remove destination entries absent from the source
+- `exclude` - Glob patterns; a matching path (or any /-separated
+  suffix of it) is skipped, a matching directory whole
+- `checksum` - Compare sha256 for size-and-mtime-equal files
+- `dry_run` - Compute the plan only, transfer nothing
+  
+
+**Returns**:
+
+  {"uploaded"|"downloaded", "deleted", "skipped", "bytes"}
+  
+
+**Raises**:
+
+- `SandboxFilesystemError` - On any failure, the filesystem taxonomy
 
 <a id="koyeb.sandbox.filesystem.SandboxFileIO"></a>
 
