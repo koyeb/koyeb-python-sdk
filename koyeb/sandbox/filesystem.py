@@ -7,19 +7,37 @@ Using SandboxClient HTTP API
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 import os
+import shlex
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import (
+    TYPE_CHECKING,
+    AsyncIterator,
+    BinaryIO,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Union,
+)
 
 from .executor_client import AsyncSandboxClient, SandboxClient
-from .errors import SandboxError, SandboxServiceError
+from .errors import (
+    SandboxError,
+    SandboxRequestError,
+    SandboxServiceError,
+)
 
 if TYPE_CHECKING:
     from .exec import AsyncSandboxExecutor, SandboxExecutor
     from .sandbox import Sandbox
-
-
-import shlex
 
 
 ERROR_MESSAGES = {
@@ -95,12 +113,145 @@ def _executor_error(
     return SandboxFilesystemError(f"Failed to {what}: {error_msg}")
 
 
+def _put_body(
+    content: Union[str, bytes, BinaryIO, Iterable[bytes]], encoding: str
+) -> Union[bytes, BinaryIO, Iterable[bytes]]:
+    """Content to send on the streamed /files routes: real bytes on disk.
+
+    encoding="base64" is a transport detail: the content is base64 text and
+    the decoded bytes land on disk — the documented behavior change vs the
+    legacy routes, which wrote the base64 text itself.
+    """
+    if isinstance(content, str):
+        if encoding == "base64":
+            return base64.b64decode(content)
+        return content.encode(encoding)
+    if isinstance(content, bytes) and encoding == "base64":
+        return base64.b64decode(content)
+    return content
+
+
+def _read_content(raw: bytes, encoding: Optional[str]) -> Union[str, bytes]:
+    """Interpret raw file bytes per the requested encoding (streamed routes)."""
+    if encoding is None:
+        return raw
+    if encoding == "base64":
+        return base64.b64encode(raw).decode("ascii")
+    return raw.decode(encoding)
+
+
+def _files_error(
+    e: SandboxRequestError, what: str, path: str
+) -> SandboxFilesystemError:
+    """A streamed-route status error classified into the filesystem taxonomy.
+
+    The /files routes answer with real status codes: the code is the
+    contract, the JSON body's error text only adds detail.
+    """
+    msg = ""
+    try:
+        msg = json.loads(e.body).get("error", "") if e.body else ""
+    except (AttributeError, ValueError):
+        pass
+    if e.status_code == 404:
+        return SandboxFileNotFoundError(f"File not found: {path}")
+    if e.status_code == 409:
+        return SandboxFileExistsError(msg or f"Conflict at: {path}")
+    detail = msg or (e.body if e.body else f"HTTP {e.status_code}")
+    return SandboxFilesystemError(f"Failed to {what}: {detail}")
+
+
+@contextmanager
+def _translating_files_errors(what: str, path: str):
+    """Translate streamed-route failures once, for every filesystem operation.
+
+    Real status codes classify through _files_error; anything else wraps as
+    "Failed to <what>" — the filesystem taxonomy is what callers catch.
+    """
+    try:
+        yield
+    except SandboxServiceError:
+        raise
+    except SandboxRequestError as e:
+        raise _files_error(e, what, path) from e
+    except SandboxFilesystemError:
+        raise
+    except Exception as e:
+        raise SandboxFilesystemError(f"Failed to {what}: {str(e)}") from e
+
+
+class _ProgressReporter:
+    """progress(done, total) at most every 100 ms, plus a guaranteed final call."""
+
+    def __init__(self, progress: Optional[Callable[[int, int], None]], total: int):
+        self._progress = progress
+        self._total = total
+        self._last_time = 0.0
+        self._last_done = None
+
+    def update(self, done: int) -> None:
+        if self._progress is None:
+            return
+        now = time.monotonic()
+        if now - self._last_time >= 0.1:
+            self._progress(done, self._total)
+            self._last_time = now
+            self._last_done = done
+
+    def finish(self, done: int) -> None:
+        if self._progress is not None and done != self._last_done:
+            self._progress(done, self._total)
+
+
+def _file_sha256(path: str) -> str:
+    """sha256 of a local file, constant memory.
+
+    A first pass before the streamed upload: the digest travels in the
+    X-Content-SHA256 header, which precedes the body on the wire.
+    """
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _progress_chunks(
+    stream, reporter: _ProgressReporter, chunk_size: int = 65536
+) -> Iterator[bytes]:
+    """Read a binary stream in chunks, reporting progress as they go."""
+    done = 0
+    while True:
+        chunk = stream.read(chunk_size)
+        if not chunk:
+            break
+        done += len(chunk)
+        reporter.update(done)
+        yield chunk
+    reporter.finish(done)
+
+
 @dataclass
 class FileInfo:
     """File information"""
 
     content: Union[str, bytes]
-    encoding: str
+    encoding: Optional[str]
+
+
+@dataclass
+class FileStat:
+    """File metadata from the streamed /files/stat route (executor v0.0.24+).
+
+    type is one of file|dir|symlink|other; mode is the octal permission
+    string (e.g. "0644"); mtime is RFC 3339 UTC with nanoseconds.
+    """
+
+    type: str
+    size: int
+    mode: str
+    mtime: str
+    sha256: Optional[str] = None
 
 
 class SandboxFilesystem:
@@ -128,20 +279,45 @@ class SandboxFilesystem:
         return self._executor
 
     def write_file(
-        self, path: str, content: Union[str, bytes], encoding: str = "utf-8"
+        self,
+        path: str,
+        content: Union[str, bytes, BinaryIO, Iterable[bytes]],
+        encoding: str = "utf-8",
+        *,
+        mode: Optional[str] = None,
     ) -> None:
         """
         Write content to a file synchronously.
 
+        On executors v0.0.24+ the content streams through PUT /files,
+        binary-safe: any byte sequence lands on disk as-is.
+        encoding="base64" decodes str and bytes content to the real
+        bytes; BinaryIO and iterables stream as-is, ignoring it. Older
+        executors are detected once per handle and keep the legacy JSON behavior —
+        which cannot carry streamed content (BinaryIO, an iterable of
+        chunks): that raises and names v0.0.24.
+
         Args:
             path: Absolute path to the file
-            content: Content to write (string or bytes)
+            content: Content to write — string, bytes, a file object or an
+                iterable of bytes chunks (the last two require executor
+                v0.0.24+)
             encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
+            mode: Octal permission string, e.g. "0644" (streamed routes only;
+                the legacy routes keep the destination's mode)
         """
-        import base64
-
         client = self._get_client()
 
+        if client.has_files_routes():
+            with _translating_files_errors("write file", path):
+                client.files_put(path, _put_body(content, encoding), mode=mode)
+            return
+
+        if not isinstance(content, (str, bytes)):
+            raise SandboxFilesystemError(
+                "streamed content (BinaryIO or an iterable of chunks) requires "
+                "the streamed /files routes (executor v0.0.24+)"
+            )
         if isinstance(content, bytes):
             if encoding == "base64":
                 content_str = base64.b64encode(content).decode("ascii")
@@ -161,21 +337,39 @@ class SandboxFilesystem:
         except Exception as e:
             raise SandboxFilesystemError(f"Failed to write file: {str(e)}") from e
 
-    def read_file(self, path: str, encoding: str = "utf-8") -> FileInfo:
+    def read_file(self, path: str, encoding: Optional[str] = "utf-8") -> FileInfo:
         """
         Read a file from the sandbox synchronously.
 
+        On executors v0.0.24+ the bytes stream from GET /files,
+        binary-safe: encoding=None returns the disk bytes, and
+        encoding="base64" encodes the real bytes for transport. Older
+        executors keep the legacy JSON behavior: encoding="base64"
+        decodes the file's base64 text and returns bytes; encoding=None
+        is not supported there and raises.
+
         Args:
             path: Absolute path to the file
-            encoding: File encoding (default: "utf-8"). Use "base64" for binary data,
-                      which will decode the base64 content and return bytes.
+            encoding: File encoding (default: "utf-8"). Streamed routes:
+                None returns the disk bytes, "base64" encodes them.
+                Legacy routes: "base64" decodes the file's base64 text;
+                None raises.
 
         Returns:
-            FileInfo: Object with content (str or bytes if base64) and encoding
+            FileInfo: Object with content (str or bytes) and encoding
         """
-        import base64 as base64_module
-
         client = self._get_client()
+
+        if client.has_files_routes():
+            with _translating_files_errors("read file", path):
+                raw = b"".join(client.files_read(path))
+            return FileInfo(content=_read_content(raw, encoding), encoding=encoding)
+
+        if encoding is None:
+            raise SandboxFilesystemError(
+                "reading raw bytes (encoding=None) requires the streamed "
+                "/files routes (executor v0.0.24+)"
+            )
 
         try:
             response = client.read_file(path)
@@ -187,7 +381,7 @@ class SandboxFilesystem:
                 )
             content_str = response.get("content", "")
             if encoding == "base64":
-                content: Union[str, bytes] = base64_module.b64decode(content_str)
+                content: Union[str, bytes] = base64.b64decode(content_str)
             else:
                 content = content_str
             return FileInfo(content=content, encoding=encoding)
@@ -197,6 +391,58 @@ class SandboxFilesystem:
             raise _executor_error(
                 str(e), "read file", not_found_msg=f"File not found: {path}"
             ) from e
+
+    def open_read(self, path: str) -> Iterator[bytes]:
+        """
+        Stream a file's bytes from the sandbox, chunk by chunk.
+
+        Constant memory on both sides (executor v0.0.24+). On legacy
+        executors the file is read once as text and yielded as a single
+        chunk — binary-safe streaming is not available there.
+
+        Args:
+            path: Absolute path to the file
+
+        Yields:
+            File content chunks
+        """
+        client = self._get_client()
+        if not client.has_files_routes():
+            yield self.read_file(path).content.encode("utf-8")
+            return
+        with _translating_files_errors("read file", path):
+            for chunk in client.files_read(path):
+                yield chunk
+
+    def stat(self, path: str) -> FileStat:
+        """
+        Stat a file on the sandbox (executor v0.0.24+).
+
+        Legacy executors have no stat route: this raises. Size comes from
+        the filesystem, never from a HEAD — size-0 pseudo-files (e.g. under
+        /proc) carry no length but have content.
+
+        Args:
+            path: Absolute path to the file
+
+        Returns:
+            FileStat with type (file|dir|symlink|other), size, mode (octal
+            string) and mtime (RFC 3339 UTC, nanoseconds)
+        """
+        client = self._get_client()
+        if not client.has_files_routes():
+            raise SandboxFilesystemError(
+                "stat requires the streamed /files routes (executor v0.0.24+)"
+            )
+        with _translating_files_errors("stat file", path):
+            entry = client.files_stat(path)
+            return FileStat(
+                type=entry["type"],
+                size=entry["size"],
+                mode=entry["mode"],
+                mtime=entry["mtime"],
+                sha256=entry.get("sha256"),
+            )
 
     def mkdir(self, path: str) -> None:
         """
@@ -386,45 +632,117 @@ class SandboxFilesystem:
         return result.success
 
     def upload_file(
-        self, local_path: str, remote_path: str, encoding: str = "utf-8"
+        self,
+        local_path: str,
+        remote_path: str,
+        encoding: str = "utf-8",
+        *,
+        progress: Optional[Callable[[int, int], None]] = None,
     ) -> None:
         """
         Upload a local file to the sandbox synchronously.
 
+        On executors v0.0.24+ the file streams from disk through PUT
+        /files — binary-safe, constant memory — with optional progress
+        callbacks. Older executors keep the legacy JSON behavior (the
+        encoding parameter applies there only).
+
         Args:
             local_path: Path to the local file
             remote_path: Destination path in the sandbox
-            encoding: File encoding (default: "utf-8"). Use "base64" for binary files.
+            encoding: Legacy executors only (default: "utf-8"); the
+                streamed routes are binary-safe and ignore it
+            progress: Optional callback(done, total), called at most every
+                100 ms during the transfer plus a final call
+
+        The transfer is bounded by a 60 s idle timeout only; a per-call
+        timeout override parameter is planned with the multipart slice.
 
         Raises:
             SandboxFileNotFoundError: If local file doesn't exist
-            UnicodeDecodeError: If file cannot be decoded with specified encoding
         """
         if not os.path.exists(local_path):
             raise SandboxFileNotFoundError(f"Local file not found: {local_path}")
 
+        client = self._get_client()
+        if client.has_files_routes():
+            reporter = _ProgressReporter(progress, os.path.getsize(local_path))
+            with _translating_files_errors("upload file", remote_path):
+                digest = _file_sha256(local_path)
+                with open(local_path, "rb") as f:
+                    reply = client.files_put(
+                        remote_path,
+                        _progress_chunks(f, reporter),
+                        sha256=digest,
+                    )
+                if reply["sha256"] != digest:
+                    raise SandboxFilesystemError(
+                        f"Upload corrupted in transit: executor sha256 "
+                        f"{reply['sha256']} != {digest}"
+                    )
+            return
+
         with open(local_path, "rb") as f:
             content_bytes = f.read()
 
-        SandboxFilesystem.write_file(
-            self, remote_path, content_bytes, encoding=encoding
-        )
+        self.write_file(remote_path, content_bytes, encoding=encoding)
 
     def download_file(
-        self, remote_path: str, local_path: str, encoding: str = "utf-8"
+        self,
+        remote_path: str,
+        local_path: str,
+        encoding: str = "utf-8",
+        *,
+        progress: Optional[Callable[[int, int], None]] = None,
     ) -> None:
         """
         Download a file from the sandbox to a local path synchronously.
 
+        On executors v0.0.24+ the size comes from stat (never a HEAD), the
+        bytes stream into <local>.part and rename into place on success:
+        a failed download leaves the destination exactly as it was.
+        Older executors keep the legacy JSON behavior.
+
         Args:
             remote_path: Path to the file in the sandbox
             local_path: Destination path on the local filesystem
-            encoding: File encoding (default: "utf-8"). Use "base64" for binary files.
+            encoding: Legacy executors only (default: "utf-8"); the
+                streamed routes are binary-safe and ignore it
+            progress: Optional callback(done, total), called at most every
+                100 ms during the transfer plus a final call
+
+        The transfer is bounded by a 60 s idle timeout only; a per-call
+        timeout override parameter is planned with the multipart slice.
 
         Raises:
             SandboxFileNotFoundError: If remote file doesn't exist
         """
-        file_info = SandboxFilesystem.read_file(self, remote_path, encoding=encoding)
+        client = self._get_client()
+        if client.has_files_routes():
+            part_path = f"{local_path}.part"
+            with _translating_files_errors("download file", remote_path):
+                entry = client.files_stat(remote_path)
+                reporter = _ProgressReporter(progress, entry["size"])
+                done = 0
+                renamed = False
+                try:
+                    with open(part_path, "wb") as out:
+                        for chunk in client.files_read(remote_path):
+                            out.write(chunk)
+                            done += len(chunk)
+                            reporter.update(done)
+                    reporter.finish(done)
+                    os.replace(part_path, local_path)
+                    renamed = True
+                finally:
+                    if not renamed:
+                        try:
+                            os.unlink(part_path)
+                        except OSError:
+                            pass
+            return
+
+        file_info = self.read_file(remote_path, encoding=encoding)
 
         if isinstance(file_info.content, bytes):
             content_bytes = file_info.content
@@ -503,20 +821,45 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         return self._executor
 
     async def write_file(
-        self, path: str, content: Union[str, bytes], encoding: str = "utf-8"
+        self,
+        path: str,
+        content: Union[str, bytes, BinaryIO, Iterable[bytes]],
+        encoding: str = "utf-8",
+        *,
+        mode: Optional[str] = None,
     ) -> None:
         """
         Write content to a file asynchronously.
 
+        On executors v0.0.24+ the content streams through PUT /files,
+        binary-safe: any byte sequence lands on disk as-is.
+        encoding="base64" decodes str and bytes content to the real
+        bytes; BinaryIO and iterables stream as-is, ignoring it. Older
+        executors are detected once per handle and keep the legacy JSON behavior —
+        which cannot carry streamed content (BinaryIO, an iterable of
+        chunks): that raises and names v0.0.24.
+
         Args:
             path: Absolute path to the file
-            content: Content to write (string or bytes)
+            content: Content to write — string, bytes, a file object or an
+                iterable of bytes chunks (the last two require executor
+                v0.0.24+)
             encoding: File encoding (default: "utf-8"). Use "base64" for binary data.
+            mode: Octal permission string, e.g. "0644" (streamed routes only;
+                the legacy routes keep the destination's mode)
         """
-        import base64
-
         client = self._get_async_client()
 
+        if await client.has_files_routes():
+            with _translating_files_errors("write file", path):
+                await client.files_put(path, _put_body(content, encoding), mode=mode)
+            return
+
+        if not isinstance(content, (str, bytes)):
+            raise SandboxFilesystemError(
+                "streamed content (BinaryIO or an iterable of chunks) requires "
+                "the streamed /files routes (executor v0.0.24+)"
+            )
         if isinstance(content, bytes):
             if encoding == "base64":
                 content_str = base64.b64encode(content).decode("ascii")
@@ -536,21 +879,42 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         except Exception as e:
             raise SandboxFilesystemError(f"Failed to write file: {str(e)}") from e
 
-    async def read_file(self, path: str, encoding: str = "utf-8") -> FileInfo:
+    async def read_file(self, path: str, encoding: Optional[str] = "utf-8") -> FileInfo:
         """
         Read a file from the sandbox asynchronously.
 
+        On executors v0.0.24+ the bytes stream from GET /files,
+        binary-safe: encoding=None returns the disk bytes, and
+        encoding="base64" encodes the real bytes for transport. Older
+        executors keep the legacy JSON behavior: encoding="base64"
+        decodes the file's base64 text and returns bytes; encoding=None
+        is not supported there and raises.
+
         Args:
             path: Absolute path to the file
-            encoding: File encoding (default: "utf-8"). Use "base64" for binary data,
-                      which will decode the base64 content and return bytes.
+            encoding: File encoding (default: "utf-8"). Streamed routes:
+                None returns the disk bytes, "base64" encodes them.
+                Legacy routes: "base64" decodes the file's base64 text;
+                None raises.
 
         Returns:
-            FileInfo: Object with content (str or bytes if base64) and encoding
+            FileInfo: Object with content (str or bytes) and encoding
         """
-        import base64 as base64_module
-
         client = self._get_async_client()
+
+        if await client.has_files_routes():
+            with _translating_files_errors("read file", path):
+                chunks = []
+                async for chunk in client.files_read(path):
+                    chunks.append(chunk)
+                raw = b"".join(chunks)
+            return FileInfo(content=_read_content(raw, encoding), encoding=encoding)
+
+        if encoding is None:
+            raise SandboxFilesystemError(
+                "reading raw bytes (encoding=None) requires the streamed "
+                "/files routes (executor v0.0.24+)"
+            )
 
         try:
             response = await client.read_file(path)
@@ -562,7 +926,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                 )
             content_str = response.get("content", "")
             if encoding == "base64":
-                content: Union[str, bytes] = base64_module.b64decode(content_str)
+                content: Union[str, bytes] = base64.b64decode(content_str)
             else:
                 content = content_str
             return FileInfo(content=content, encoding=encoding)
@@ -572,6 +936,58 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             raise _executor_error(
                 str(e), "read file", not_found_msg=f"File not found: {path}"
             ) from e
+
+    async def open_read(self, path: str) -> AsyncIterator[bytes]:
+        """
+        Stream a file's bytes from the sandbox, chunk by chunk.
+
+        Constant memory on both sides (executor v0.0.24+). On legacy
+        executors the file is read once as text and yielded as a single
+        chunk — binary-safe streaming is not available there.
+
+        Args:
+            path: Absolute path to the file
+
+        Yields:
+            File content chunks
+        """
+        client = self._get_async_client()
+        if not await client.has_files_routes():
+            yield (await self.read_file(path)).content.encode("utf-8")
+            return
+        with _translating_files_errors("read file", path):
+            async for chunk in client.files_read(path):
+                yield chunk
+
+    async def stat(self, path: str) -> FileStat:
+        """
+        Stat a file on the sandbox (executor v0.0.24+).
+
+        Legacy executors have no stat route: this raises. Size comes from
+        the filesystem, never from a HEAD — size-0 pseudo-files (e.g. under
+        /proc) carry no length but have content.
+
+        Args:
+            path: Absolute path to the file
+
+        Returns:
+            FileStat with type (file|dir|symlink|other), size, mode (octal
+            string) and mtime (RFC 3339 UTC, nanoseconds)
+        """
+        client = self._get_async_client()
+        if not await client.has_files_routes():
+            raise SandboxFilesystemError(
+                "stat requires the streamed /files routes (executor v0.0.24+)"
+            )
+        with _translating_files_errors("stat file", path):
+            entry = await client.files_stat(path)
+            return FileStat(
+                type=entry["type"],
+                size=entry["size"],
+                mode=entry["mode"],
+                mtime=entry["mtime"],
+                sha256=entry.get("sha256"),
+            )
 
     async def mkdir(self, path: str) -> None:
         """
@@ -757,22 +1173,55 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         return result.success
 
     async def upload_file(
-        self, local_path: str, remote_path: str, encoding: str = "utf-8"
+        self,
+        local_path: str,
+        remote_path: str,
+        encoding: str = "utf-8",
+        *,
+        progress: Optional[Callable[[int, int], None]] = None,
     ) -> None:
         """
         Upload a local file to the sandbox asynchronously.
 
+        On executors v0.0.24+ the file streams from disk through PUT
+        /files — binary-safe, constant memory — with optional progress
+        callbacks. Older executors keep the legacy JSON behavior (the
+        encoding parameter applies there only).
+
         Args:
             local_path: Path to the local file
             remote_path: Destination path in the sandbox
-            encoding: File encoding (default: "utf-8"). Use "base64" for binary files.
+            encoding: Legacy executors only (default: "utf-8"); the
+                streamed routes are binary-safe and ignore it
+            progress: Optional callback(done, total), called at most every
+                100 ms during the transfer plus a final call
+
+        The transfer is bounded by a 60 s idle timeout only; a per-call
+        timeout override parameter is planned with the multipart slice.
 
         Raises:
             SandboxFileNotFoundError: If local file doesn't exist
-            UnicodeDecodeError: If file cannot be decoded with specified encoding
         """
         if not os.path.exists(local_path):
             raise SandboxFileNotFoundError(f"Local file not found: {local_path}")
+
+        client = self._get_async_client()
+        if await client.has_files_routes():
+            reporter = _ProgressReporter(progress, os.path.getsize(local_path))
+            with _translating_files_errors("upload file", remote_path):
+                digest = _file_sha256(local_path)
+                with open(local_path, "rb") as f:
+                    reply = await client.files_put(
+                        remote_path,
+                        _progress_chunks(f, reporter),
+                        sha256=digest,
+                    )
+                if reply["sha256"] != digest:
+                    raise SandboxFilesystemError(
+                        f"Upload corrupted in transit: executor sha256 "
+                        f"{reply['sha256']} != {digest}"
+                    )
+            return
 
         with open(local_path, "rb") as f:
             content_bytes = f.read()
@@ -780,19 +1229,60 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         await self.write_file(remote_path, content_bytes, encoding=encoding)
 
     async def download_file(
-        self, remote_path: str, local_path: str, encoding: str = "utf-8"
+        self,
+        remote_path: str,
+        local_path: str,
+        encoding: str = "utf-8",
+        *,
+        progress: Optional[Callable[[int, int], None]] = None,
     ) -> None:
         """
         Download a file from the sandbox to a local path asynchronously.
 
+        On executors v0.0.24+ the size comes from stat (never a HEAD), the
+        bytes stream into <local>.part and rename into place on success:
+        a failed download leaves the destination exactly as it was.
+        Older executors keep the legacy JSON behavior.
+
         Args:
             remote_path: Path to the file in the sandbox
             local_path: Destination path on the local filesystem
-            encoding: File encoding (default: "utf-8"). Use "base64" for binary files.
+            encoding: Legacy executors only (default: "utf-8"); the
+                streamed routes are binary-safe and ignore it
+            progress: Optional callback(done, total), called at most every
+                100 ms during the transfer plus a final call
+
+        The transfer is bounded by a 60 s idle timeout only; a per-call
+        timeout override parameter is planned with the multipart slice.
 
         Raises:
             SandboxFileNotFoundError: If remote file doesn't exist
         """
+        client = self._get_async_client()
+        if await client.has_files_routes():
+            part_path = f"{local_path}.part"
+            with _translating_files_errors("download file", remote_path):
+                entry = await client.files_stat(remote_path)
+                reporter = _ProgressReporter(progress, entry["size"])
+                done = 0
+                renamed = False
+                try:
+                    with open(part_path, "wb") as out:
+                        async for chunk in client.files_read(remote_path):
+                            out.write(chunk)
+                            done += len(chunk)
+                            reporter.update(done)
+                    reporter.finish(done)
+                    os.replace(part_path, local_path)
+                    renamed = True
+                finally:
+                    if not renamed:
+                        try:
+                            os.unlink(part_path)
+                        except OSError:
+                            pass
+            return
+
         file_info = await self.read_file(remote_path, encoding=encoding)
 
         if isinstance(file_info.content, bytes):
