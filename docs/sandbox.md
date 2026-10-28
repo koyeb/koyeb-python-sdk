@@ -2213,6 +2213,109 @@ List the contents of a directory.
 
   Dict with entries list and error if any
 
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_stat"></a>
+
+#### files\_stat
+
+```python
+def files_stat(path: str) -> Dict[str, Any]
+```
+
+Stat a file on the streamed /files routes (executor v0.0.24+).
+
+**Arguments**:
+
+- `path` - The file path to stat
+  
+
+**Returns**:
+
+  FileEntry dict: type (file|dir|symlink|other), size, mode (octal
+  string), mtime (RFC 3339 UTC, nanoseconds)
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_put"></a>
+
+#### files\_put
+
+```python
+def files_put(path: str,
+              content: Union[bytes, Iterator[bytes], BinaryIO],
+              mode: Optional[str] = None,
+              parents: bool = False,
+              sha256: Optional[str] = None) -> Dict[str, Any]
+```
+
+Stream content to a file through PUT /files (executor v0.0.24+).
+
+The executor writes to a temp file and renames it into place: readers
+never see a partial file and a failed upload leaves the destination
+as it was. The timeout bounds idle time (FILES_IDLE_TIMEOUT), not
+total transfer time. Not retried on network errors mid-stream: a
+streamed body cannot be replayed; only a connect-time failure (the
+request never left) is retried.
+
+**Arguments**:
+
+- `path` - The destination path
+- `content` - The bytes to write, streamed (constant memory)
+- `mode` - Octal permission string, e.g. "0644"; the existing
+  destination's mode is kept when omitted
+- `parents` - Create missing parent directories
+- `sha256` - Expected content digest; the executor verifies it while
+  streaming and fails with 400 on mismatch
+  
+
+**Returns**:
+
+- `{"size"` - received bytes, "sha256": content digest}
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_read"></a>
+
+#### files\_read
+
+```python
+def files_read(path: str, chunk_size: int = 65536) -> Iterator[bytes]
+```
+
+Stream a file's bytes from GET /files (executor v0.0.24+).
+
+The executor serves Range requests; this stream is the whole file,
+chunk by chunk, constant memory on both sides. The timeout bounds
+idle time, not total download time. No retry: a broken stream is
+the fs layer's to resume.
+
+**Arguments**:
+
+- `path` - The file path to read
+- `chunk_size` - Bytes per yielded chunk
+  
+
+**Yields**:
+
+  File content chunks
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.has_files_routes"></a>
+
+#### has\_files\_routes
+
+```python
+def has_files_routes() -> bool
+```
+
+Whether this sandbox's executor serves the streamed /files routes.
+
+Probes once per handle with a body-less GET /files/stat: the legacy
+executor (pre-v0.0.24) has no such route and answers 404, the new one
+answers 400 ("path is required"). The result is cached for the
+client's lifetime, so every handle warns at most once.
+
+Never inferred from a failed transfer: an early 404 on a large PUT
+can surface as a Cloudflare 502 on Nomad.
+
+**Returns**:
+
+  True if the streamed /files routes are available
+
 <a id="koyeb.sandbox.executor_client.SandboxClient.bind_port"></a>
 
 #### bind\_port
@@ -2654,6 +2757,111 @@ List the contents of a directory.
 
   Dict with entries list and error if any
 
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_stat"></a>
+
+#### files\_stat
+
+```python
+async def files_stat(path: str) -> Dict[str, Any]
+```
+
+Stat a file on the streamed /files routes (executor v0.0.24+).
+
+**Arguments**:
+
+- `path` - The file path to stat
+  
+
+**Returns**:
+
+  FileEntry dict: type (file|dir|symlink|other), size, mode (octal
+  string), mtime (RFC 3339 UTC, nanoseconds)
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_put"></a>
+
+#### files\_put
+
+```python
+async def files_put(path: str,
+                    content: Union[bytes, AsyncIterator[bytes],
+                                   Iterator[bytes], BinaryIO],
+                    mode: Optional[str] = None,
+                    parents: bool = False,
+                    sha256: Optional[str] = None) -> Dict[str, Any]
+```
+
+Stream content to a file through PUT /files (executor v0.0.24+).
+
+The executor writes to a temp file and renames it into place: readers
+never see a partial file and a failed upload leaves the destination
+as it was. The timeout bounds idle time (FILES_IDLE_TIMEOUT), not
+total transfer time. Not retried on network errors mid-stream: a
+streamed body cannot be replayed; only a connect-time failure (the
+request never left) is retried.
+
+**Arguments**:
+
+- `path` - The destination path
+- `content` - The bytes to write, streamed (constant memory)
+- `mode` - Octal permission string, e.g. "0644"; the existing
+  destination's mode is kept when omitted
+- `parents` - Create missing parent directories
+- `sha256` - Expected content digest; the executor verifies it while
+  streaming and fails with 400 on mismatch
+  
+
+**Returns**:
+
+- `{"size"` - received bytes, "sha256": content digest}
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_read"></a>
+
+#### files\_read
+
+```python
+async def files_read(path: str,
+                     chunk_size: int = 65536) -> AsyncIterator[bytes]
+```
+
+Stream a file's bytes from GET /files (executor v0.0.24+).
+
+The executor serves Range requests; this stream is the whole file,
+chunk by chunk, constant memory on both sides. The timeout bounds
+idle time, not total download time. No retry: a broken stream is
+the fs layer's to resume.
+
+**Arguments**:
+
+- `path` - The file path to read
+- `chunk_size` - Bytes per yielded chunk
+  
+
+**Yields**:
+
+  File content chunks
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.has_files_routes"></a>
+
+#### has\_files\_routes
+
+```python
+async def has_files_routes() -> bool
+```
+
+Whether this sandbox's executor serves the streamed /files routes.
+
+Probes once per handle with a body-less GET /files/stat: the legacy
+executor (pre-v0.0.24) has no such route and answers 404, the new one
+answers 400 ("path is required"). The result is cached for the
+client's lifetime, so every handle warns at most once.
+
+Never inferred from a failed transfer: an early 404 on a large PUT
+can surface as a Cloudflare 502 on Nomad.
+
+**Returns**:
+
+  True if the streamed /files routes are available
+
 <a id="koyeb.sandbox.executor_client.AsyncSandboxClient.bind_port"></a>
 
 #### bind\_port
@@ -2901,6 +3109,17 @@ class FileInfo()
 
 File information
 
+<a id="koyeb.sandbox.filesystem.FileStat"></a>
+
+## FileStat Objects
+
+```python
+@dataclass
+class FileStat()
+```
+
+File metadata from the streamed /files/stat route (executor v0.0.24+).
+
 <a id="koyeb.sandbox.filesystem.SandboxFilesystem"></a>
 
 ## SandboxFilesystem Objects
@@ -2921,37 +3140,101 @@ For async usage, use AsyncSandboxFilesystem instead.
 ```python
 def write_file(path: str,
                content: Union[str, bytes],
-               encoding: str = "utf-8") -> None
+               encoding: str = "utf-8",
+               mode: Optional[str] = None) -> None
 ```
 
 Write content to a file synchronously.
+
+On executors v0.0.24+ the content streams through PUT /files,
+binary-safe: any byte sequence lands on disk as-is, and
+encoding="base64" decodes to the real bytes. Older executors are
+detected once per handle and keep the legacy JSON behavior.
 
 **Arguments**:
 
 - `path` - Absolute path to the file
 - `content` - Content to write (string or bytes)
 - `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
+- `mode` - Octal permission string, e.g. "0644" (streamed routes only;
+  the legacy routes keep the destination's mode)
 
 <a id="koyeb.sandbox.filesystem.SandboxFilesystem.read_file"></a>
 
 #### read\_file
 
 ```python
-def read_file(path: str, encoding: str = "utf-8") -> FileInfo
+def read_file(path: str, encoding: Optional[str] = "utf-8") -> FileInfo
 ```
 
 Read a file from the sandbox synchronously.
 
+On executors v0.0.24+ the bytes stream from GET /files,
+binary-safe: encoding=None returns the disk bytes, and
+encoding="base64" encodes the real bytes for transport. Older
+executors keep the legacy JSON behavior: encoding="base64"
+decodes the file's base64 text and returns bytes; encoding=None
+is not supported there and raises.
+
 **Arguments**:
 
 - `path` - Absolute path to the file
-- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data,
-  which will decode the base64 content and return bytes.
+- `encoding` - File encoding (default: "utf-8"). Streamed routes:
+  None returns the disk bytes, "base64" encodes them.
+  Legacy routes: "base64" decodes the file's base64 text;
+  None raises.
   
 
 **Returns**:
 
-- `FileInfo` - Object with content (str or bytes if base64) and encoding
+- `FileInfo` - Object with content (str or bytes) and encoding
+
+<a id="koyeb.sandbox.filesystem.SandboxFilesystem.open_read"></a>
+
+#### open\_read
+
+```python
+def open_read(path: str) -> Iterator[bytes]
+```
+
+Stream a file's bytes from the sandbox, chunk by chunk.
+
+Constant memory on both sides (executor v0.0.24+). On legacy
+executors the whole file is read at once and yielded as a single
+chunk.
+
+**Arguments**:
+
+- `path` - Absolute path to the file
+  
+
+**Yields**:
+
+  File content chunks
+
+<a id="koyeb.sandbox.filesystem.SandboxFilesystem.stat"></a>
+
+#### stat
+
+```python
+def stat(path: str) -> FileStat
+```
+
+Stat a file on the sandbox (executor v0.0.24+).
+
+Legacy executors have no stat route: this raises. Size comes from
+the filesystem, never from a HEAD — size-0 pseudo-files (e.g. under
+/proc) carry no length but have content.
+
+**Arguments**:
+
+- `path` - Absolute path to the file
+  
+
+**Returns**:
+
+  FileStat with type (file|dir|symlink|other), size, mode (octal
+  string) and mtime (RFC 3339 UTC, nanoseconds)
 
 <a id="koyeb.sandbox.filesystem.SandboxFilesystem.mkdir"></a>
 
@@ -3097,40 +3380,60 @@ Check if path is a directory synchronously
 ```python
 def upload_file(local_path: str,
                 remote_path: str,
-                encoding: str = "utf-8") -> None
+                encoding: str = "utf-8",
+                *,
+                progress: Optional[Callable[[int, int], None]] = None) -> None
 ```
 
 Upload a local file to the sandbox synchronously.
+
+On executors v0.0.24+ the file streams from disk through PUT
+/files — binary-safe, constant memory — with optional progress
+callbacks. Older executors keep the legacy JSON behavior (the
+encoding parameter applies there only).
 
 **Arguments**:
 
 - `local_path` - Path to the local file
 - `remote_path` - Destination path in the sandbox
-- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary files.
+- `encoding` - Legacy executors only (default: "utf-8"); the
+  streamed routes are binary-safe and ignore it
+- `progress` - Optional callback(done, total), called at most every
+  100 ms during the transfer plus a final call
   
 
 **Raises**:
 
 - `SandboxFileNotFoundError` - If local file doesn't exist
-- `UnicodeDecodeError` - If file cannot be decoded with specified encoding
 
 <a id="koyeb.sandbox.filesystem.SandboxFilesystem.download_file"></a>
 
 #### download\_file
 
 ```python
-def download_file(remote_path: str,
-                  local_path: str,
-                  encoding: str = "utf-8") -> None
+def download_file(
+        remote_path: str,
+        local_path: str,
+        encoding: str = "utf-8",
+        *,
+        progress: Optional[Callable[[int, int], None]] = None) -> None
 ```
 
 Download a file from the sandbox to a local path synchronously.
+
+On executors v0.0.24+ the size comes from stat (never a HEAD), the
+bytes stream into <local>.part and rename into place on success:
+a failed download leaves the destination exactly as it was.
+Older executors keep the legacy JSON behavior.
 
 **Arguments**:
 
 - `remote_path` - Path to the file in the sandbox
 - `local_path` - Destination path on the local filesystem
-- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary files.
+- `encoding` - Legacy executors only (default: "utf-8"); the
+  streamed routes are binary-safe and ignore it
+- `progress` - Optional callback(done, total), called at most every
+  100 ms during the transfer plus a final call
   
 
 **Raises**:
@@ -3210,37 +3513,101 @@ Uses native async I/O via AsyncSandboxClient.
 ```python
 async def write_file(path: str,
                      content: Union[str, bytes],
-                     encoding: str = "utf-8") -> None
+                     encoding: str = "utf-8",
+                     mode: Optional[str] = None) -> None
 ```
 
 Write content to a file asynchronously.
+
+On executors v0.0.24+ the content streams through PUT /files,
+binary-safe: any byte sequence lands on disk as-is, and
+encoding="base64" decodes to the real bytes. Older executors are
+detected once per handle and keep the legacy JSON behavior.
 
 **Arguments**:
 
 - `path` - Absolute path to the file
 - `content` - Content to write (string or bytes)
 - `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
+- `mode` - Octal permission string, e.g. "0644" (streamed routes only;
+  the legacy routes keep the destination's mode)
 
 <a id="koyeb.sandbox.filesystem.AsyncSandboxFilesystem.read_file"></a>
 
 #### read\_file
 
 ```python
-async def read_file(path: str, encoding: str = "utf-8") -> FileInfo
+async def read_file(path: str, encoding: Optional[str] = "utf-8") -> FileInfo
 ```
 
 Read a file from the sandbox asynchronously.
 
+On executors v0.0.24+ the bytes stream from GET /files,
+binary-safe: encoding=None returns the disk bytes, and
+encoding="base64" encodes the real bytes for transport. Older
+executors keep the legacy JSON behavior: encoding="base64"
+decodes the file's base64 text and returns bytes; encoding=None
+is not supported there and raises.
+
 **Arguments**:
 
 - `path` - Absolute path to the file
-- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data,
-  which will decode the base64 content and return bytes.
+- `encoding` - File encoding (default: "utf-8"). Streamed routes:
+  None returns the disk bytes, "base64" encodes them.
+  Legacy routes: "base64" decodes the file's base64 text;
+  None raises.
   
 
 **Returns**:
 
-- `FileInfo` - Object with content (str or bytes if base64) and encoding
+- `FileInfo` - Object with content (str or bytes) and encoding
+
+<a id="koyeb.sandbox.filesystem.AsyncSandboxFilesystem.open_read"></a>
+
+#### open\_read
+
+```python
+async def open_read(path: str) -> AsyncIterator[bytes]
+```
+
+Stream a file's bytes from the sandbox, chunk by chunk.
+
+Constant memory on both sides (executor v0.0.24+). On legacy
+executors the whole file is read at once and yielded as a single
+chunk.
+
+**Arguments**:
+
+- `path` - Absolute path to the file
+  
+
+**Yields**:
+
+  File content chunks
+
+<a id="koyeb.sandbox.filesystem.AsyncSandboxFilesystem.stat"></a>
+
+#### stat
+
+```python
+async def stat(path: str) -> FileStat
+```
+
+Stat a file on the sandbox (executor v0.0.24+).
+
+Legacy executors have no stat route: this raises. Size comes from
+the filesystem, never from a HEAD — size-0 pseudo-files (e.g. under
+/proc) carry no length but have content.
+
+**Arguments**:
+
+- `path` - Absolute path to the file
+  
+
+**Returns**:
+
+  FileStat with type (file|dir|symlink|other), size, mode (octal
+  string) and mtime (RFC 3339 UTC, nanoseconds)
 
 <a id="koyeb.sandbox.filesystem.AsyncSandboxFilesystem.mkdir"></a>
 
@@ -3384,42 +3751,63 @@ Check if path is a directory asynchronously
 #### upload\_file
 
 ```python
-async def upload_file(local_path: str,
-                      remote_path: str,
-                      encoding: str = "utf-8") -> None
+async def upload_file(
+        local_path: str,
+        remote_path: str,
+        encoding: str = "utf-8",
+        *,
+        progress: Optional[Callable[[int, int], None]] = None) -> None
 ```
 
 Upload a local file to the sandbox asynchronously.
+
+On executors v0.0.24+ the file streams from disk through PUT
+/files — binary-safe, constant memory — with optional progress
+callbacks. Older executors keep the legacy JSON behavior (the
+encoding parameter applies there only).
 
 **Arguments**:
 
 - `local_path` - Path to the local file
 - `remote_path` - Destination path in the sandbox
-- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary files.
+- `encoding` - Legacy executors only (default: "utf-8"); the
+  streamed routes are binary-safe and ignore it
+- `progress` - Optional callback(done, total), called at most every
+  100 ms during the transfer plus a final call
   
 
 **Raises**:
 
 - `SandboxFileNotFoundError` - If local file doesn't exist
-- `UnicodeDecodeError` - If file cannot be decoded with specified encoding
 
 <a id="koyeb.sandbox.filesystem.AsyncSandboxFilesystem.download_file"></a>
 
 #### download\_file
 
 ```python
-async def download_file(remote_path: str,
-                        local_path: str,
-                        encoding: str = "utf-8") -> None
+async def download_file(
+        remote_path: str,
+        local_path: str,
+        encoding: str = "utf-8",
+        *,
+        progress: Optional[Callable[[int, int], None]] = None) -> None
 ```
 
 Download a file from the sandbox to a local path asynchronously.
+
+On executors v0.0.24+ the size comes from stat (never a HEAD), the
+bytes stream into <local>.part and rename into place on success:
+a failed download leaves the destination exactly as it was.
+Older executors keep the legacy JSON behavior.
 
 **Arguments**:
 
 - `remote_path` - Path to the file in the sandbox
 - `local_path` - Destination path on the local filesystem
-- `encoding` - File encoding (default: "utf-8"). Use "base64" for binary files.
+- `encoding` - Legacy executors only (default: "utf-8"); the
+  streamed routes are binary-safe and ignore it
+- `progress` - Optional callback(done, total), called at most every
+  100 ms during the transfer plus a final call
   
 
 **Raises**:
@@ -3967,7 +4355,7 @@ Uses the InstanceSnapshots API which is for sandbox/service instance snapshots.
 **Arguments**:
 
 - `service_id` - Filter by service ID (applied to the returned page;
-the list endpoint has no service_id query param)
+  the list endpoint has no service_id query param)
 - `name` - Filter by snapshot name
 - `snapshot_type` - Filter by snapshot type
 - `status` - Filter by snapshot status

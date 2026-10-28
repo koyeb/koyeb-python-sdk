@@ -9,7 +9,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, Iterator, Optional, Union
+from typing import Any, AsyncIterator, BinaryIO, Dict, Iterator, Optional, Union
 
 import httpx
 
@@ -23,7 +23,84 @@ from .errors import (
 
 DEFAULT_HTTP_TIMEOUT = 30  # seconds for HTTP requests
 
+# Seconds without progress before a streamed /files call fails. Unlike
+# DEFAULT_HTTP_TIMEOUT, which bounds the whole JSON call, this bounds idle
+# time only: a transfer that keeps moving is never cut off (executor routes
+# v0.0.24+; a 5 GiB transfer must not die at 30 s).
+FILES_IDLE_TIMEOUT = 60
+
+# The timeout object for every streamed /files call: idle-bounded, connect
+# still capped at the JSON default.
+_FILES_TIMEOUT = httpx.Timeout(FILES_IDLE_TIMEOUT, connect=DEFAULT_HTTP_TIMEOUT)
+
+# One warning per handle: pre-v0.0.24 executors make every transfer legacy.
+_LEGACY_FILES_WARNING = (
+    "Sandbox executor has no streamed /files routes (pre-v0.0.24): "
+    "file transfers use the legacy JSON routes"
+)
+
+
+def _probe_verdict(status_code: int) -> bool:
+    """A probe reply's status to a routes verdict.
+
+    404: the route does not exist (legacy executor). 400: "path is
+    required" — the new executor answering. Anything else (401/403/429...)
+    says nothing about the routes: raise, so the caller leaves the probe
+    uncached and the next call tries again.
+    """
+    if status_code == 404:
+        return False
+    if status_code == 400:
+        return True
+    raise SandboxError(f"Failed probing /files routes: HTTP {status_code}")
+
+
 logger = logging.getLogger(__name__)
+
+
+def _timeout_seconds(timeout: Union[int, float, httpx.Timeout]) -> float:
+    """The read/idle bound a timeout message should name.
+
+    Legacy calls pass plain seconds; the streamed /files routes pass an
+    httpx.Timeout whose read timeout is the idle bound.
+    """
+    if isinstance(timeout, httpx.Timeout):
+        return timeout.read or 0.0
+    return float(timeout)
+
+
+async def _async_stream(
+    content: Union[BinaryIO, Iterator[bytes]]
+) -> AsyncIterator[bytes]:
+    """Yield sync stream content - a file object or chunk iterator - as
+    the async stream httpx requires on an AsyncClient."""
+    if hasattr(content, "read"):
+        while True:
+            chunk = content.read(65536)
+            if not chunk:
+                return
+            yield chunk
+    else:
+        for chunk in content:
+            yield chunk
+
+
+def _raise_for_status(response: httpx.Response) -> None:
+    """Wrap a non-2xx streamed response in the SDK taxonomy.
+
+    The /files routes answer with real status codes and a {"error": ...}
+    body; classification into filesystem exceptions happens one layer up.
+    """
+    if response.status_code >= 500:
+        raise SandboxServiceError(
+            status_code=response.status_code,
+            message=response.text,
+        )
+    if response.status_code >= 400:
+        raise SandboxRequestError(
+            status_code=response.status_code,
+            body=response.text,
+        )
 
 
 def _command_timed_out(timeout: Optional[float]) -> SandboxTimeoutError:
@@ -97,6 +174,8 @@ class SandboxClient:
         self.headers = _build_headers(conn_info)
         self._client = httpx.Client(headers=self.headers, trust_env=True)
         self._closed = False
+        # Cached result of has_files_routes(): None = not probed yet.
+        self._files_routes: Optional[bool] = None
 
     def close(self) -> None:
         """Close the HTTP client and release resources."""
@@ -203,7 +282,8 @@ class SandboxClient:
                 ) from e
             except httpx.TimeoutException as e:
                 raise SandboxTimeoutError(
-                    f"Request timed out after {kwargs.get('timeout', self.timeout)}s"
+                    f"Request timed out after "
+                    f"{_timeout_seconds(kwargs.get('timeout', self.timeout)):g}s"
                 ) from e
             except httpx.RequestError as e:
                 # Transient network errors (connection refused, reset, ...)
@@ -470,6 +550,135 @@ class SandboxClient:
         )
         return response.json()
 
+    def files_stat(self, path: str) -> Dict[str, Any]:
+        """
+        Stat a file on the streamed /files routes (executor v0.0.24+).
+
+        Args:
+            path: The file path to stat
+
+        Returns:
+            FileEntry dict: type (file|dir|symlink|other), size, mode (octal
+            string), mtime (RFC 3339 UTC, nanoseconds)
+        """
+        response = self._request_with_retry(
+            "GET",
+            f"{self.base_url}/files/stat",
+            params={"path": path},
+        )
+        return response.json()
+
+    def files_put(
+        self,
+        path: str,
+        content: Union[bytes, Iterator[bytes], BinaryIO],
+        mode: Optional[str] = None,
+        parents: bool = False,
+        sha256: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Stream content to a file through PUT /files (executor v0.0.24+).
+
+        The executor writes to a temp file and renames it into place: readers
+        never see a partial file and a failed upload leaves the destination
+        as it was. The timeout bounds idle time (FILES_IDLE_TIMEOUT), not
+        total transfer time. Not retried on network errors mid-stream: a
+        streamed body cannot be replayed; only a connect-time failure (the
+        request never left) is retried.
+
+        Args:
+            path: The destination path
+            content: The bytes to write, streamed (constant memory)
+            mode: Octal permission string, e.g. "0644"; the existing
+                destination's mode is kept when omitted
+            parents: Create missing parent directories
+            sha256: Expected content digest; the executor verifies it while
+                streaming and fails with 400 on mismatch
+
+        Returns:
+            {"size": received bytes, "sha256": content digest}
+        """
+        params: Dict[str, Any] = {"path": path}
+        if mode is not None:
+            params["mode"] = mode
+        if parents:
+            params["parents"] = "1"
+        headers = {"Content-Type": "application/octet-stream"}
+        if sha256:
+            headers["X-Content-SHA256"] = sha256
+        response = self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files",
+            params=params,
+            content=content,
+            headers=headers,
+            idempotent=False,
+            timeout=_FILES_TIMEOUT,
+        )
+        return response.json()
+
+    def files_read(self, path: str, chunk_size: int = 65536) -> Iterator[bytes]:
+        """
+        Stream a file's bytes from GET /files (executor v0.0.24+).
+
+        The executor serves Range requests; this stream is the whole file,
+        chunk by chunk, constant memory on both sides. The timeout bounds
+        idle time, not total download time. No retry: a broken stream is
+        the fs layer's to resume.
+
+        Args:
+            path: The file path to read
+            chunk_size: Bytes per yielded chunk
+
+        Yields:
+            File content chunks
+        """
+        try:
+            with self._client.stream(
+                "GET",
+                f"{self.base_url}/files",
+                params={"path": path},
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    response.read()
+                    _raise_for_status(response)
+                for chunk in response.iter_bytes(chunk_size):
+                    yield chunk
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    def has_files_routes(self) -> bool:
+        """
+        Whether this sandbox's executor serves the streamed /files routes.
+
+        Probes once per handle with a body-less GET /files/stat: the legacy
+        executor (pre-v0.0.24) has no such route and answers 404, the new one
+        answers 400 ("path is required"). The result is cached for the
+        client's lifetime, so every handle warns at most once.
+
+        Never inferred from a failed transfer: an early 404 on a large PUT
+        can surface as a Cloudflare 502 on Nomad.
+
+        Returns:
+            True if the streamed /files routes are available
+        """
+        if self._files_routes is None:
+            try:
+                self._request_with_retry("GET", f"{self.base_url}/files/stat")
+            except SandboxRequestError as e:
+                verdict = _probe_verdict(e.status_code)
+                if not verdict:
+                    logger.warning(_LEGACY_FILES_WARNING)
+                self._files_routes = verdict
+            else:
+                self._files_routes = True
+        return self._files_routes
+
     def bind_port(self, port: int) -> Dict[str, Any]:
         """
         Bind a port to the TCP proxy for external access.
@@ -628,6 +837,8 @@ class AsyncSandboxClient:
         self.headers = _build_headers(conn_info)
         self._client = httpx.AsyncClient(headers=self.headers, trust_env=True)
         self._closed = False
+        # Cached result of has_files_routes(): None = not probed yet.
+        self._files_routes: Optional[bool] = None
 
     async def close(self) -> None:
         """Close the HTTP client and release resources."""
@@ -729,7 +940,8 @@ class AsyncSandboxClient:
                 ) from e
             except httpx.TimeoutException as e:
                 raise SandboxTimeoutError(
-                    f"Request timed out after {kwargs.get('timeout', self.timeout)}s"
+                    f"Request timed out after "
+                    f"{_timeout_seconds(kwargs.get('timeout', self.timeout)):g}s"
                 ) from e
             except httpx.RequestError as e:
                 # Transient network errors (connection refused, reset, ...)
@@ -1003,6 +1215,143 @@ class AsyncSandboxClient:
             "POST", f"{self.base_url}/list_dir", json=payload
         )
         return response.json()
+
+    async def files_stat(self, path: str) -> Dict[str, Any]:
+        """
+        Stat a file on the streamed /files routes (executor v0.0.24+).
+
+        Args:
+            path: The file path to stat
+
+        Returns:
+            FileEntry dict: type (file|dir|symlink|other), size, mode (octal
+            string), mtime (RFC 3339 UTC, nanoseconds)
+        """
+        response = await self._request_with_retry(
+            "GET",
+            f"{self.base_url}/files/stat",
+            params={"path": path},
+        )
+        return response.json()
+
+    async def files_put(
+        self,
+        path: str,
+        content: Union[bytes, AsyncIterator[bytes], Iterator[bytes], BinaryIO],
+        mode: Optional[str] = None,
+        parents: bool = False,
+        sha256: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Stream content to a file through PUT /files (executor v0.0.24+).
+
+        The executor writes to a temp file and renames it into place: readers
+        never see a partial file and a failed upload leaves the destination
+        as it was. The timeout bounds idle time (FILES_IDLE_TIMEOUT), not
+        total transfer time. Not retried on network errors mid-stream: a
+        streamed body cannot be replayed; only a connect-time failure (the
+        request never left) is retried.
+
+        Args:
+            path: The destination path
+            content: The bytes to write, streamed (constant memory)
+            mode: Octal permission string, e.g. "0644"; the existing
+                destination's mode is kept when omitted
+            parents: Create missing parent directories
+            sha256: Expected content digest; the executor verifies it while
+                streaming and fails with 400 on mismatch
+
+        Returns:
+            {"size": received bytes, "sha256": content digest}
+        """
+        params: Dict[str, Any] = {"path": path}
+        if mode is not None:
+            params["mode"] = mode
+        if parents:
+            params["parents"] = "1"
+        headers = {"Content-Type": "application/octet-stream"}
+        if sha256:
+            headers["X-Content-SHA256"] = sha256
+        if isinstance(content, (bytes, bytearray, str)) or hasattr(
+            content, "__aiter__"
+        ):
+            body = content
+        else:
+            body = _async_stream(content)
+        response = await self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files",
+            params=params,
+            content=body,
+            headers=headers,
+            idempotent=False,
+            timeout=_FILES_TIMEOUT,
+        )
+        return response.json()
+
+    async def files_read(
+        self, path: str, chunk_size: int = 65536
+    ) -> AsyncIterator[bytes]:
+        """
+        Stream a file's bytes from GET /files (executor v0.0.24+).
+
+        The executor serves Range requests; this stream is the whole file,
+        chunk by chunk, constant memory on both sides. The timeout bounds
+        idle time, not total download time. No retry: a broken stream is
+        the fs layer's to resume.
+
+        Args:
+            path: The file path to read
+            chunk_size: Bytes per yielded chunk
+
+        Yields:
+            File content chunks
+        """
+        try:
+            async with self._client.stream(
+                "GET",
+                f"{self.base_url}/files",
+                params={"path": path},
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    await response.aread()
+                    _raise_for_status(response)
+                async for chunk in response.aiter_bytes(chunk_size):
+                    yield chunk
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    async def has_files_routes(self) -> bool:
+        """
+        Whether this sandbox's executor serves the streamed /files routes.
+
+        Probes once per handle with a body-less GET /files/stat: the legacy
+        executor (pre-v0.0.24) has no such route and answers 404, the new one
+        answers 400 ("path is required"). The result is cached for the
+        client's lifetime, so every handle warns at most once.
+
+        Never inferred from a failed transfer: an early 404 on a large PUT
+        can surface as a Cloudflare 502 on Nomad.
+
+        Returns:
+            True if the streamed /files routes are available
+        """
+        if self._files_routes is None:
+            try:
+                await self._request_with_retry("GET", f"{self.base_url}/files/stat")
+            except SandboxRequestError as e:
+                verdict = _probe_verdict(e.status_code)
+                if not verdict:
+                    logger.warning(_LEGACY_FILES_WARNING)
+                self._files_routes = verdict
+            else:
+                self._files_routes = True
+        return self._files_routes
 
     async def bind_port(self, port: int) -> Dict[str, Any]:
         """
