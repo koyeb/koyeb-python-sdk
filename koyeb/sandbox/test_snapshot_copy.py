@@ -8,8 +8,12 @@ upload_file — with the legacy per-file walk preserved for old executors.
 
 import os
 import tempfile
+import types
 import unittest
+from unittest.mock import patch
 
+from koyeb.sandbox import Sandbox
+from koyeb.sandbox.errors import SandboxError
 from koyeb.sandbox.snapshot import DeclarativeSnapshot
 
 
@@ -121,6 +125,73 @@ class TestCopySingleFile(SnapshotCopyTestCase):
             fs.calls,
             [("upload_file", src, "dst/one.bin")],
         )
+
+    def test_build_applies_the_whole_recipe(self):
+        # build() must reach every recipe arm — workdir, files, the copy
+        # seam, commands — on the live builder, not just in isolation.
+        source = self._tree()
+        fs = _FakeFS(True)
+        stub = types.SimpleNamespace(filesystem=fs, calls=[])
+
+        def _snapshot(**kw):
+            stub.calls.append(("snapshot", kw["name"]))
+            return types.SimpleNamespace(operations=None)
+
+        def _exec(command, timeout=None):
+            stub.calls.append(("exec", command))
+            return types.SimpleNamespace(success=True)
+
+        stub.snapshot = _snapshot
+        stub.exec = _exec
+        stub.delete = lambda: stub.calls.append(("delete",))
+        snap = DeclarativeSnapshot(
+            name="t", image="img", workdir="/w", api_token="token"
+        )
+        snap.file("/w/req.txt", "text").copy(source, "dst").run("echo hi")
+
+        with patch.object(Sandbox, "create", return_value=stub):
+            built = snap.build("snap")
+
+        self.assertEqual(
+            fs.calls,
+            [
+                ("mkdir", "/w"),
+                ("write_file", "/w/req.txt", "text", "utf-8"),
+                ("sync", source, "dst"),
+            ],
+        )
+        self.assertEqual(
+            built.operations,
+            [
+                "set_workdir: /w",
+                "create_file: /w/req.txt",
+                f"copy: {source} -> dst",
+                "run: echo hi",
+            ],
+        )
+        self.assertEqual(
+            stub.calls,
+            [("exec", "echo hi"), ("snapshot", "snap"), ("delete",)],
+        )
+
+    def test_build_failed_command_raises(self):
+        fs = _FakeFS(True)
+        stub = types.SimpleNamespace(filesystem=fs, calls=[])
+
+        def _exec(command, timeout=None):
+            return types.SimpleNamespace(success=False, stdout="out", stderr="boom")
+
+        stub.exec = _exec
+        stub.snapshot = lambda **kw: types.SimpleNamespace(operations=None)
+        stub.delete = lambda: None
+        snap = DeclarativeSnapshot(name="t", image="img", api_token="token")
+        snap.run("false")
+
+        with patch.object(Sandbox, "create", return_value=stub):
+            with self.assertRaises(SandboxError) as cm:
+                snap.build("snap")
+
+        self.assertIn("Command failed: false", str(cm.exception))
 
     def test_single_file_uploads_on_legacy_too(self):
         # upload_file carries its own legacy fallback; no probe needed.

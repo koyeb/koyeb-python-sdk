@@ -447,6 +447,32 @@ class DeclarativeSnapshot:
         self._copy_ops.append((src, dst))
         return self
 
+    def _apply_operations(self) -> None:
+        """Apply the declared recipe onto the live builder sandbox."""
+        # Apply working directory
+        if self._workdir:
+            self._operations.append(f"set_workdir: {self._workdir}")
+            self._builder_sandbox.filesystem.mkdir(self._workdir)
+
+        # Write files
+        for path, content in self._files.items():
+            self._operations.append(f"create_file: {path}")
+            self._builder_sandbox.filesystem.write_file(path, content)
+
+        # Copy local files/directories
+        for src, dst in self._copy_ops:
+            self._operations.append(f"copy: {src} -> {dst}")
+            self._copy(src, dst)
+
+        # Run commands
+        for command in self._commands:
+            self._operations.append(f"run: {command}")
+            result = self._builder_sandbox.exec(command, timeout=300)
+            if not result.success:
+                raise SandboxError(
+                    f"Command failed: {command}\nstdout: {result.stdout}\nstderr: {result.stderr}"
+                )
+
     def _copy(self, src: str, dst: str) -> None:
         """Copy one local file or directory into the builder sandbox.
 
@@ -514,29 +540,7 @@ class DeclarativeSnapshot:
                 host=self._host,
             )
 
-            # Apply working directory
-            if self._workdir:
-                self._operations.append(f"set_workdir: {self._workdir}")
-                self._builder_sandbox.filesystem.mkdir(self._workdir)
-
-            # Write files
-            for path, content in self._files.items():
-                self._operations.append(f"create_file: {path}")
-                self._builder_sandbox.filesystem.write_file(path, content)
-
-            # Copy local files/directories
-            for src, dst in self._copy_ops:
-                self._operations.append(f"copy: {src} -> {dst}")
-                self._copy(src, dst)
-
-            # Run commands
-            for command in self._commands:
-                self._operations.append(f"run: {command}")
-                result = self._builder_sandbox.exec(command, timeout=300)
-                if not result.success:
-                    raise SandboxError(
-                        f"Command failed: {command}\nstdout: {result.stdout}\nstderr: {result.stderr}"
-                    )
+            self._apply_operations()
 
             # Create snapshot
             snapshot = self._builder_sandbox.snapshot(
