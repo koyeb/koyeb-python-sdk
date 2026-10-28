@@ -201,9 +201,7 @@ class _FakeExecutorTree:
         if missing:
             raise SandboxRequestError(
                 409,
-                body='{"error": "missing ranges", "ranges": '
-                + repr(missing)
-                + "}",
+                body='{"error": "missing ranges", "ranges": ' + repr(missing) + "}",
             )
         data = bytes(session["spool"])
         target = session["path"]
@@ -381,6 +379,23 @@ class TestSyncPush(SyncTestCase):
         )
         self.assertEqual(len(self._calls("files_list")), 1)
 
+    def test_push_noop_with_checksum_stats_only(self):
+        local = _local_tree(self.base)
+        with _fs(self.fake) as fs:
+            fs.sync(local, "dst")
+        self.fake.calls.clear()
+        self.fake.archives.clear()
+
+        with _fs(self.fake) as fs:
+            result = fs.sync(local, "dst", checksum=True)
+
+        self.assertEqual(result["uploaded"], 0)
+        self.assertEqual(self.fake.archives, [])
+        # The docstring's honest no-op: checksum asks one sha256 stat
+        # per size-and-mtime-equal file, nothing else.
+        self.assertEqual(len(self._calls("files_stat")), 2)
+        self.assertEqual(self._calls("files_archive_put"), [])
+
     def test_push_changed_file_only(self):
         local = _local_tree(self.base)
         with _fs(self.fake) as fs:
@@ -430,6 +445,38 @@ class TestSyncPush(SyncTestCase):
         self.assertEqual([c[1] for c in self._calls("delete_dir")], ["dst/gone"])
         self.assertEqual([c[1] for c in self._calls("delete_file")], [])
         self.assertEqual(result["deleted"], 1)
+
+    def test_push_delete_spares_excluded_remote(self):
+        local = _local_tree(self.base)
+        _write(os.path.join(self.remote_root, "dst", "skip.log"), b"keep me")
+        self.fake.calls.clear()
+
+        with _fs(self.fake) as fs:
+            result = fs.sync(local, "dst", exclude=("*.log",), delete=True)
+
+        self.assertTrue(
+            os.path.exists(os.path.join(self.remote_root, "dst", "skip.log"))
+        )
+        self.assertEqual(self._calls("delete_file"), [])
+        self.assertEqual(result["deleted"], 0)
+
+    def test_push_delete_spares_excluded_remote_dirs_whole(self):
+        # The walker prunes an excluded directory whole; the remote
+        # plan must spare its descendants too.
+        local = _local_tree(self.base)
+        _write(os.path.join(self.remote_root, "dst", "backup", "nested", "keep.txt"))
+        self.fake.calls.clear()
+
+        with _fs(self.fake) as fs:
+            result = fs.sync(local, "dst", exclude=("backup",), delete=True)
+
+        self.assertTrue(
+            os.path.exists(
+                os.path.join(self.remote_root, "dst", "backup", "nested", "keep.txt")
+            )
+        )
+        self.assertEqual(self._calls("delete_file"), [])
+        self.assertEqual(result["deleted"], 0)
 
     def test_push_oversized_file_routes_through_upload_file(self):
         local = _local_tree(self.base)
@@ -626,6 +673,116 @@ class TestSyncPull(SyncTestCase):
         self.assertFalse(os.path.exists(os.path.join(dest, "gonedir")))
         self.assertEqual(result["deleted"], 1)
 
+    def test_pull_excludes_remote_entries_from_plan(self):
+        source = _local_tree(self.base)
+        with _fs(self.fake) as fs:
+            fs.sync(source, "dst")
+        _write(os.path.join(self.remote_root, "dst", "skip.log"), b"not wanted")
+        self.fake.calls.clear()
+
+        dest = os.path.join(self.base, "dest")
+        os.makedirs(dest)
+        with _fs(self.fake) as fs:
+            result = fs.sync(dest, "dst", direction="pull", exclude=("*.log",))
+
+        self.assertFalse(os.path.exists(os.path.join(dest, "skip.log")))
+        self.assertTrue(os.path.exists(os.path.join(dest, "a.txt")))
+        self.assertEqual(result["downloaded"], 5)
+        self.assertEqual(
+            self._calls("files_archive_get"),
+            [("files_archive_get", "dst", ("*.log",))],
+        )
+
+    def test_pull_colliding_dir_prune_refuses_loudly(self):
+        # An oversized name also prunes same-named directories whole
+        # from the archive — their planned contents would be lost.
+        source = _local_tree(self.base)
+        with _fs(self.fake) as fs:
+            fs.sync(source, "dst")
+        _write(
+            os.path.join(self.remote_root, "dst", "x", "backup", "small.txt"),
+            b"first",
+        )
+        dest = os.path.join(self.base, "dest")
+        with _fs(self.fake) as fs:
+            fs.sync(dest, "dst", direction="pull")
+
+        big = os.path.join(self.remote_root, "dst", "backup")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+        _write(
+            os.path.join(self.remote_root, "dst", "x", "backup", "small.txt"),
+            b"changed",
+        )
+        self.fake.calls.clear()
+
+        with _fs(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError) as cm:
+                fs.sync(dest, "dst", direction="pull")
+
+        self.assertIn("x/backup/small.txt", str(cm.exception))
+
+    def test_pull_excludes_descendants_of_excluded_dirs(self):
+        # The archive walker prunes an excluded directory whole; the
+        # plan must agree or members silently vanish.
+        source = _local_tree(self.base)
+        with _fs(self.fake) as fs:
+            fs.sync(source, "dst")
+        _write(
+            os.path.join(self.remote_root, "dst", "x", "backup", "small.txt"),
+            b"deep",
+        )
+        dest = os.path.join(self.base, "dest")
+        with _fs(self.fake) as fs:
+            fs.sync(dest, "dst", direction="pull")
+        self.fake.calls.clear()
+
+        with _fs(self.fake) as fs:
+            result = fs.sync(dest, "dst", direction="pull", exclude=("backup",))
+
+        self.assertEqual(result["downloaded"], 0)
+        self.assertEqual(self._calls("files_archive_get"), [])
+        with open(os.path.join(dest, "x", "backup", "small.txt"), "rb") as f:
+            self.assertEqual(f.read(), b"deep")
+
+    def test_pull_colliding_suffix_member_refuses_loudly(self):
+        # The archive exclude takes glob patterns: an oversized name
+        # would also drop same-suffixed planned members — refuse
+        # instead of losing them silently.
+        source = _local_tree(self.base)
+        with _fs(self.fake) as fs:
+            fs.sync(source, "dst")
+        big = os.path.join(self.remote_root, "dst", "big.bin")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+        _write(os.path.join(self.remote_root, "dst", "backup", "big.bin"), b"new")
+        dest = os.path.join(self.base, "dest")
+        os.makedirs(dest)
+
+        with _fs(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError) as cm:
+                fs.sync(dest, "dst", direction="pull")
+
+        self.assertIn("backup/big.bin", str(cm.exception))
+
+    def test_pull_excluded_oversized_is_not_downloaded(self):
+        source = _local_tree(self.base)
+        with _fs(self.fake) as fs:
+            fs.sync(source, "dst")
+        big = os.path.join(self.remote_root, "dst", "big.bin")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+        self.fake.calls.clear()
+
+        dest = os.path.join(self.base, "dest")
+        os.makedirs(dest)
+        with _fs(self.fake) as fs:
+            result = fs.sync(dest, "dst", direction="pull", exclude=("big.bin",))
+
+        self.assertFalse(os.path.exists(os.path.join(dest, "big.bin")))
+        self.assertEqual(self._calls("files_read"), [])
+        self.assertEqual(result["downloaded"], 5)
+
     def test_pull_oversized_routes_through_download_file(self):
         source = _local_tree(self.base)
         with _fs(self.fake) as fs:
@@ -645,10 +802,11 @@ class TestSyncPull(SyncTestCase):
         self.assertEqual(
             os.path.getsize(os.path.join(dest, "big.bin")), SYNC_BATCH_BYTES + 1
         )
-        # The whole remote tree downloads; big.bin itself came through
-        # download_file, not the archive.
+        # big.bin rode download_file; the pull archive excluded it so its
+        # bytes did not travel twice.
         self.assertEqual(result["downloaded"], 6)
         self.assertEqual(self._calls("files_read"), [("files_read", "dst/big.bin")])
+        self.assertIn("big.bin", self._calls("files_archive_get")[0][2])
 
     def test_dry_run_pull_touches_nothing(self):
         source = _local_tree(self.base)
@@ -733,6 +891,179 @@ class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
             os.path.exists(os.path.join(self.remote_root, "dst", "extra.txt"))
         )
         self.assertEqual(result["deleted"], 1)
+
+    async def test_push_delete_spares_excluded_remote(self):
+        local = _local_tree(self.base)
+        _write(os.path.join(self.remote_root, "dst", "skip.log"), b"keep me")
+        self.fake.calls.clear()
+
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(local, "dst", exclude=("*.log",), delete=True)
+
+        self.assertTrue(
+            os.path.exists(os.path.join(self.remote_root, "dst", "skip.log"))
+        )
+        self.assertEqual(result["deleted"], 0)
+
+    async def test_push_delete_spares_excluded_remote_dirs_whole(self):
+        local = _local_tree(self.base)
+        _write(os.path.join(self.remote_root, "dst", "backup", "nested", "keep.txt"))
+        self.fake.calls.clear()
+
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(local, "dst", exclude=("backup",), delete=True)
+
+        self.assertTrue(
+            os.path.exists(
+                os.path.join(self.remote_root, "dst", "backup", "nested", "keep.txt")
+            )
+        )
+        self.assertEqual(result["deleted"], 0)
+
+    async def test_pull_excludes_remote_entries_from_plan(self):
+        source = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(source, "dst")
+        _write(os.path.join(self.remote_root, "dst", "skip.log"), b"not wanted")
+        self.fake.calls.clear()
+
+        dest = os.path.join(self.base, "dest")
+        os.makedirs(dest)
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(dest, "dst", direction="pull", exclude=("*.log",))
+
+        self.assertFalse(os.path.exists(os.path.join(dest, "skip.log")))
+        self.assertTrue(os.path.exists(os.path.join(dest, "a.txt")))
+        self.assertEqual(result["downloaded"], 5)
+        get_calls = [c for c in self.fake.calls if c[0] == "files_archive_get"]
+        self.assertEqual(get_calls, [("files_archive_get", "dst", ("*.log",))])
+
+    async def test_pull_colliding_dir_prune_refuses_loudly(self):
+        source = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(source, "dst")
+        _write(
+            os.path.join(self.remote_root, "dst", "x", "backup", "small.txt"),
+            b"first",
+        )
+        dest = os.path.join(self.base, "dest")
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(dest, "dst", direction="pull")
+
+        big = os.path.join(self.remote_root, "dst", "backup")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+        _write(
+            os.path.join(self.remote_root, "dst", "x", "backup", "small.txt"),
+            b"changed",
+        )
+        self.fake.calls.clear()
+
+        async with _async_ctx(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError) as cm:
+                await fs.sync(dest, "dst", direction="pull")
+
+        self.assertIn("x/backup/small.txt", str(cm.exception))
+
+    async def test_pull_excludes_descendants_of_excluded_dirs(self):
+        source = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(source, "dst")
+        _write(
+            os.path.join(self.remote_root, "dst", "x", "backup", "small.txt"),
+            b"deep",
+        )
+        dest = os.path.join(self.base, "dest")
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(dest, "dst", direction="pull")
+        self.fake.calls.clear()
+
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(dest, "dst", direction="pull", exclude=("backup",))
+
+        self.assertEqual(result["downloaded"], 0)
+        get_calls = [c for c in self.fake.calls if c[0] == "files_archive_get"]
+        self.assertEqual(get_calls, [])
+        with open(os.path.join(dest, "x", "backup", "small.txt"), "rb") as f:
+            self.assertEqual(f.read(), b"deep")
+
+    async def test_pull_colliding_suffix_member_refuses_loudly(self):
+        source = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(source, "dst")
+        big = os.path.join(self.remote_root, "dst", "big.bin")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+        _write(os.path.join(self.remote_root, "dst", "backup", "big.bin"), b"new")
+        dest = os.path.join(self.base, "dest")
+        os.makedirs(dest)
+
+        async with _async_ctx(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError) as cm:
+                await fs.sync(dest, "dst", direction="pull")
+
+        self.assertIn("backup/big.bin", str(cm.exception))
+
+    async def test_pull_excluded_oversized_is_not_downloaded(self):
+        source = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(source, "dst")
+        big = os.path.join(self.remote_root, "dst", "big.bin")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+        self.fake.calls.clear()
+
+        dest = os.path.join(self.base, "dest")
+        os.makedirs(dest)
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(dest, "dst", direction="pull", exclude=("big.bin",))
+
+        self.assertFalse(os.path.exists(os.path.join(dest, "big.bin")))
+        read_calls = [c for c in self.fake.calls if c[0] == "files_read"]
+        self.assertEqual(read_calls, [])
+        self.assertEqual(result["downloaded"], 5)
+
+    async def test_pull_oversized_routes_through_download_file(self):
+        source = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(source, "dst")
+        big = os.path.join(self.remote_root, "dst", "big.bin")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+        st = os.stat(big)
+        os.utime(big, ns=(st.st_mtime_ns + 5_000_000_000,) * 2)
+        self.fake.calls.clear()
+
+        dest = os.path.join(self.base, "dest")
+        os.makedirs(dest)
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(dest, "dst", direction="pull")
+
+        self.assertEqual(
+            os.path.getsize(os.path.join(dest, "big.bin")), SYNC_BATCH_BYTES + 1
+        )
+        self.assertEqual(result["downloaded"], 6)
+        read_calls = [c for c in self.fake.calls if c[0] == "files_read"]
+        self.assertEqual(read_calls, [("files_read", "dst/big.bin")])
+        get_calls = [c for c in self.fake.calls if c[0] == "files_archive_get"]
+        self.assertIn("big.bin", get_calls[0][2])
+
+    async def test_push_noop_with_checksum_stats_only(self):
+        local = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(local, "dst")
+        self.fake.calls.clear()
+        self.fake.archives.clear()
+
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(local, "dst", checksum=True)
+
+        self.assertEqual(result["uploaded"], 0)
+        self.assertEqual(self.fake.archives, [])
+        stat_calls = [c for c in self.fake.calls if c[0] == "files_stat"]
+        self.assertEqual(len(stat_calls), 2)
+        put_calls = [c for c in self.fake.calls if c[0] == "files_archive_put"]
+        self.assertEqual(put_calls, [])
 
     async def test_checksum_detects_content_change(self):
         local = _local_tree(self.base)

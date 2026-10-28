@@ -36,6 +36,7 @@ __all__ = [
     "hash_candidates",
     "join_local",
     "mtime_seconds",
+    "path_excluded",
     "path_match",
     "plan_batches",
     "prune_descendants",
@@ -240,6 +241,16 @@ def excluded(rel: str, patterns: Sequence[str]) -> bool:
                 break
             name = name[i + 1 :]
     return False
+
+
+def path_excluded(path: str, patterns: Sequence[str]) -> bool:
+    """A path, or any directory prefix of it, matches a pattern.
+
+    The walker prunes a matching directory whole, so an entry under one
+    is effectively excluded even when its own path does not match.
+    """
+    parts = path.split("/")
+    return any(excluded("/".join(parts[: i + 1]), patterns) for i in range(len(parts)))
 
 
 # --------------------------------------------------------------------------

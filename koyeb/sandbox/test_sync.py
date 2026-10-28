@@ -20,6 +20,7 @@ from koyeb.sandbox.sync import (
     format_mtime,
     hash_candidates,
     mtime_seconds,
+    path_excluded,
     path_match,
     plan_batches,
     prune_descendants,
@@ -146,6 +147,24 @@ class TestExcluded(unittest.TestCase):
         # The pruning rule: a dir entry matches, the walk never descends.
         self.assertTrue(excluded(".git", [".git"]))
         self.assertTrue(excluded("sub/.git", [".git"]))
+
+
+class TestPathExcluded(unittest.TestCase):
+    def test_own_path_match(self):
+        self.assertTrue(path_excluded("skip.log", ["*.log"]))
+
+    def test_ancestor_prefix_match(self):
+        self.assertTrue(path_excluded("x/backup/small.txt", ["backup"]))
+
+    def test_sibling_is_not_excluded(self):
+        self.assertFalse(path_excluded("a/backup2/x", ["backup"]))
+
+    def test_deep_non_match_is_not_excluded(self):
+        self.assertFalse(path_excluded("x/y/z.txt", ["*.log"]))
+
+    def test_class_pattern_matches_through_prefix(self):
+        # A metachar pattern prunes same-named dirs via the class rule.
+        self.assertTrue(path_excluded("data1/x", ["data[1]"]))
 
 
 class TestMtimeFormat(unittest.TestCase):

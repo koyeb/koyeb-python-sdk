@@ -45,6 +45,7 @@ from .sync import (
     extract_archive,
     hash_candidates,
     join_local,
+    path_excluded,
     plan_batches,
     prune_descendants,
     relative_remote,
@@ -1171,14 +1172,18 @@ class SandboxFilesystem:
         Both sides are listed (a local walk against the executor's
         NDJSON listing) and diffed on path, type, size and mtime —
         whole seconds, like rsync's default; ``checksum=True`` adds a
-        sha256 comparison for files that pass that test. The changed set
-        travels as ~50 MiB gzip'd tar batches through /files/archive;
-        files larger than one part go through upload_file/download_file
-        instead (multipart on executors v0.0.24+, resumable downloads).
+        sha256 comparison for files that pass that test. On push, the
+        changed set travels as ~50 MiB gzip'd tar batches through
+        /files/archive; on pull, the remote tree's archive streams down
+        and only the changed set is extracted. Files larger than one
+        batch go through upload_file/download_file instead (multipart
+        on executors v0.0.24+, resumable downloads), and a pull's
+        archive leaves them out so their bytes travel once.
         Symlinks travel as links, modes are kept, owners are not.
 
-        A no-op sync sends nothing: nothing is transferred, deleted or
-        even requested beyond the listing. With ``delete=True`` the
+        A no-op sync sends nothing: nothing is transferred or deleted;
+        beyond the listing only ``checksum=True`` asks more — one sha256
+        stat per size-and-mtime-equal file. With ``delete=True`` the
         destination is pruned to match (a directory counts as one
         deletion); deletes ride the legacy routes, which every executor
         serves. ``dry_run=True`` computes the result without touching
@@ -1203,9 +1208,7 @@ class SandboxFilesystem:
             SandboxFilesystemError: On any failure, the filesystem taxonomy
         """
         if direction not in ("push", "pull"):
-            raise ValueError(
-                f"direction must be 'push' or 'pull', not {direction!r}"
-            )
+            raise ValueError(f"direction must be 'push' or 'pull', not {direction!r}")
         if remote is None:
             remote = relative_remote(local)
         client = self._get_client()
@@ -1242,6 +1245,11 @@ class SandboxFilesystem:
             if e.status_code != 404:
                 raise
             remote_entries = []
+        # Excluded remote paths stay invisible to the diff: delete must
+        # spare what exclude promised to skip.
+        remote_entries = [
+            e for e in remote_entries if not path_excluded(e["path"], exclude)
+        ]
 
         hashes = self._sync_hashes(
             client, local, remote, checksum, False, local_entries, remote_entries
@@ -1274,9 +1282,7 @@ class SandboxFilesystem:
             "bytes": result.bytes,
         }
 
-    def _sync_remote_deletes(
-        self, remote: str, result: SyncDiff, delete: bool
-    ) -> int:
+    def _sync_remote_deletes(self, remote: str, result: SyncDiff, delete: bool) -> int:
         if not delete:
             return 0
         by_path = {e["path"]: e for e in result.deletes}
@@ -1343,24 +1349,45 @@ class SandboxFilesystem:
     ) -> Dict[str, int]:
         local_entries = walk_local(local, exclude)
         remote_entries = list(client.files_list(remote, recursive=True))
+        # The source listing gets the same filter as the local walk: an
+        # excluded path is neither planned nor counted.
+        remote_entries = [
+            e for e in remote_entries if not path_excluded(e["path"], exclude)
+        ]
         hashes = self._sync_hashes(
             client, local, remote, checksum, True, remote_entries, local_entries
         )
         result = diff(remote_entries, local_entries, delete=delete, **hashes)
         batches, oversized = plan_batches(result.to_transfer, SYNC_BATCH_BYTES)
+        # Oversized files ride download_file; the archive leaves them out
+        # so their bytes travel once.
+        archive_exclude = tuple(exclude) + tuple(e["path"] for e in oversized)
+        # Archive excludes are glob patterns: an oversized name would
+        # also drop same-suffixed planned members — refuse loudly.
+        oversized_patterns = tuple(e["path"] for e in oversized)
+        colliding = sorted(
+            {
+                entry["path"]
+                for batch in batches
+                for entry in batch
+                if path_excluded(entry["path"], oversized_patterns)
+            }
+        )
+        if colliding:
+            raise SandboxFilesystemError(
+                f"sync pull cannot deliver {colliding}: the archive exclude "
+                f"for oversized files would also drop them; rename or sync "
+                f"them separately"
+            )
         if not dry_run:
             if batches:
                 fd, spool = tempfile.mkstemp(suffix=".koyeb-sync.tgz")
                 os.close(fd)
                 try:
                     with open(spool, "wb") as out:
-                        for chunk in client.files_archive_get(remote, exclude):
+                        for chunk in client.files_archive_get(remote, archive_exclude):
                             out.write(chunk)
-                    keep = {
-                        entry["path"]
-                        for batch in batches
-                        for entry in batch
-                    }
+                    keep = {entry["path"] for batch in batches for entry in batch}
                     extract_archive(spool, local, keep=keep)
                 finally:
                     with suppress(OSError):
@@ -1380,9 +1407,7 @@ class SandboxFilesystem:
             "bytes": result.bytes,
         }
 
-    def _sync_local_deletes(
-        self, local: str, result: SyncDiff, delete: bool
-    ) -> int:
+    def _sync_local_deletes(self, local: str, result: SyncDiff, delete: bool) -> int:
         if not delete:
             return 0
         by_path = {e["path"]: e for e in result.deletes}
@@ -2180,14 +2205,18 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         Both sides are listed (a local walk against the executor's
         NDJSON listing) and diffed on path, type, size and mtime —
         whole seconds, like rsync's default; ``checksum=True`` adds a
-        sha256 comparison for files that pass that test. The changed set
-        travels as ~50 MiB gzip'd tar batches through /files/archive;
-        files larger than one part go through upload_file/download_file
-        instead (multipart on executors v0.0.24+, resumable downloads).
+        sha256 comparison for files that pass that test. On push, the
+        changed set travels as ~50 MiB gzip'd tar batches through
+        /files/archive; on pull, the remote tree's archive streams down
+        and only the changed set is extracted. Files larger than one
+        batch go through upload_file/download_file instead (multipart
+        on executors v0.0.24+, resumable downloads), and a pull's
+        archive leaves them out so their bytes travel once.
         Symlinks travel as links, modes are kept, owners are not.
 
-        A no-op sync sends nothing: nothing is transferred, deleted or
-        even requested beyond the listing. With ``delete=True`` the
+        A no-op sync sends nothing: nothing is transferred or deleted;
+        beyond the listing only ``checksum=True`` asks more — one sha256
+        stat per size-and-mtime-equal file. With ``delete=True`` the
         destination is pruned to match (a directory counts as one
         deletion); deletes ride the legacy routes, which every executor
         serves. ``dry_run=True`` computes the result without touching
@@ -2212,9 +2241,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             SandboxFilesystemError: On any failure, the filesystem taxonomy
         """
         if direction not in ("push", "pull"):
-            raise ValueError(
-                f"direction must be 'push' or 'pull', not {direction!r}"
-            )
+            raise ValueError(f"direction must be 'push' or 'pull', not {direction!r}")
         if remote is None:
             remote = relative_remote(local)
         client = self._get_async_client()
@@ -2245,8 +2272,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         local_entries = walk_local(local, exclude)
         try:
             remote_entries = [
-                entry
-                async for entry in client.files_list(remote, recursive=True)
+                entry async for entry in client.files_list(remote, recursive=True)
             ]
         except SandboxRequestError as e:
             # A missing remote tree is an empty one: the archive PUT
@@ -2254,6 +2280,11 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             if e.status_code != 404:
                 raise
             remote_entries = []
+        # Excluded remote paths stay invisible to the diff: delete must
+        # spare what exclude promised to skip.
+        remote_entries = [
+            e for e in remote_entries if not path_excluded(e["path"], exclude)
+        ]
 
         hashes = await self._sync_hashes(
             client, local, remote, checksum, False, local_entries, remote_entries
@@ -2300,24 +2331,47 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         remote_entries = [
             entry async for entry in client.files_list(remote, recursive=True)
         ]
+        # The source listing gets the same filter as the local walk: an
+        # excluded path is neither planned nor counted.
+        remote_entries = [
+            e for e in remote_entries if not path_excluded(e["path"], exclude)
+        ]
         hashes = await self._sync_hashes(
             client, local, remote, checksum, True, remote_entries, local_entries
         )
         result = diff(remote_entries, local_entries, delete=delete, **hashes)
         batches, oversized = plan_batches(result.to_transfer, SYNC_BATCH_BYTES)
+        # Oversized files ride download_file; the archive leaves them out
+        # so their bytes travel once.
+        archive_exclude = tuple(exclude) + tuple(e["path"] for e in oversized)
+        # Archive excludes are glob patterns: an oversized name would
+        # also drop same-suffixed planned members — refuse loudly.
+        oversized_patterns = tuple(e["path"] for e in oversized)
+        colliding = sorted(
+            {
+                entry["path"]
+                for batch in batches
+                for entry in batch
+                if path_excluded(entry["path"], oversized_patterns)
+            }
+        )
+        if colliding:
+            raise SandboxFilesystemError(
+                f"sync pull cannot deliver {colliding}: the archive exclude "
+                f"for oversized files would also drop them; rename or sync "
+                f"them separately"
+            )
         if not dry_run:
             if batches:
                 fd, spool = tempfile.mkstemp(suffix=".koyeb-sync.tgz")
                 os.close(fd)
                 try:
                     with open(spool, "wb") as out:
-                        async for chunk in client.files_archive_get(remote, exclude):
+                        async for chunk in client.files_archive_get(
+                            remote, archive_exclude
+                        ):
                             out.write(chunk)
-                    keep = {
-                        entry["path"]
-                        for batch in batches
-                        for entry in batch
-                    }
+                    keep = {entry["path"] for batch in batches for entry in batch}
                     extract_archive(spool, local, keep=keep)
                 finally:
                     with suppress(OSError):
@@ -2401,9 +2455,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             count += 1
         return count
 
-    def _sync_local_deletes(
-        self, local: str, result: SyncDiff, delete: bool
-    ) -> int:
+    def _sync_local_deletes(self, local: str, result: SyncDiff, delete: bool) -> int:
         """Local pruning is plain filesystem work — no await, but the
         signature matches the sync twin so the parity sweep holds."""
         if not delete:
