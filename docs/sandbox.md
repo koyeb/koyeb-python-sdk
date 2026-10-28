@@ -2242,7 +2242,8 @@ def files_put(path: str,
               content: Union[bytes, Iterator[bytes], BinaryIO],
               mode: Optional[str] = None,
               parents: bool = False,
-              sha256: Optional[str] = None) -> Dict[str, Any]
+              sha256: Optional[str] = None,
+              timeout: Optional[float] = None) -> Dict[str, Any]
 ```
 
 Stream content to a file through PUT /files (executor v0.0.24+).
@@ -2263,6 +2264,8 @@ request never left) is retried.
 - `parents` - Create missing parent directories
 - `sha256` - Expected content digest; the executor verifies it while
   streaming and fails with 400 on mismatch
+- `timeout` - Seconds without progress before the call fails
+  (default FILES_IDLE_TIMEOUT)
   
 
 **Returns**:
@@ -2274,7 +2277,9 @@ request never left) is retried.
 #### files\_read
 
 ```python
-def files_read(path: str, chunk_size: int = 65536) -> Iterator[bytes]
+def files_read(path: str,
+               chunk_size: int = 65536,
+               timeout: Optional[float] = None) -> Iterator[bytes]
 ```
 
 Stream a file's bytes from GET /files (executor v0.0.24+).
@@ -2288,6 +2293,8 @@ the fs layer's to resume.
 
 - `path` - The file path to read
 - `chunk_size` - Bytes per yielded chunk
+- `timeout` - Seconds without progress before the stream fails
+  (default FILES_IDLE_TIMEOUT)
   
 
 **Yields**:
@@ -2315,6 +2322,133 @@ can surface as a Cloudflare 502 on Nomad.
 **Returns**:
 
   True if the streamed /files routes are available
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_open"></a>
+
+#### files\_upload\_open
+
+```python
+def files_upload_open(path: str,
+                      size: int,
+                      mode: Optional[str] = None,
+                      sha256: Optional[str] = None,
+                      timeout: Optional[float] = None) -> Dict[str, Any]
+```
+
+Open a multipart upload session (executor v0.0.24+).
+
+A file too large for one request uploads as offset-addressed parts:
+the executor truncates a temp file to `size` up front, so parts land
+in any order, in parallel, and a retried part overwrites the same
+bytes. Sessions live in memory — an executor restart or an idle hour
+loses them, and the upload starts over.
+
+**Arguments**:
+
+- `path` - The destination path
+- `size` - The final size in bytes
+- `mode` - Octal permission string, e.g. "0644" (the existing
+  destination's mode is kept when omitted)
+- `sha256` - Expected whole-file digest, checked once at complete
+- `timeout` - Seconds without progress before this call fails
+  (default DEFAULT_HTTP_TIMEOUT — a control call)
+  
+
+**Returns**:
+
+  {"upload_id", "max_part_size"} — the cap for every part
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_part"></a>
+
+#### files\_upload\_part
+
+```python
+def files_upload_part(upload_id: str,
+                      offset: int,
+                      content: bytes,
+                      sha256: Optional[str] = None,
+                      timeout: Optional[float] = None) -> None
+```
+
+Write one part at its offset (executor v0.0.24+).
+
+The timeout bounds idle time, not the part's total time. A part is
+idempotent at the executor (a WriteAt of the same bytes), so
+transient network errors retry — the bytes must be replayable:
+callers pass the part's bytes, never a consumed stream.
+
+**Arguments**:
+
+- `upload_id` - The session from files_upload_open
+- `offset` - The part's position in the final file
+- `content` - The part's bytes
+- `sha256` - The part's digest, verified while streaming
+- `timeout` - Seconds without progress before the part fails
+  (default FILES_IDLE_TIMEOUT)
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_status"></a>
+
+#### files\_upload\_status
+
+```python
+def files_upload_status(upload_id: str,
+                        timeout: Optional[float] = None) -> Dict[str, Any]
+```
+
+The ranges received so far (executor v0.0.24+): half-open
+[start, end) spans, sorted and coalesced, so a live session can
+resume by sending what is missing.
+
+**Arguments**:
+
+- `upload_id` - The session to inspect
+  
+
+**Returns**:
+
+  {"size", "ranges": [{"start", "end"}, ...]}
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_complete"></a>
+
+#### files\_upload\_complete
+
+```python
+def files_upload_complete(upload_id: str,
+                          timeout: Optional[float] = None) -> Dict[str, Any]
+```
+
+Check coverage and commit (executor v0.0.24+).
+
+A 409 carries the missing ranges in the error body — the session
+stays live, so the caller can fill the gaps and complete again. On
+success the temp file is fsynced and renamed onto the destination;
+the whole-file sha256 from files_upload_open is checked here.
+
+**Arguments**:
+
+- `upload_id` - The session to complete
+  
+
+**Returns**:
+
+  {"size", "sha256"?}
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_abort"></a>
+
+#### files\_upload\_abort
+
+```python
+def files_upload_abort(upload_id: str,
+                       timeout: Optional[float] = None) -> None
+```
+
+Abort the session and remove its temp file (executor v0.0.24+).
+
+**Arguments**:
+
+- `upload_id` - The session to abort
+- `timeout` - Seconds without progress before this call fails
+  (default DEFAULT_HTTP_TIMEOUT — a control call)
 
 <a id="koyeb.sandbox.executor_client.SandboxClient.bind_port"></a>
 
@@ -2787,7 +2921,8 @@ async def files_put(path: str,
                                    Iterator[bytes], BinaryIO],
                     mode: Optional[str] = None,
                     parents: bool = False,
-                    sha256: Optional[str] = None) -> Dict[str, Any]
+                    sha256: Optional[str] = None,
+                    timeout: Optional[float] = None) -> Dict[str, Any]
 ```
 
 Stream content to a file through PUT /files (executor v0.0.24+).
@@ -2808,6 +2943,8 @@ request never left) is retried.
 - `parents` - Create missing parent directories
 - `sha256` - Expected content digest; the executor verifies it while
   streaming and fails with 400 on mismatch
+- `timeout` - Seconds without progress before the call fails
+  (default FILES_IDLE_TIMEOUT)
   
 
 **Returns**:
@@ -2820,7 +2957,8 @@ request never left) is retried.
 
 ```python
 async def files_read(path: str,
-                     chunk_size: int = 65536) -> AsyncIterator[bytes]
+                     chunk_size: int = 65536,
+                     timeout: Optional[float] = None) -> AsyncIterator[bytes]
 ```
 
 Stream a file's bytes from GET /files (executor v0.0.24+).
@@ -2834,6 +2972,8 @@ the fs layer's to resume.
 
 - `path` - The file path to read
 - `chunk_size` - Bytes per yielded chunk
+- `timeout` - Seconds without progress before the stream fails
+  (default FILES_IDLE_TIMEOUT)
   
 
 **Yields**:
@@ -2861,6 +3001,135 @@ can surface as a Cloudflare 502 on Nomad.
 **Returns**:
 
   True if the streamed /files routes are available
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_open"></a>
+
+#### files\_upload\_open
+
+```python
+async def files_upload_open(path: str,
+                            size: int,
+                            mode: Optional[str] = None,
+                            sha256: Optional[str] = None,
+                            timeout: Optional[float] = None) -> Dict[str, Any]
+```
+
+Open a multipart upload session (executor v0.0.24+).
+
+A file too large for one request uploads as offset-addressed parts:
+the executor truncates a temp file to `size` up front, so parts land
+in any order, in parallel, and a retried part overwrites the same
+bytes. Sessions live in memory — an executor restart or an idle hour
+loses them, and the upload starts over.
+
+**Arguments**:
+
+- `path` - The destination path
+- `size` - The final size in bytes
+- `mode` - Octal permission string, e.g. "0644" (the existing
+  destination's mode is kept when omitted)
+- `sha256` - Expected whole-file digest, checked once at complete
+- `timeout` - Seconds without progress before this call fails
+  (default DEFAULT_HTTP_TIMEOUT — a control call)
+  
+
+**Returns**:
+
+  {"upload_id", "max_part_size"} — the cap for every part
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_part"></a>
+
+#### files\_upload\_part
+
+```python
+async def files_upload_part(upload_id: str,
+                            offset: int,
+                            content: bytes,
+                            sha256: Optional[str] = None,
+                            timeout: Optional[float] = None) -> None
+```
+
+Write one part at its offset (executor v0.0.24+).
+
+The timeout bounds idle time, not the part's total time. A part is
+idempotent at the executor (a WriteAt of the same bytes), so
+transient network errors retry — the bytes must be replayable:
+callers pass the part's bytes, never a consumed stream.
+
+**Arguments**:
+
+- `upload_id` - The session from files_upload_open
+- `offset` - The part's position in the final file
+- `content` - The part's bytes
+- `sha256` - The part's digest, verified while streaming
+- `timeout` - Seconds without progress before the part fails
+  (default FILES_IDLE_TIMEOUT)
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_status"></a>
+
+#### files\_upload\_status
+
+```python
+async def files_upload_status(upload_id: str,
+                              timeout: Optional[float] = None
+                              ) -> Dict[str, Any]
+```
+
+The ranges received so far (executor v0.0.24+): half-open
+[start, end) spans, sorted and coalesced, so a live session can
+resume by sending what is missing.
+
+**Arguments**:
+
+- `upload_id` - The session to inspect
+  
+
+**Returns**:
+
+  {"size", "ranges": [{"start", "end"}, ...]}
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_complete"></a>
+
+#### files\_upload\_complete
+
+```python
+async def files_upload_complete(upload_id: str,
+                                timeout: Optional[float] = None
+                                ) -> Dict[str, Any]
+```
+
+Check coverage and commit (executor v0.0.24+).
+
+A 409 carries the missing ranges in the error body — the session
+stays live, so the caller can fill the gaps and complete again. On
+success the temp file is fsynced and renamed onto the destination;
+the whole-file sha256 from files_upload_open is checked here.
+
+**Arguments**:
+
+- `upload_id` - The session to complete
+  
+
+**Returns**:
+
+  {"size", "sha256"?}
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_abort"></a>
+
+#### files\_upload\_abort
+
+```python
+async def files_upload_abort(upload_id: str,
+                             timeout: Optional[float] = None) -> None
+```
+
+Abort the session and remove its temp file (executor v0.0.24+).
+
+**Arguments**:
+
+- `upload_id` - The session to abort
+- `timeout` - Seconds without progress before this call fails
+  (default DEFAULT_HTTP_TIMEOUT — a control call)
 
 <a id="koyeb.sandbox.executor_client.AsyncSandboxClient.bind_port"></a>
 
@@ -3120,6 +3389,9 @@ class FileStat()
 
 File metadata from the streamed /files/stat route (executor v0.0.24+).
 
+type is one of file|dir|symlink|other; mode is the octal permission
+string (e.g. "0644"); mtime is RFC 3339 UTC with nanoseconds.
+
 <a id="koyeb.sandbox.filesystem.SandboxFilesystem"></a>
 
 ## SandboxFilesystem Objects
@@ -3139,22 +3411,28 @@ For async usage, use AsyncSandboxFilesystem instead.
 
 ```python
 def write_file(path: str,
-               content: Union[str, bytes],
+               content: Union[str, bytes, BinaryIO, Iterable[bytes]],
                encoding: str = "utf-8",
+               *,
                mode: Optional[str] = None) -> None
 ```
 
 Write content to a file synchronously.
 
 On executors v0.0.24+ the content streams through PUT /files,
-binary-safe: any byte sequence lands on disk as-is, and
-encoding="base64" decodes to the real bytes. Older executors are
-detected once per handle and keep the legacy JSON behavior.
+binary-safe: any byte sequence lands on disk as-is.
+encoding="base64" decodes str and bytes content to the real
+bytes; BinaryIO and iterables stream as-is, ignoring it. Older
+executors are detected once per handle and keep the legacy JSON behavior —
+which cannot carry streamed content (BinaryIO, an iterable of
+chunks): that raises and names v0.0.24.
 
 **Arguments**:
 
 - `path` - Absolute path to the file
-- `content` - Content to write (string or bytes)
+- `content` - Content to write — string, bytes, a file object or an
+  iterable of bytes chunks (the last two require executor
+  v0.0.24+)
 - `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
 - `mode` - Octal permission string, e.g. "0644" (streamed routes only;
   the legacy routes keep the destination's mode)
@@ -3200,8 +3478,8 @@ def open_read(path: str) -> Iterator[bytes]
 Stream a file's bytes from the sandbox, chunk by chunk.
 
 Constant memory on both sides (executor v0.0.24+). On legacy
-executors the whole file is read at once and yielded as a single
-chunk.
+executors the file is read once as text and yielded as a single
+chunk — binary-safe streaming is not available there.
 
 **Arguments**:
 
@@ -3382,15 +3660,22 @@ def upload_file(local_path: str,
                 remote_path: str,
                 encoding: str = "utf-8",
                 *,
-                progress: Optional[Callable[[int, int], None]] = None) -> None
+                progress: Optional[Callable[[int, int], None]] = None,
+                timeout: Optional[float] = None,
+                part_size: int = UPLOAD_PART_SIZE,
+                concurrency: int = UPLOAD_CONCURRENCY) -> None
 ```
 
 Upload a local file to the sandbox synchronously.
 
 On executors v0.0.24+ the file streams from disk through PUT
 /files — binary-safe, constant memory — with optional progress
-callbacks. Older executors keep the legacy JSON behavior (the
-encoding parameter applies there only).
+callbacks. A file larger than part_size uploads as a multipart
+session: up to `concurrency` parts in flight, each read from disk
+at its offset, per-part sha256, timed-out parts split into
+halves, and a complete that reports missing ranges fills them
+and completes again. Older executors keep the legacy JSON
+behavior (the encoding parameter applies there only).
 
 **Arguments**:
 
@@ -3400,6 +3685,13 @@ encoding parameter applies there only).
   streamed routes are binary-safe and ignore it
 - `progress` - Optional callback(done, total), called at most every
   100 ms during the transfer plus a final call
+- `timeout` - Seconds without progress before the transfer's
+  requests fail (default: the 60 s idle bound)
+- `part_size` - Bytes per multipart part (default 50 MiB, capped by
+  the executor's max_part_size); a file at or below it takes
+  the single streamed PUT
+- `concurrency` - Parts in flight for a multipart upload (default 4;
+  memory holds at most part_size x concurrency)
   
 
 **Raises**:
@@ -3411,12 +3703,12 @@ encoding parameter applies there only).
 #### download\_file
 
 ```python
-def download_file(
-        remote_path: str,
-        local_path: str,
-        encoding: str = "utf-8",
-        *,
-        progress: Optional[Callable[[int, int], None]] = None) -> None
+def download_file(remote_path: str,
+                  local_path: str,
+                  encoding: str = "utf-8",
+                  *,
+                  progress: Optional[Callable[[int, int], None]] = None,
+                  timeout: Optional[float] = None) -> None
 ```
 
 Download a file from the sandbox to a local path synchronously.
@@ -3434,6 +3726,8 @@ Older executors keep the legacy JSON behavior.
   streamed routes are binary-safe and ignore it
 - `progress` - Optional callback(done, total), called at most every
   100 ms during the transfer plus a final call
+- `timeout` - Seconds without progress before the transfer's stream
+  fails (default: the 60 s idle bound)
   
 
 **Raises**:
@@ -3512,22 +3806,28 @@ Uses native async I/O via AsyncSandboxClient.
 
 ```python
 async def write_file(path: str,
-                     content: Union[str, bytes],
+                     content: Union[str, bytes, BinaryIO, Iterable[bytes]],
                      encoding: str = "utf-8",
+                     *,
                      mode: Optional[str] = None) -> None
 ```
 
 Write content to a file asynchronously.
 
 On executors v0.0.24+ the content streams through PUT /files,
-binary-safe: any byte sequence lands on disk as-is, and
-encoding="base64" decodes to the real bytes. Older executors are
-detected once per handle and keep the legacy JSON behavior.
+binary-safe: any byte sequence lands on disk as-is.
+encoding="base64" decodes str and bytes content to the real
+bytes; BinaryIO and iterables stream as-is, ignoring it. Older
+executors are detected once per handle and keep the legacy JSON behavior —
+which cannot carry streamed content (BinaryIO, an iterable of
+chunks): that raises and names v0.0.24.
 
 **Arguments**:
 
 - `path` - Absolute path to the file
-- `content` - Content to write (string or bytes)
+- `content` - Content to write — string, bytes, a file object or an
+  iterable of bytes chunks (the last two require executor
+  v0.0.24+)
 - `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
 - `mode` - Octal permission string, e.g. "0644" (streamed routes only;
   the legacy routes keep the destination's mode)
@@ -3573,8 +3873,8 @@ async def open_read(path: str) -> AsyncIterator[bytes]
 Stream a file's bytes from the sandbox, chunk by chunk.
 
 Constant memory on both sides (executor v0.0.24+). On legacy
-executors the whole file is read at once and yielded as a single
-chunk.
+executors the file is read once as text and yielded as a single
+chunk — binary-safe streaming is not available there.
 
 **Arguments**:
 
@@ -3751,20 +4051,26 @@ Check if path is a directory asynchronously
 #### upload\_file
 
 ```python
-async def upload_file(
-        local_path: str,
-        remote_path: str,
-        encoding: str = "utf-8",
-        *,
-        progress: Optional[Callable[[int, int], None]] = None) -> None
+async def upload_file(local_path: str,
+                      remote_path: str,
+                      encoding: str = "utf-8",
+                      *,
+                      progress: Optional[Callable[[int, int], None]] = None,
+                      timeout: Optional[float] = None,
+                      part_size: int = UPLOAD_PART_SIZE,
+                      concurrency: int = UPLOAD_CONCURRENCY) -> None
 ```
 
 Upload a local file to the sandbox asynchronously.
 
 On executors v0.0.24+ the file streams from disk through PUT
 /files — binary-safe, constant memory — with optional progress
-callbacks. Older executors keep the legacy JSON behavior (the
-encoding parameter applies there only).
+callbacks. A file larger than part_size uploads as a multipart
+session: up to `concurrency` parts in flight, each read from disk
+at its offset, per-part sha256, timed-out parts split into
+halves, and a complete that reports missing ranges fills them
+and completes again. Older executors keep the legacy JSON
+behavior (the encoding parameter applies there only).
 
 **Arguments**:
 
@@ -3774,6 +4080,13 @@ encoding parameter applies there only).
   streamed routes are binary-safe and ignore it
 - `progress` - Optional callback(done, total), called at most every
   100 ms during the transfer plus a final call
+- `timeout` - Seconds without progress before the transfer's
+  requests fail (default: the 60 s idle bound)
+- `part_size` - Bytes per multipart part (default 50 MiB, capped by
+  the executor's max_part_size); a file at or below it takes
+  the single streamed PUT
+- `concurrency` - Parts in flight for a multipart upload (default 4;
+  memory holds at most part_size x concurrency)
   
 
 **Raises**:
@@ -3785,12 +4098,12 @@ encoding parameter applies there only).
 #### download\_file
 
 ```python
-async def download_file(
-        remote_path: str,
-        local_path: str,
-        encoding: str = "utf-8",
-        *,
-        progress: Optional[Callable[[int, int], None]] = None) -> None
+async def download_file(remote_path: str,
+                        local_path: str,
+                        encoding: str = "utf-8",
+                        *,
+                        progress: Optional[Callable[[int, int], None]] = None,
+                        timeout: Optional[float] = None) -> None
 ```
 
 Download a file from the sandbox to a local path asynchronously.
@@ -3808,6 +4121,8 @@ Older executors keep the legacy JSON behavior.
   streamed routes are binary-safe and ignore it
 - `progress` - Optional callback(done, total), called at most every
   100 ms during the transfer plus a final call
+- `timeout` - Seconds without progress before the transfer's stream
+  fails (default: the 60 s idle bound)
   
 
 **Raises**:
