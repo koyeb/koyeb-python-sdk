@@ -10,6 +10,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 import unittest
 from contextlib import contextmanager
 from unittest.mock import patch
@@ -1837,6 +1838,58 @@ class TestAsyncUploadMultipart(unittest.IsolatedAsyncioTestCase):
                 await fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
         self.assertEqual(fake.landed(), self.DATA)
         self.assertNotIn("abort", fake.kinds())
+
+    async def test_the_event_loop_stays_responsive_during_the_digest(self):
+        # The whole-file hash is disk-and-CPU bound; running it inline
+        # would freeze every other task on the loop for its duration.
+        ticks = []
+
+        async def ticker():
+            while True:
+                ticks.append(1)
+                await asyncio.sleep(0.005)
+
+        def slow_digest(path):
+            time.sleep(0.25)
+            with open(path, "rb") as f:
+                return hashlib.sha256(f.read()).hexdigest()
+
+        task = asyncio.get_running_loop().create_task(ticker())
+        try:
+            with patch("koyeb.sandbox.filesystem._file_sha256", slow_digest):
+                with tempfile.TemporaryDirectory() as d:
+                    local = _local_file(d, "small.bin", b"abc")
+                    with _async_fs(_AsyncUploadFakeExecutor()) as fs:
+                        await fs.upload_file(local, "/r/small.bin")
+        finally:
+            task.cancel()
+        self.assertGreaterEqual(len(ticks), 20)
+
+    async def test_the_event_loop_stays_responsive_during_multipart_digest(self):
+        ticks = []
+
+        async def ticker():
+            while True:
+                ticks.append(1)
+                await asyncio.sleep(0.005)
+
+        def slow_digest(path):
+            time.sleep(0.25)
+            with open(path, "rb") as f:
+                return hashlib.sha256(f.read()).hexdigest()
+
+        task = asyncio.get_running_loop().create_task(ticker())
+        try:
+            with patch("koyeb.sandbox.filesystem._file_sha256", slow_digest):
+                with tempfile.TemporaryDirectory() as d:
+                    local = _local_file(d, "big.bin", self.DATA)
+                    with _async_fs(_AsyncUploadFakeExecutor()) as fs:
+                        await fs.upload_file(
+                            local, "/r/big.bin", part_size=4, concurrency=1
+                        )
+        finally:
+            task.cancel()
+        self.assertGreaterEqual(len(ticks), 20)
 
     async def test_malformed_open_reply_raises_without_aborting(self):
         fake = _AsyncUploadFakeExecutor(open_reply={"max_part_size": 4})

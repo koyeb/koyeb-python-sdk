@@ -1559,7 +1559,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                     )
                 else:
                     reporter = _ProgressReporter(progress, size)
-                    digest = _file_sha256(local_path)
+                    digest = await asyncio.to_thread(_file_sha256, local_path)
                     with open(local_path, "rb") as f:
                         reply = await client.files_put(
                             remote_path,
@@ -1596,7 +1596,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         Sessions live at the executor: a lost one (restart, idle expiry)
         cannot be resumed, only restarted.
         """
-        digest = _file_sha256(local_path)
+        digest = await asyncio.to_thread(_file_sha256, local_path)
         session = await client.files_upload_open(
             remote_path, size, sha256=digest, timeout=timeout
         )
