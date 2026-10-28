@@ -739,6 +739,7 @@ class SandboxClient:
             "POST",
             f"{self.base_url}/files/uploads",
             json=payload,
+            idempotent=False,
             timeout=_override_timeout(timeout, self.timeout),
         )
         return response.json()
@@ -821,6 +822,7 @@ class SandboxClient:
         response = self._request_with_retry(
             "POST",
             f"{self.base_url}/files/uploads/{upload_id}/complete",
+            idempotent=False,
             timeout=_override_timeout(timeout, self.timeout),
         )
         return response.json()
@@ -1560,6 +1562,7 @@ class AsyncSandboxClient:
             "POST",
             f"{self.base_url}/files/uploads",
             json=payload,
+            idempotent=False,
             timeout=_override_timeout(timeout, self.timeout),
         )
         return response.json()
@@ -1642,6 +1645,7 @@ class AsyncSandboxClient:
         response = await self._request_with_retry(
             "POST",
             f"{self.base_url}/files/uploads/{upload_id}/complete",
+            idempotent=False,
             timeout=_override_timeout(timeout, self.timeout),
         )
         return response.json()

@@ -598,6 +598,19 @@ class TestFilesUploadOpen(unittest.TestCase):
         )
         self.assertEqual(reply, {"upload_id": "u-1", "max_part_size": 104857600})
 
+    def test_500_is_not_retried(self):
+        # An open creates executor state; a blind retry orphans a session.
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(500, request=request, json={"error": "boom"})
+
+        with self.assertRaises(SandboxServiceError):
+            _make_sync_client(handler).files_upload_open("/tmp/a.bin", 1024)
+
+        self.assertEqual(len(calls), 1)
+
     def test_minimal_payload_omits_optionals(self):
         seen = {}
 
@@ -613,6 +626,19 @@ class TestFilesUploadOpen(unittest.TestCase):
 
 
 class TestAsyncFilesUploadOpen(unittest.IsolatedAsyncioTestCase):
+    async def test_500_is_not_retried(self):
+        # An open creates executor state; a blind retry orphans a session.
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(500, request=request, json={"error": "boom"})
+
+        with self.assertRaises(SandboxServiceError):
+            await _make_async_client(handler).files_upload_open("/tmp/b", 7)
+
+        self.assertEqual(len(calls), 1)
+
     async def test_sends_post_and_returns_session(self):
         seen = {}
 
@@ -720,6 +746,20 @@ class TestAsyncFilesUploadStatus(unittest.IsolatedAsyncioTestCase):
 
 
 class TestFilesUploadComplete(unittest.TestCase):
+    def test_500_is_not_retried(self):
+        # A complete commits the file; a blind retry hits a gone session
+        # and would report a landed upload as lost.
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(500, request=request, json={"error": "boom"})
+
+        with self.assertRaises(SandboxServiceError):
+            _make_sync_client(handler).files_upload_complete("u-1")
+
+        self.assertEqual(len(calls), 1)
+
     def test_returns_commit_reply(self):
         seen = {}
 
@@ -760,6 +800,20 @@ class TestFilesUploadComplete(unittest.TestCase):
 
 
 class TestAsyncFilesUploadComplete(unittest.IsolatedAsyncioTestCase):
+    async def test_500_is_not_retried(self):
+        # A complete commits the file; a blind retry hits a gone session
+        # and would report a landed upload as lost.
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(500, request=request, json={"error": "boom"})
+
+        with self.assertRaises(SandboxServiceError):
+            await _make_async_client(handler).files_upload_complete("u-6")
+
+        self.assertEqual(len(calls), 1)
+
     async def test_returns_commit_reply(self):
         def handler(request):
             return httpx.Response(200, request=request, json={"size": 4})
