@@ -332,13 +332,6 @@ def _fs(client):
         yield fs
 
 
-@contextmanager
-def _async_fs(client):
-    fs = AsyncSandboxFilesystem(sandbox=None)
-    with patch.object(AsyncSandboxFilesystem, "_get_async_client", return_value=client):
-        yield fs
-
-
 def _local_tree(base, name="src"):
     """A small source tree: file, subdir file, symlink, empty dir.
 
@@ -543,8 +536,8 @@ class TestSyncPush(SyncTestCase):
         # The rest of the tree still rides one archive batch.
         self.assertEqual(len(self.fake.archives), 1)
         self.assertNotIn("big.bin", self._archive_members())
-        # The big file went through the multipart session flow (ST-126's
-        # slice-2 dispatch in upload_file), not a single PUT.
+        # The big file went through the multipart session flow in
+        # upload_file, not a single PUT.
         self.assertEqual(
             [c[:2] for c in self._calls("files_upload_open")],
             [("files_upload_open", "dst/big.bin")],
@@ -844,9 +837,8 @@ class TestSyncPull(SyncTestCase):
             self.assertEqual(f.read(), b"deep")
 
     def test_pull_colliding_suffix_member_refuses_loudly(self):
-        # The archive exclude takes glob patterns: an oversized name
-        # would also drop same-suffixed planned members — refuse
-        # instead of losing them silently.
+        # An oversized name also drops same-suffixed planned members
+        # from the archive — refuse loudly instead of losing them.
         source = _local_tree(self.base)
         with _fs(self.fake) as fs:
             fs.sync(source, "dst")

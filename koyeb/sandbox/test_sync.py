@@ -538,7 +538,7 @@ class TestRelativeRemote(unittest.TestCase):
         self.assertEqual(relative_remote("./project"), "project")
 
     def test_absolute_path_takes_basename(self):
-        self.assertEqual(relative_remote("/Users/sacha/project"), "project")
+        self.assertEqual(relative_remote("/home/dev/project"), "project")
 
     def test_trailing_slash_normalized(self):
         self.assertEqual(relative_remote("project/"), "project")
