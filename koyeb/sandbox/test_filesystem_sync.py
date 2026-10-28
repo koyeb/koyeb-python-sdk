@@ -289,11 +289,39 @@ class _FakeAsyncExecutorTree(_FakeExecutorTree):
     async def delete_dir(self, path):
         return _FakeExecutorTree.delete_dir(self, path)
 
+    async def files_upload_open(self, path, size, mode=None, sha256=None, timeout=None):
+        return _FakeExecutorTree.files_upload_open(
+            self, path, size, mode=mode, sha256=sha256
+        )
+
+    async def files_upload_part(
+        self, upload_id, offset, content, sha256=None, timeout=None
+    ):
+        return _FakeExecutorTree.files_upload_part(
+            self, upload_id, offset, content, sha256=sha256
+        )
+
+    async def files_upload_status(self, upload_id, timeout=None):
+        return _FakeExecutorTree.files_upload_status(self, upload_id)
+
+    async def files_upload_complete(self, upload_id, timeout=None):
+        return _FakeExecutorTree.files_upload_complete(self, upload_id)
+
+    async def files_upload_abort(self, upload_id, timeout=None):
+        return _FakeExecutorTree.files_upload_abort(self, upload_id)
+
 
 class _FakeLegacyExecutor:
     """An executor without the streamed /files routes."""
 
     def has_files_routes(self):
+        return False
+
+
+class _FakeAsyncLegacyExecutor:
+    """The legacy executor, async shape."""
+
+    async def has_files_routes(self):
         return False
 
 
@@ -572,6 +600,26 @@ class TestSyncPush(SyncTestCase):
         self.assertEqual(with_sum["uploaded"], 1)
         # Both file entries passed the size+mtime test, so both hashed.
         self.assertEqual(len(self._calls("files_stat")), 2)
+
+    def test_push_checksum_stat_failure_wraps(self):
+        local = _local_tree(self.base)
+        with _fs(self.fake) as fs:
+            fs.sync(local, "dst")
+        target = os.path.join(self.remote_root, "dst", "a.txt")
+        with open(target, "wb") as f:
+            f.write(b"HELLO")
+        st = os.stat(target)
+        os.utime(target, ns=(st.st_mtime_ns,) * 2)
+
+        def boom(path, hash=None):
+            raise SandboxRequestError(500, body='{"error": "boom"}')
+
+        self.fake.files_stat = boom
+        with _fs(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError) as cm:
+                fs.sync(local, "dst", checksum=True)
+
+        self.assertIn("boom", str(cm.exception))
 
     def test_push_onto_missing_remote_root(self):
         local = _local_tree(self.base)
@@ -1137,6 +1185,80 @@ class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
         async with _async_ctx(self.fake) as fs:
             with self.assertRaises(SandboxFilesystemError):
                 await fs.sync(os.path.join(self.base, "nope"), "dst")
+
+    async def test_legacy_executor_raises(self):
+        local = _local_tree(self.base)
+        async with _async_ctx(_FakeAsyncLegacyExecutor()) as fs:
+            with self.assertRaises(SandboxFilesystemError) as cm:
+                await fs.sync(local, "dst")
+
+        self.assertIn("v0.0.24", str(cm.exception))
+
+    async def test_bad_direction_raises(self):
+        local = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            with self.assertRaises(ValueError):
+                await fs.sync(local, "dst", direction="sideways")
+
+    async def test_push_error_wraps_into_taxonomy(self):
+        local = _local_tree(self.base)
+
+        def boom(path, recursive=False):
+            raise SandboxRequestError(500, body='{"error": "boom"}')
+
+        self.fake.files_list = boom
+        async with _async_ctx(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError) as cm:
+                await fs.sync(local, "dst")
+
+        self.assertIn("boom", str(cm.exception))
+
+    async def test_pull_missing_remote_raises(self):
+        dest = os.path.join(self.base, "dest")
+        os.makedirs(dest)
+        async with _async_ctx(self.fake) as fs:
+            with self.assertRaises(SandboxFileNotFoundError):
+                await fs.sync(dest, "missing", direction="pull")
+
+    async def test_push_oversized_file_routes_through_upload_file(self):
+        local = _local_tree(self.base)
+        big = os.path.join(local, "big.bin")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(local, "dst")
+
+        self.assertEqual(len(self.fake.archives), 1)
+        open_calls = [c for c in self.fake.calls if c[0] == "files_upload_open"]
+        self.assertEqual(
+            [c[:2] for c in open_calls], [("files_upload_open", "dst/big.bin")]
+        )
+        self.assertEqual(
+            os.path.getsize(os.path.join(self.remote_root, "dst", "big.bin")),
+            SYNC_BATCH_BYTES + 1,
+        )
+        self.assertEqual(result["uploaded"], 6)
+
+    async def test_push_checksum_stat_failure_wraps(self):
+        local = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(local, "dst")
+        target = os.path.join(self.remote_root, "dst", "a.txt")
+        with open(target, "wb") as f:
+            f.write(b"HELLO")
+        st = os.stat(target)
+        os.utime(target, ns=(st.st_mtime_ns,) * 2)
+
+        def boom(path, hash=None):
+            raise SandboxRequestError(500, body='{"error": "boom"}')
+
+        self.fake.files_stat = boom
+        async with _async_ctx(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError) as cm:
+                await fs.sync(local, "dst", checksum=True)
+
+        self.assertIn("boom", str(cm.exception))
 
     async def test_push_noop_with_checksum_stats_only(self):
         local = _local_tree(self.base)
