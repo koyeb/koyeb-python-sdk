@@ -69,6 +69,14 @@ class TestPathMatch(unittest.TestCase):
         with self.assertRaises(ValueError):
             path_match("x[", "x")
 
+    def test_trailing_escape_raises(self):
+        # A lone trailing backslash escapes nothing; Go answers
+        # ErrBadPattern for every candidate.
+        with self.assertRaises(ValueError):
+            path_match("a\\", "x")
+        with self.assertRaises(ValueError):
+            path_match("a\\", "aXY")
+
     def test_malformed_later_chunk_raises_on_earlier_mismatch(self):
         # Go validates the whole pattern before returning a match result:
         # an early mismatch with a malformed later chunk still errors.
@@ -106,6 +114,10 @@ class TestPathMatch(unittest.TestCase):
             # An escaped star is a chunk, not a split point.
             ("a\\*b", "a*b", True),
             ("a\\*b", "aXb", False),
+            # An escaped class member is a literal, Go's \\ c rule.
+            ("[\\]]", "]", True),
+            ("[\\-]", "-", True),
+            ("[\\-]", "x", False),
             ("", "x", False),
             ("", "", True),
         ]
@@ -257,6 +269,13 @@ class TestDiff(unittest.TestCase):
     def test_size_difference_transfers(self):
         result = diff([_entry("a.txt", "file", 5)], [_entry("a.txt", "file", 6)])
         self.assertEqual([e["path"] for e in result.to_transfer], ["a.txt"])
+
+    def test_directory_size_difference_is_not_a_change(self):
+        # A directory's st_size is a filesystem-format artifact (APFS
+        # ~64, ext4 4096) that can never converge cross-filesystem.
+        result = diff([_entry("d", "dir", 64)], [_entry("d", "dir", 4096)])
+        self.assertEqual(result.to_transfer, [])
+        self.assertEqual(result.skipped, 1)
 
     def test_mtime_difference_past_a_second_transfers(self):
         result = diff(

@@ -89,7 +89,7 @@ def _scan_chunk(pattern: str) -> Tuple[bool, str, str]:
 
 def _get_esc(chunk: str) -> Tuple[str, str]:
     """One class member: a literal, or a \\-escaped character. (Go getEsc.)"""
-    if not chunk or chunk[0] in ("-", "]", "\\"):
+    if not chunk or chunk[0] in ("-", "]"):
         raise ValueError(f"bad exclude pattern")
     if chunk[0] == "\\":
         chunk = chunk[1:]
@@ -442,7 +442,11 @@ def _settle_remaining(
 def _changed(local_entry: Dict[str, Any], remote_entry: Dict[str, Any]) -> bool:
     if local_entry["type"] != remote_entry.get("type"):
         return True
-    if local_entry.get("size", 0) != remote_entry.get("size", 0):
+    # A directory's st_size is a filesystem-format artifact and can
+    # never converge cross-filesystem; only real content carries size.
+    if local_entry["type"] != "dir" and local_entry.get("size", 0) != remote_entry.get(
+        "size", 0
+    ):
         return True
     if mtime_seconds(local_entry.get("mtime", "")) != mtime_seconds(
         remote_entry.get("mtime", "")
