@@ -1104,7 +1104,9 @@ class _UploadFakeExecutor:
     Parts land at offsets into a pre-sized buffer; complete answers 409
     with the true missing ranges until coverage holds, then verifies the
     whole-file digest the way the executor does. fail_parts / forget_parts
-    / never_record script the faults the fs layer must recover from.
+    / never_record script the faults the fs layer must recover from;
+    omit_complete_sha drops the contract-optional digest from the
+    complete reply.
     """
 
     def __init__(
@@ -1119,6 +1121,7 @@ class _UploadFakeExecutor:
         raw_409_body=None,
         abort_error=False,
         on_part=None,
+        omit_complete_sha=False,
     ):
         self.max_part_size = max_part_size
         self.fail_parts = dict(fail_parts or {})
@@ -1129,6 +1132,7 @@ class _UploadFakeExecutor:
         self.raw_409_body = raw_409_body
         self.abort_error = abort_error
         self.on_part = on_part
+        self.omit_complete_sha = omit_complete_sha
         self.session = None
         self.calls = []
         self.in_flight = 0
@@ -1271,6 +1275,8 @@ class _UploadFakeExecutor:
             raise SandboxRequestError(
                 400, json.dumps({"error": f"sha256 mismatch: got {digest}"})
             )
+        if self.omit_complete_sha:
+            return {"size": sess["size"]}
         return {
             "size": sess["size"],
             "sha256": digest if self.lie_about_sha is None else self.lie_about_sha,
@@ -1463,6 +1469,17 @@ class TestUploadSessionWire(unittest.TestCase):
                     fs.upload_file(local, "/r/big.bin", part_size=4)
         self.assertIn("corrupted in transit", str(cm.exception))
         self.assertIn("abort", fake.kinds())
+
+    def test_complete_reply_without_sha256_still_succeeds(self):
+        # The wire contract marks complete's sha256 optional: a 200 has
+        # already matched the open-payload digest at the executor.
+        fake = _UploadFakeExecutor(omit_complete_sha=True)
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _fs(fake) as fs:
+                fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertEqual(fake.landed(), self.DATA)
+        self.assertNotIn("abort", fake.kinds())
 
     def test_malformed_open_reply_raises_without_aborting(self):
         fake = _UploadFakeExecutor(open_reply={"max_part_size": 4})
@@ -1809,6 +1826,17 @@ class TestAsyncUploadMultipart(unittest.IsolatedAsyncioTestCase):
                     )
         self.assertIn("session was lost", str(cm.exception))
         self.assertIn("abort", fake.kinds())
+
+    async def test_complete_reply_without_sha256_still_succeeds(self):
+        # The wire contract marks complete's sha256 optional: a 200 has
+        # already matched the open-payload digest at the executor.
+        fake = _AsyncUploadFakeExecutor(omit_complete_sha=True)
+        with tempfile.TemporaryDirectory() as d:
+            local = _local_file(d, "big.bin", self.DATA)
+            with _async_fs(fake) as fs:
+                await fs.upload_file(local, "/r/big.bin", part_size=4, concurrency=1)
+        self.assertEqual(fake.landed(), self.DATA)
+        self.assertNotIn("abort", fake.kinds())
 
     async def test_malformed_open_reply_raises_without_aborting(self):
         fake = _AsyncUploadFakeExecutor(open_reply={"max_part_size": 4})

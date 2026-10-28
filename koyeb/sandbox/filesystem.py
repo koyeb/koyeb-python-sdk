@@ -861,10 +861,13 @@ class SandboxFilesystem:
             reply = self._complete_filling_gaps(
                 client, local_path, upload_id, effective, concurrency, timeout, counter
             )
-            if reply["sha256"] != digest:
+            # The contract marks complete's sha256 optional: a 200 has
+            # already matched the open-payload digest at the executor.
+            got = reply.get("sha256")
+            if got is not None and got != digest:
                 raise SandboxFilesystemError(
                     f"Upload corrupted in transit: executor sha256 "
-                    f"{reply['sha256']} != {digest}"
+                    f"{got} != {digest}"
                 )
         except BaseException:
             try:
@@ -1623,10 +1626,13 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             reply = await self._complete_filling_gaps(
                 client, local_path, upload_id, effective, concurrency, timeout, counter
             )
-            if reply["sha256"] != digest:
+            # The contract marks complete's sha256 optional: a 200 has
+            # already matched the open-payload digest at the executor.
+            got = reply.get("sha256")
+            if got is not None and got != digest:
                 raise SandboxFilesystemError(
                     f"Upload corrupted in transit: executor sha256 "
-                    f"{reply['sha256']} != {digest}"
+                    f"{got} != {digest}"
                 )
         except BaseException:
             try:
