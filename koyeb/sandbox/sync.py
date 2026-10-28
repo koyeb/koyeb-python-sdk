@@ -308,6 +308,11 @@ def _entry(path: str, type_: str, st: os.stat_result) -> Dict[str, Any]:
     }
 
 
+def _walk_error(error: OSError) -> None:
+    """Loud over silent: an unreadable subtree must fail the sync."""
+    raise error
+
+
 def walk_local(root: str, exclude: Sequence[str] = ()) -> List[Dict[str, Any]]:
     """A local tree as FileEntry dicts, mirroring GET /files/list.
 
@@ -316,7 +321,9 @@ def walk_local(root: str, exclude: Sequence[str] = ()) -> List[Dict[str, Any]]:
     special files are skipped, and an excluded directory is pruned whole.
     """
     entries: List[Dict[str, Any]] = []
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+    for dirpath, dirnames, filenames in os.walk(
+        root, followlinks=False, onerror=_walk_error
+    ):
         dirnames.sort()
         filenames.sort()
         kept: List[str] = []
@@ -636,7 +643,7 @@ def _clean_member(name: str) -> str:
 
 
 def _clear_member(path: str) -> None:
-    """Make room for a symlink: replace whatever sits at its path."""
+    """Make room for a member: replace whatever sits at its path."""
     if os.path.isdir(path) and not os.path.islink(path):
         shutil.rmtree(path)
     elif os.path.lexists(path):
@@ -661,6 +668,12 @@ def _extract_member(
 ) -> str:
     """Extract one member at path; returns its kind (dir|sym|file|skip)."""
     if member.isdir():
+        if os.path.lexists(path) and not (
+            os.path.isdir(path) and not os.path.islink(path)
+        ):
+            # A file or link in the way would make makedirs follow it or
+            # fail; the member replaces it without following.
+            os.unlink(path)
         os.makedirs(path, exist_ok=True)
         return "dir"
     if member.issym():
@@ -668,6 +681,7 @@ def _extract_member(
         os.symlink(member.linkname, path)
         return "sym"
     if member.isfile():
+        _clear_member(path)
         _extract_file(tar, member, path)
         return "file"
     return "skip"

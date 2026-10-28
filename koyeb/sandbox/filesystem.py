@@ -1288,10 +1288,15 @@ class SandboxFilesystem:
         by_path = {e["path"]: e for e in result.deletes}
         count = 0
         for path in prune_descendants(list(by_path)):
-            if by_path[path].get("type") == "dir":
-                self.delete_dir(remote_join(remote, path))
-            else:
-                self.delete_file(remote_join(remote, path))
+            try:
+                if by_path[path].get("type") == "dir":
+                    self.delete_dir(remote_join(remote, path))
+                else:
+                    self.delete_file(remote_join(remote, path))
+            except SandboxFileNotFoundError:
+                # A type flip earlier in this sync may have replaced the
+                # path's parent; being already gone is the wanted state.
+                pass
             count += 1
         return count
 
@@ -1347,7 +1352,9 @@ class SandboxFilesystem:
         checksum: bool,
         dry_run: bool,
     ) -> Dict[str, int]:
-        local_entries = walk_local(local, exclude)
+        # A missing destination root is an empty tree: extraction
+        # creates it, like rsync creating its dest on pull.
+        local_entries = walk_local(local, exclude) if os.path.isdir(local) else []
         remote_entries = list(client.files_list(remote, recursive=True))
         # The source listing gets the same filter as the local walk: an
         # excluded path is neither planned nor counted.
@@ -1414,10 +1421,15 @@ class SandboxFilesystem:
         count = 0
         for path in prune_descendants(list(by_path)):
             target = join_local(local, path)
-            if os.path.isdir(target) and not os.path.islink(target):
-                shutil.rmtree(target)
-            else:
-                os.unlink(target)
+            try:
+                if os.path.isdir(target) and not os.path.islink(target):
+                    shutil.rmtree(target)
+                else:
+                    os.unlink(target)
+            except (FileNotFoundError, NotADirectoryError):
+                # A type flip's extract may have replaced the parent
+                # already; being gone is the wanted state.
+                pass
             count += 1
         return count
 
@@ -2327,7 +2339,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         checksum: bool,
         dry_run: bool,
     ) -> Dict[str, int]:
-        local_entries = walk_local(local, exclude)
+        # A missing destination root is an empty tree: extraction
+        # creates it, like rsync creating its dest on pull.
+        local_entries = walk_local(local, exclude) if os.path.isdir(local) else []
         remote_entries = [
             entry async for entry in client.files_list(remote, recursive=True)
         ]
@@ -2448,10 +2462,15 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         by_path = {e["path"]: e for e in result.deletes}
         count = 0
         for path in prune_descendants(list(by_path)):
-            if by_path[path].get("type") == "dir":
-                await self.delete_dir(remote_join(remote, path))
-            else:
-                await self.delete_file(remote_join(remote, path))
+            try:
+                if by_path[path].get("type") == "dir":
+                    await self.delete_dir(remote_join(remote, path))
+                else:
+                    await self.delete_file(remote_join(remote, path))
+            except SandboxFileNotFoundError:
+                # A type flip earlier in this sync may have replaced the
+                # path's parent; being already gone is the wanted state.
+                pass
             count += 1
         return count
 
@@ -2464,10 +2483,15 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         count = 0
         for path in prune_descendants(list(by_path)):
             target = join_local(local, path)
-            if os.path.isdir(target) and not os.path.islink(target):
-                shutil.rmtree(target)
-            else:
-                os.unlink(target)
+            try:
+                if os.path.isdir(target) and not os.path.islink(target):
+                    shutil.rmtree(target)
+                else:
+                    os.unlink(target)
+            except (FileNotFoundError, NotADirectoryError):
+                # A type flip's extract may have replaced the parent
+                # already; being gone is the wanted state.
+                pass
             count += 1
         return count
 

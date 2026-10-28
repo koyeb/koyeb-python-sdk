@@ -8,6 +8,7 @@ plain data and tmpdir trees — no executor, no network.
 
 import io
 import os
+import sys
 import tempfile
 import unittest
 
@@ -206,6 +207,23 @@ class TestWalkLocal(unittest.TestCase):
         with open(path, "wb") as f:
             f.write(content)
         return path
+
+    def test_unreadable_subtree_raises_instead_of_dropping(self):
+        # A silent subtree drop would push a remotely-wrong tree; the
+        # walk refuses to guess, as it does for malformed patterns.
+        if getattr(os, "geteuid", lambda: -1)() == 0:
+            self.skipTest("root reads through chmod-000")
+        if sys.platform == "win32":
+            self.skipTest("chmod-000 is not a real barrier on Windows")
+        self._make("visible.txt")
+        locked = os.path.join(self.root, "locked")
+        os.makedirs(locked)
+        self._make("locked/inner.txt")
+        os.chmod(locked, 0)
+        self.addCleanup(os.chmod, locked, 0o755)
+
+        with self.assertRaises(OSError):
+            walk_local(self.root)
 
     def test_entries_in_fileentry_shape(self):
         self._make("a.txt", b"hello")
@@ -597,6 +615,42 @@ class TestBuildExtractArchive(unittest.TestCase):
         extract_archive(self.archive, self.dst)
         with open(os.path.join(self.dst, "a.txt"), "rb") as f:
             self.assertEqual(f.read(), b"hello")
+
+    def test_file_member_replaces_in_the_way_dir(self):
+        entries = self._tree()
+        os.makedirs(os.path.join(self.dst, "a.txt"))
+        with open(os.path.join(self.dst, "a.txt", "stale"), "wb") as f:
+            f.write(b"stale")
+        build_archive(self.src, entries, self.archive)
+        extract_archive(self.archive, self.dst)
+        with open(os.path.join(self.dst, "a.txt"), "rb") as f:
+            self.assertEqual(f.read(), b"hello")
+
+    def test_dir_member_replaces_in_the_way_file(self):
+        entries = self._tree()
+        with open(os.path.join(self.dst, "sub"), "wb") as f:
+            f.write(b"stale")
+        build_archive(self.src, entries, self.archive)
+        extract_archive(self.archive, self.dst)
+        self.assertTrue(os.path.isdir(os.path.join(self.dst, "sub")))
+        with open(os.path.join(self.dst, "sub", "b.bin"), "rb") as f:
+            self.assertEqual(f.read(), b"\x00\xff")
+
+    def test_dir_member_replaces_symlink_without_following_it(self):
+        # Following a symlinked dir would write members outside the
+        # destination; the member must replace the link itself.
+        entries = self._tree()
+        outside = os.path.join(self.root, "outside")
+        os.makedirs(outside)
+        os.symlink(outside, os.path.join(self.dst, "sub"))
+        build_archive(self.src, entries, self.archive)
+        extract_archive(self.archive, self.dst)
+        sub = os.path.join(self.dst, "sub")
+        self.assertTrue(os.path.isdir(sub))
+        self.assertFalse(os.path.islink(sub))
+        with open(os.path.join(sub, "b.bin"), "rb") as f:
+            self.assertEqual(f.read(), b"\x00\xff")
+        self.assertEqual(os.listdir(outside), [])
 
     def test_keep_filter_extracts_only_changed_set(self):
         entries = self._tree()

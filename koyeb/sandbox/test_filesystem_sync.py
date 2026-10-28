@@ -233,14 +233,24 @@ class _FakeExecutorTree:
     # ---- legacy routes (deletes have no new-route surface) ----
     def delete_file(self, path):
         self.calls.append(("delete_file", path))
-        os.remove(self._resolve(path))
+        target = self._resolve(path)
+        if not os.path.lexists(target):
+            raise SandboxRequestError(
+                404, body='{"error": "no such file or directory"}'
+            )
+        os.remove(target)
         return {}
 
     def delete_dir(self, path):
         self.calls.append(("delete_dir", path))
+        target = self._resolve(path)
+        if not os.path.isdir(target):
+            raise SandboxRequestError(
+                404, body='{"error": "no such file or directory"}'
+            )
         import shutil
 
-        shutil.rmtree(self._resolve(path))
+        shutil.rmtree(target)
         return {}
 
 
@@ -460,6 +470,21 @@ class TestSyncPush(SyncTestCase):
         self.assertEqual(self._calls("delete_file"), [])
         self.assertEqual(result["deleted"], 0)
 
+    def test_push_type_flip_replaces_remote_dir(self):
+        local = _local_tree(self.base)
+        _write(os.path.join(local, "flip"), b"now a file")
+        _write(os.path.join(self.remote_root, "dst", "flip", "child.txt"))
+        self.fake.calls.clear()
+
+        with _fs(self.fake) as fs:
+            result = fs.sync(local, "dst", delete=True)
+
+        remote_flip = os.path.join(self.remote_root, "dst", "flip")
+        self.assertTrue(os.path.isfile(remote_flip))
+        with open(remote_flip, "rb") as f:
+            self.assertEqual(f.read(), b"now a file")
+        self.assertEqual(result["deleted"], 1)
+
     def test_push_delete_spares_excluded_remote_dirs_whole(self):
         # The walker prunes an excluded directory whole; the remote
         # plan must spare its descendants too.
@@ -566,6 +591,13 @@ class TestSyncPush(SyncTestCase):
                 fs.sync(local, "dst")
 
         self.assertIn("v0.0.24", str(cm.exception))
+
+    def test_push_from_missing_local_raises(self):
+        # rsync refuses a missing source; silently treating it as an
+        # empty tree would delete the whole remote side.
+        with _fs(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError):
+                fs.sync(os.path.join(self.base, "nope"), "dst")
 
     def test_bad_direction_raises(self):
         local = _local_tree(self.base)
@@ -721,6 +753,24 @@ class TestSyncPull(SyncTestCase):
                 fs.sync(dest, "dst", direction="pull")
 
         self.assertIn("x/backup/small.txt", str(cm.exception))
+
+    def test_pull_type_flip_replaces_local_dir(self):
+        source = _local_tree(self.base)
+        with _fs(self.fake) as fs:
+            fs.sync(source, "dst")
+        _write(os.path.join(self.remote_root, "dst", "flip"), b"remote file")
+        dest = os.path.join(self.base, "dest")
+        _write(os.path.join(dest, "flip", "child.txt"))
+        self.fake.calls.clear()
+
+        with _fs(self.fake) as fs:
+            result = fs.sync(dest, "dst", direction="pull", delete=True)
+
+        local_flip = os.path.join(dest, "flip")
+        self.assertTrue(os.path.isfile(local_flip))
+        with open(local_flip, "rb") as f:
+            self.assertEqual(f.read(), b"remote file")
+        self.assertEqual(result["deleted"], 1)
 
     def test_pull_excludes_descendants_of_excluded_dirs(self):
         # The archive walker prunes an excluded directory whole; the
@@ -920,6 +970,39 @@ class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result["deleted"], 0)
 
+    async def test_push_type_flip_replaces_remote_dir(self):
+        local = _local_tree(self.base)
+        _write(os.path.join(local, "flip"), b"now a file")
+        _write(os.path.join(self.remote_root, "dst", "flip", "child.txt"))
+        self.fake.calls.clear()
+
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(local, "dst", delete=True)
+
+        remote_flip = os.path.join(self.remote_root, "dst", "flip")
+        self.assertTrue(os.path.isfile(remote_flip))
+        with open(remote_flip, "rb") as f:
+            self.assertEqual(f.read(), b"now a file")
+        self.assertEqual(result["deleted"], 1)
+
+    async def test_pull_type_flip_replaces_local_dir(self):
+        source = _local_tree(self.base)
+        async with _async_ctx(self.fake) as fs:
+            await fs.sync(source, "dst")
+        _write(os.path.join(self.remote_root, "dst", "flip"), b"remote file")
+        dest = os.path.join(self.base, "dest")
+        _write(os.path.join(dest, "flip", "child.txt"))
+        self.fake.calls.clear()
+
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(dest, "dst", direction="pull", delete=True)
+
+        local_flip = os.path.join(dest, "flip")
+        self.assertTrue(os.path.isfile(local_flip))
+        with open(local_flip, "rb") as f:
+            self.assertEqual(f.read(), b"remote file")
+        self.assertEqual(result["deleted"], 1)
+
     async def test_pull_excludes_remote_entries_from_plan(self):
         source = _local_tree(self.base)
         async with _async_ctx(self.fake) as fs:
@@ -1047,6 +1130,13 @@ class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(read_calls, [("files_read", "dst/big.bin")])
         get_calls = [c for c in self.fake.calls if c[0] == "files_archive_get"]
         self.assertIn("big.bin", get_calls[0][2])
+
+    async def test_push_from_missing_local_raises(self):
+        # rsync refuses a missing source; silently treating it as an
+        # empty tree would delete the whole remote side.
+        async with _async_ctx(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError):
+                await fs.sync(os.path.join(self.base, "nope"), "dst")
 
     async def test_push_noop_with_checksum_stats_only(self):
         local = _local_tree(self.base)
