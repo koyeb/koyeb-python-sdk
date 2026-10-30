@@ -9,7 +9,16 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, BinaryIO, Dict, Iterator, Optional, Union
+from typing import (
+    Any,
+    AsyncIterator,
+    BinaryIO,
+    Dict,
+    Iterator,
+    Optional,
+    Sequence,
+    Union,
+)
 
 import httpx
 
@@ -564,21 +573,26 @@ class SandboxClient:
         )
         return response.json()
 
-    def files_stat(self, path: str) -> Dict[str, Any]:
+    def files_stat(self, path: str, hash: Optional[str] = None) -> Dict[str, Any]:
         """
         Stat a file on the streamed /files routes (executor v0.0.24+).
 
         Args:
             path: The file path to stat
+            hash: "sha256" to add the file's digest to the reply (regular
+                files only; the executor answers 400 otherwise)
 
         Returns:
             FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-            string), mtime (RFC 3339 UTC, nanoseconds)
+            string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
         """
+        params: Dict[str, Any] = {"path": path}
+        if hash is not None:
+            params["hash"] = hash
         response = self._request_with_retry(
             "GET",
             f"{self.base_url}/files/stat",
-            params={"path": path},
+            params=params,
         )
         return response.json()
 
@@ -700,6 +714,123 @@ class SandboxClient:
             else:
                 self._files_routes = True
         return self._files_routes
+
+    def files_list(
+        self, path: str, recursive: bool = False
+    ) -> Iterator[Dict[str, Any]]:
+        """
+        Stream a directory listing from GET /files/list (executor v0.0.24+).
+
+        One JSON entry per line, yielded as the walk goes: a large tree is
+        never held in memory. An entry the executor could not read carries
+        an "error" field and the listing goes on. The timeout bounds idle
+        time, not total listing time.
+
+        Args:
+            path: The directory to list
+            recursive: Walk into subdirectories (a flat listing skips them)
+
+        Yields:
+            FileEntry dicts: path (relative, /-separated), type, size,
+            mode (octal string), mtime (RFC 3339 UTC, nanoseconds)
+        """
+        params: Dict[str, Any] = {"path": path}
+        if recursive:
+            params["recursive"] = "1"
+        try:
+            with self._client.stream(
+                "GET",
+                f"{self.base_url}/files/list",
+                params=params,
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    response.read()
+                    _raise_for_status(response)
+                for line in response.iter_lines():
+                    if line.strip():
+                        yield json.loads(line)
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    def files_archive_get(
+        self, path: str, exclude: Sequence[str] = ()
+    ) -> Iterator[bytes]:
+        """
+        Stream a directory as a gzip'd tar from GET /files/archive
+        (executor v0.0.24+).
+
+        The root itself is not an entry; symlinks are archived as links and
+        special files are skipped. The timeout bounds idle time, not total
+        archive time.
+
+        Args:
+            path: The directory to archive
+            exclude: Glob patterns; a matching path (or any /-separated
+                suffix of it) is left out, a matching directory whole
+
+        Yields:
+            The archive's gzip bytes, chunk by chunk
+        """
+        params: Dict[str, Any] = {"path": path}
+        excludes = list(exclude)
+        if excludes:
+            params["exclude"] = excludes
+        try:
+            with self._client.stream(
+                "GET",
+                f"{self.base_url}/files/archive",
+                params=params,
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    response.read()
+                    _raise_for_status(response)
+                for chunk in response.iter_bytes(65536):
+                    yield chunk
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    def files_archive_put(
+        self,
+        path: str,
+        content: Union[bytes, Iterator[bytes], BinaryIO],
+    ) -> Dict[str, Any]:
+        """
+        Extract a gzip'd tar into the directory at path (executor v0.0.24+).
+
+        The executor creates the directory when missing and refuses
+        members that escape it (absolute paths, '..', links leaving the
+        root). Entries already extracted stay in place when the stream
+        ends short. Not retried on network errors mid-stream: a streamed
+        body cannot be replayed; only a connect-time failure (the request
+        never left) is retried.
+
+        Args:
+            path: The destination directory
+            content: The archive's gzip bytes, streamed (constant memory)
+
+        Returns:
+            {"files": extracted file count, "bytes": extracted file bytes}
+        """
+        response = self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files/archive",
+            params={"path": path},
+            content=content,
+            headers={"Content-Type": "application/octet-stream"},
+            idempotent=False,
+            timeout=_FILES_TIMEOUT,
+        )
+        return response.json()
 
     def files_upload_open(
         self,
@@ -1381,21 +1512,26 @@ class AsyncSandboxClient:
         )
         return response.json()
 
-    async def files_stat(self, path: str) -> Dict[str, Any]:
+    async def files_stat(self, path: str, hash: Optional[str] = None) -> Dict[str, Any]:
         """
         Stat a file on the streamed /files routes (executor v0.0.24+).
 
         Args:
             path: The file path to stat
+            hash: "sha256" to add the file's digest to the reply (regular
+                files only; the executor answers 400 otherwise)
 
         Returns:
             FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-            string), mtime (RFC 3339 UTC, nanoseconds)
+            string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
         """
+        params: Dict[str, Any] = {"path": path}
+        if hash is not None:
+            params["hash"] = hash
         response = await self._request_with_retry(
             "GET",
             f"{self.base_url}/files/stat",
-            params={"path": path},
+            params=params,
         )
         return response.json()
 
@@ -1523,6 +1659,129 @@ class AsyncSandboxClient:
             else:
                 self._files_routes = True
         return self._files_routes
+
+    async def files_list(
+        self, path: str, recursive: bool = False
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """
+        Stream a directory listing from GET /files/list (executor v0.0.24+).
+
+        One JSON entry per line, yielded as the walk goes: a large tree is
+        never held in memory. An entry the executor could not read carries
+        an "error" field and the listing goes on. The timeout bounds idle
+        time, not total listing time.
+
+        Args:
+            path: The directory to list
+            recursive: Walk into subdirectories (a flat listing skips them)
+
+        Yields:
+            FileEntry dicts: path (relative, /-separated), type, size,
+            mode (octal string), mtime (RFC 3339 UTC, nanoseconds)
+        """
+        params: Dict[str, Any] = {"path": path}
+        if recursive:
+            params["recursive"] = "1"
+        try:
+            async with self._client.stream(
+                "GET",
+                f"{self.base_url}/files/list",
+                params=params,
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    await response.aread()
+                    _raise_for_status(response)
+                async for line in response.aiter_lines():
+                    if line.strip():
+                        yield json.loads(line)
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    async def files_archive_get(
+        self, path: str, exclude: Sequence[str] = ()
+    ) -> AsyncIterator[bytes]:
+        """
+        Stream a directory as a gzip'd tar from GET /files/archive
+        (executor v0.0.24+).
+
+        The root itself is not an entry; symlinks are archived as links and
+        special files are skipped. The timeout bounds idle time, not total
+        archive time.
+
+        Args:
+            path: The directory to archive
+            exclude: Glob patterns; a matching path (or any /-separated
+                suffix of it) is left out, a matching directory whole
+
+        Yields:
+            The archive's gzip bytes, chunk by chunk
+        """
+        params: Dict[str, Any] = {"path": path}
+        excludes = list(exclude)
+        if excludes:
+            params["exclude"] = excludes
+        try:
+            async with self._client.stream(
+                "GET",
+                f"{self.base_url}/files/archive",
+                params=params,
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    await response.aread()
+                    _raise_for_status(response)
+                async for chunk in response.aiter_bytes(65536):
+                    yield chunk
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    async def files_archive_put(
+        self,
+        path: str,
+        content: Union[bytes, AsyncIterator[bytes], Iterator[bytes], BinaryIO],
+    ) -> Dict[str, Any]:
+        """
+        Extract a gzip'd tar into the directory at path (executor v0.0.24+).
+
+        The executor creates the directory when missing and refuses
+        members that escape it (absolute paths, '..', links leaving the
+        root). Entries already extracted stay in place when the stream
+        ends short. Not retried on network errors mid-stream: a streamed
+        body cannot be replayed; only a connect-time failure (the request
+        never left) is retried.
+
+        Args:
+            path: The destination directory
+            content: The archive's gzip bytes, streamed (constant memory)
+
+        Returns:
+            {"files": extracted file count, "bytes": extracted file bytes}
+        """
+        if isinstance(content, (bytes, bytearray, str)) or hasattr(
+            content, "__aiter__"
+        ):
+            body = content
+        else:
+            body = _async_stream(content)
+        response = await self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files/archive",
+            params={"path": path},
+            content=body,
+            headers={"Content-Type": "application/octet-stream"},
+            idempotent=False,
+            timeout=_FILES_TIMEOUT,
+        )
+        return response.json()
 
     async def files_upload_open(
         self,
