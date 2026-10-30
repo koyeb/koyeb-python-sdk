@@ -10,7 +10,7 @@ from koyeb.sandbox.executor_client import (
     SandboxClient,
 )
 from koyeb.sandbox.sandbox import AsyncSandbox, Sandbox
-from koyeb.sandbox.errors import SandboxError
+from koyeb.sandbox.errors import SandboxConnectionError, SandboxError
 
 
 class TestGetClientWhenUrlUnavailable(unittest.TestCase):
@@ -39,7 +39,8 @@ class TestGetClientWhenUrlUnavailable(unittest.TestCase):
 
 class TestRunStreamingConnectionLoss(unittest.TestCase):
     """A dropped connection mid-stream (e.g. the instance is torn down during a
-    redeployment) must surface as SandboxError, not a raw httpx transport error.
+    redeployment) must surface as SandboxConnectionError, not a raw httpx
+    transport error.
     """
 
     _CONN = ConnectionInfo(
@@ -53,7 +54,7 @@ class TestRunStreamingConnectionLoss(unittest.TestCase):
             "stream",
             side_effect=httpx.RemoteProtocolError("peer closed connection"),
         ):
-            with self.assertRaises(SandboxError):
+            with self.assertRaises(SandboxConnectionError):
                 list(client.run_streaming("echo hi"))
 
     def test_async_run_streaming_wraps_transport_error(self):
@@ -68,7 +69,7 @@ class TestRunStreamingConnectionLoss(unittest.TestCase):
             "stream",
             side_effect=httpx.RemoteProtocolError("peer closed connection"),
         ):
-            with self.assertRaises(SandboxError):
+            with self.assertRaises(SandboxConnectionError):
                 asyncio.run(consume())
 
 
