@@ -66,6 +66,7 @@ koyeb/api_async/docs/AppsSummary.md
 koyeb/api_async/docs/Archive.md
 koyeb/api_async/docs/ArchiveDeploymentMetadata.md
 koyeb/api_async/docs/ArchiveSource.md
+koyeb/api_async/docs/ArchiveStatus.md
 koyeb/api_async/docs/ArchivesApi.md
 koyeb/api_async/docs/AutoRelease.md
 koyeb/api_async/docs/AutoReleaseGroup.md
@@ -212,6 +213,7 @@ koyeb/api_async/docs/ExecCommandRequestTerminalSize.md
 koyeb/api_async/docs/GCPContainerRegistryConfiguration.md
 koyeb/api_async/docs/GRPCHealthCheck.md
 koyeb/api_async/docs/GetAppReply.md
+koyeb/api_async/docs/GetArchiveReply.md
 koyeb/api_async/docs/GetBudgetReply.md
 koyeb/api_async/docs/GetCatalogInstanceReply.md
 koyeb/api_async/docs/GetCredentialReply.md
@@ -536,6 +538,7 @@ koyeb/api_async/models/apps_summary.py
 koyeb/api_async/models/archive.py
 koyeb/api_async/models/archive_deployment_metadata.py
 koyeb/api_async/models/archive_source.py
+koyeb/api_async/models/archive_status.py
 koyeb/api_async/models/auto_release.py
 koyeb/api_async/models/auto_release_group.py
 koyeb/api_async/models/autocomplete_reply.py
@@ -669,6 +672,7 @@ koyeb/api_async/models/exec_command_request_id_type.py
 koyeb/api_async/models/exec_command_request_terminal_size.py
 koyeb/api_async/models/gcp_container_registry_configuration.py
 koyeb/api_async/models/get_app_reply.py
+koyeb/api_async/models/get_archive_reply.py
 koyeb/api_async/models/get_budget_reply.py
 koyeb/api_async/models/get_catalog_instance_reply.py
 koyeb/api_async/models/get_credential_reply.py
@@ -948,7 +952,6 @@ koyeb/api_async/models/verify_docker_image_reply.py
 koyeb/api_async/models/verify_docker_image_reply_err_code.py
 koyeb/api_async/rest.py
 koyeb/api_async/test/__init__.py
-koyeb/api_async/test/test_docker_deployment_metadata.py
-koyeb/api_async/test/test_grpc_health_check.py
-koyeb/api_async/test/test_regional_deployment_metadata.py
+koyeb/api_async/test/test_archive_status.py
+koyeb/api_async/test/test_get_archive_reply.py
 koyeb/api_async_README.md
