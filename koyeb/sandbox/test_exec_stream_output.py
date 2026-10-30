@@ -65,6 +65,15 @@ class TestStreamedOutputKeepsLineBreaks(unittest.TestCase):
         self.assertEqual(result.stdout, "10%\r20%\r30% done\na\r\nno newline at end")
         self.assertEqual(result.stderr, "err")
 
+    def test_empty_stream_reports_failed_start(self):
+        # Zero events means a broken executor response, not a command that
+        # exited 0: report a failed start instead of a fabricated success.
+        result = self.run_both([])
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("empty command stream", result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(result.status, "failed")
+
     def test_callbacks_get_data_without_line_ending(self):
         events = [_out("a"), _out(""), _err("e", eol="\r"), {"code": 0}]
         calls = []
