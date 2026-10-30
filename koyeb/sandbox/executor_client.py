@@ -15,6 +15,7 @@ import httpx
 
 from .errors import (
     NoSandboxSecretError,
+    SandboxConnectionError,
     SandboxError,
     SandboxRequestError,
     SandboxServiceError,
@@ -298,7 +299,7 @@ class SandboxClient:
                     backoff *= 2
                     continue
                 logger.warning(f"Request failed after {attempt} retries: {e}")
-                raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+                raise SandboxConnectionError(f"Request to sandbox executor failed: {e}") from e
 
         # Unreachable in practice: every terminal path returns or raises.
         raise SandboxError(f"Request to {url} failed after {max_retries} retries")
@@ -451,7 +452,7 @@ class SandboxClient:
             raise SandboxTimeoutError(f"Request timed out after {read_timeout}s") from e
         except httpx.RequestError as e:
             # E.g. the instance is torn down mid-stream during a redeployment.
-            raise SandboxError(f"Connection to sandbox lost: {e}") from e
+            raise SandboxConnectionError(f"Connection to sandbox lost: {e}") from e
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """
@@ -956,7 +957,7 @@ class AsyncSandboxClient:
                     backoff *= 2
                     continue
                 logger.warning(f"Request failed after {attempt} retries: {e}")
-                raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+                raise SandboxConnectionError(f"Request to sandbox executor failed: {e}") from e
 
         # Unreachable in practice: every terminal path returns or raises.
         raise SandboxError(f"Request to {url} failed after {max_retries} retries")
@@ -1117,7 +1118,7 @@ class AsyncSandboxClient:
             raise SandboxTimeoutError(f"Request timed out after {read_timeout}s") from e
         except httpx.RequestError as e:
             # E.g. the instance is torn down mid-stream during a redeployment.
-            raise SandboxError(f"Connection to sandbox lost: {e}") from e
+            raise SandboxConnectionError(f"Connection to sandbox lost: {e}") from e
 
     async def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """
