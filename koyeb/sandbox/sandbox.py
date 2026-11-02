@@ -27,6 +27,7 @@ from .control_plane import (
     DeploymentInfo,
     ServiceInfo,
     SyncControlPlane,
+    select_sandbox_url,
 )
 from .spec import SandboxSpec
 from .clients import (
@@ -962,7 +963,7 @@ class Sandbox:
 
     def _get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
         """
-        Get the public url of the sandbox and the routing key to use to reach it.
+        Get the url of the sandbox and the routing key to use to reach it.
         """
         try:
             from koyeb.api.exceptions import ApiException
@@ -977,7 +978,10 @@ class Sandbox:
             deployment = clients.deployments.get_deployment(deployment_id)
             metadata = deployment.deployment.metadata
             if metadata and metadata.sandbox:
-                return metadata.sandbox.public_url, metadata.sandbox.routing_key
+                return (
+                    select_sandbox_url(metadata.sandbox),
+                    metadata.sandbox.routing_key,
+                )
             return None
 
         except (NotFoundException, ApiException, Exception):
