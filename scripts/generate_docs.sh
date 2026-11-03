@@ -6,6 +6,7 @@ PYTHONPATH=. uv run pydoc-markdown \
   -m koyeb.sandbox \
   -m koyeb.sandbox.sandbox \
   -m koyeb.sandbox.spec \
+  -m koyeb.sandbox.sync \
   -m koyeb.sandbox.control_plane \
   -m koyeb.sandbox.exec \
   -m koyeb.sandbox.executor_client \

@@ -17,7 +17,12 @@ from .exec import (
     SandboxCommandError,
     SandboxExecutor,
 )
-from .filesystem import FileInfo, FileStat, SandboxFilesystem
+from .filesystem import (
+    AsyncSandboxFilesystem,
+    FileInfo,
+    FileStat,
+    SandboxFilesystem,
+)
 from .pool import (
     AsyncServicePool,
     ClaimResult,
@@ -54,6 +59,7 @@ __all__ = [
     "ConfigFile",
     "Secret",
     "SandboxFilesystem",
+    "AsyncSandboxFilesystem",
     "SandboxExecutor",
     "AsyncSandboxExecutor",
     "FileInfo",

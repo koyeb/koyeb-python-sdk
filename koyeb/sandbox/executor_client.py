@@ -9,7 +9,16 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, BinaryIO, Dict, Iterator, Optional, Union
+from typing import (
+    Any,
+    AsyncIterator,
+    BinaryIO,
+    Dict,
+    Iterator,
+    Optional,
+    Sequence,
+    Union,
+)
 
 import httpx
 
@@ -67,6 +76,20 @@ def _timeout_seconds(timeout: Union[int, float, httpx.Timeout]) -> float:
     if isinstance(timeout, httpx.Timeout):
         return timeout.read or 0.0
     return float(timeout)
+
+
+def _override_timeout(
+    timeout: Optional[float], default: Union[int, float, httpx.Timeout]
+) -> Union[int, float, httpx.Timeout]:
+    """A /files call's timeout: the per-call override or the default.
+
+    The override keeps the default's shape — the idle bound for streamed
+    bodies, the client's total cap for control calls — and connect stays
+    at the JSON default either way.
+    """
+    if timeout is None:
+        return default
+    return httpx.Timeout(timeout, connect=DEFAULT_HTTP_TIMEOUT)
 
 
 async def _async_stream(
@@ -550,21 +573,26 @@ class SandboxClient:
         )
         return response.json()
 
-    def files_stat(self, path: str) -> Dict[str, Any]:
+    def files_stat(self, path: str, hash: Optional[str] = None) -> Dict[str, Any]:
         """
         Stat a file on the streamed /files routes (executor v0.0.24+).
 
         Args:
             path: The file path to stat
+            hash: "sha256" to add the file's digest to the reply (regular
+                files only; the executor answers 400 otherwise)
 
         Returns:
             FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-            string), mtime (RFC 3339 UTC, nanoseconds)
+            string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
         """
+        params: Dict[str, Any] = {"path": path}
+        if hash is not None:
+            params["hash"] = hash
         response = self._request_with_retry(
             "GET",
             f"{self.base_url}/files/stat",
-            params={"path": path},
+            params=params,
         )
         return response.json()
 
@@ -575,6 +603,7 @@ class SandboxClient:
         mode: Optional[str] = None,
         parents: bool = False,
         sha256: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Stream content to a file through PUT /files (executor v0.0.24+).
@@ -594,6 +623,8 @@ class SandboxClient:
             parents: Create missing parent directories
             sha256: Expected content digest; the executor verifies it while
                 streaming and fails with 400 on mismatch
+            timeout: Seconds without progress before the call fails
+                (default FILES_IDLE_TIMEOUT)
 
         Returns:
             {"size": received bytes, "sha256": content digest}
@@ -613,11 +644,13 @@ class SandboxClient:
             content=content,
             headers=headers,
             idempotent=False,
-            timeout=_FILES_TIMEOUT,
+            timeout=_override_timeout(timeout, _FILES_TIMEOUT),
         )
         return response.json()
 
-    def files_read(self, path: str, chunk_size: int = 65536) -> Iterator[bytes]:
+    def files_read(
+        self, path: str, chunk_size: int = 65536, timeout: Optional[float] = None
+    ) -> Iterator[bytes]:
         """
         Stream a file's bytes from GET /files (executor v0.0.24+).
 
@@ -629,16 +662,19 @@ class SandboxClient:
         Args:
             path: The file path to read
             chunk_size: Bytes per yielded chunk
+            timeout: Seconds without progress before the stream fails
+                (default FILES_IDLE_TIMEOUT)
 
         Yields:
             File content chunks
         """
+        bound = _override_timeout(timeout, _FILES_TIMEOUT)
         try:
             with self._client.stream(
                 "GET",
                 f"{self.base_url}/files",
                 params={"path": path},
-                timeout=_FILES_TIMEOUT,
+                timeout=bound,
             ) as response:
                 if response.status_code >= 400:
                     response.read()
@@ -647,7 +683,7 @@ class SandboxClient:
                     yield chunk
         except httpx.TimeoutException as e:
             raise SandboxTimeoutError(
-                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+                f"Request timed out after {_timeout_seconds(bound):g}s"
             ) from e
         except httpx.RequestError as e:
             raise SandboxError(f"Request to sandbox executor failed: {e}") from e
@@ -678,6 +714,266 @@ class SandboxClient:
             else:
                 self._files_routes = True
         return self._files_routes
+
+    def files_list(
+        self, path: str, recursive: bool = False
+    ) -> Iterator[Dict[str, Any]]:
+        """
+        Stream a directory listing from GET /files/list (executor v0.0.24+).
+
+        One JSON entry per line, yielded as the walk goes: a large tree is
+        never held in memory. An entry the executor could not read carries
+        an "error" field and the listing goes on. The timeout bounds idle
+        time, not total listing time.
+
+        Args:
+            path: The directory to list
+            recursive: Walk into subdirectories (a flat listing skips them)
+
+        Yields:
+            FileEntry dicts: path (relative, /-separated), type, size,
+            mode (octal string), mtime (RFC 3339 UTC, nanoseconds)
+        """
+        params: Dict[str, Any] = {"path": path}
+        if recursive:
+            params["recursive"] = "1"
+        try:
+            with self._client.stream(
+                "GET",
+                f"{self.base_url}/files/list",
+                params=params,
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    response.read()
+                    _raise_for_status(response)
+                for line in response.iter_lines():
+                    if line.strip():
+                        yield json.loads(line)
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    def files_archive_get(
+        self, path: str, exclude: Sequence[str] = ()
+    ) -> Iterator[bytes]:
+        """
+        Stream a directory as a gzip'd tar from GET /files/archive
+        (executor v0.0.24+).
+
+        The root itself is not an entry; symlinks are archived as links and
+        special files are skipped. The timeout bounds idle time, not total
+        archive time.
+
+        Args:
+            path: The directory to archive
+            exclude: Glob patterns; a matching path (or any /-separated
+                suffix of it) is left out, a matching directory whole
+
+        Yields:
+            The archive's gzip bytes, chunk by chunk
+        """
+        params: Dict[str, Any] = {"path": path}
+        excludes = list(exclude)
+        if excludes:
+            params["exclude"] = excludes
+        try:
+            with self._client.stream(
+                "GET",
+                f"{self.base_url}/files/archive",
+                params=params,
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    response.read()
+                    _raise_for_status(response)
+                for chunk in response.iter_bytes(65536):
+                    yield chunk
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    def files_archive_put(
+        self,
+        path: str,
+        content: Union[bytes, Iterator[bytes], BinaryIO],
+    ) -> Dict[str, Any]:
+        """
+        Extract a gzip'd tar into the directory at path (executor v0.0.24+).
+
+        The executor creates the directory when missing and refuses
+        members that escape it (absolute paths, '..', links leaving the
+        root). Entries already extracted stay in place when the stream
+        ends short. Not retried on network errors mid-stream: a streamed
+        body cannot be replayed; only a connect-time failure (the request
+        never left) is retried.
+
+        Args:
+            path: The destination directory
+            content: The archive's gzip bytes, streamed (constant memory)
+
+        Returns:
+            {"files": extracted file count, "bytes": extracted file bytes}
+        """
+        response = self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files/archive",
+            params={"path": path},
+            content=content,
+            headers={"Content-Type": "application/octet-stream"},
+            idempotent=False,
+            timeout=_FILES_TIMEOUT,
+        )
+        return response.json()
+
+    def files_upload_open(
+        self,
+        path: str,
+        size: int,
+        mode: Optional[str] = None,
+        sha256: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """
+        Open a multipart upload session (executor v0.0.24+).
+
+        A file too large for one request uploads as offset-addressed parts:
+        the executor truncates a temp file to `size` up front, so parts land
+        in any order, in parallel, and a retried part overwrites the same
+        bytes. Sessions live in memory — an executor restart or an idle hour
+        loses them, and the upload starts over.
+
+        Args:
+            path: The destination path
+            size: The final size in bytes
+            mode: Octal permission string, e.g. "0644" (the existing
+                destination's mode is kept when omitted)
+            sha256: Expected whole-file digest, checked once at complete
+            timeout: Seconds without progress before this call fails
+                (default DEFAULT_HTTP_TIMEOUT — a control call)
+
+        Returns:
+            {"upload_id", "max_part_size"} — the cap for every part
+        """
+        payload: Dict[str, Any] = {"path": path, "size": size}
+        if mode is not None:
+            payload["mode"] = mode
+        if sha256:
+            payload["sha256"] = sha256
+        response = self._request_with_retry(
+            "POST",
+            f"{self.base_url}/files/uploads",
+            json=payload,
+            idempotent=False,
+            timeout=_override_timeout(timeout, self.timeout),
+        )
+        return response.json()
+
+    def files_upload_part(
+        self,
+        upload_id: str,
+        offset: int,
+        content: bytes,
+        sha256: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> None:
+        """
+        Write one part at its offset (executor v0.0.24+).
+
+        The timeout bounds idle time, not the part's total time. A part is
+        idempotent at the executor (a WriteAt of the same bytes), so
+        transient network errors retry — the bytes must be replayable:
+        callers pass the part's bytes, never a consumed stream.
+
+        Args:
+            upload_id: The session from files_upload_open
+            offset: The part's position in the final file
+            content: The part's bytes
+            sha256: The part's digest, verified while streaming
+            timeout: Seconds without progress before the part fails
+                (default FILES_IDLE_TIMEOUT)
+        """
+        headers = {"Content-Type": "application/octet-stream"}
+        if sha256:
+            headers["X-Content-SHA256"] = sha256
+        self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files/uploads/{upload_id}",
+            params={"offset": offset},
+            content=content,
+            headers=headers,
+            idempotent=True,
+            timeout=_override_timeout(timeout, _FILES_TIMEOUT),
+        )
+
+    def files_upload_status(
+        self, upload_id: str, timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        The ranges received so far (executor v0.0.24+): half-open
+        [start, end) spans, sorted and coalesced, so a live session can
+        resume by sending what is missing.
+
+        Args:
+            upload_id: The session to inspect
+
+        Returns:
+            {"size", "ranges": [{"start", "end"}, ...]}
+        """
+        response = self._request_with_retry(
+            "GET",
+            f"{self.base_url}/files/uploads/{upload_id}",
+            timeout=_override_timeout(timeout, self.timeout),
+        )
+        return response.json()
+
+    def files_upload_complete(
+        self, upload_id: str, timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Check coverage and commit (executor v0.0.24+).
+
+        A 409 carries the missing ranges in the error body — the session
+        stays live, so the caller can fill the gaps and complete again. On
+        success the temp file is fsynced and renamed onto the destination;
+        the whole-file sha256 from files_upload_open is checked here.
+
+        Args:
+            upload_id: The session to complete
+
+        Returns:
+            {"size", "sha256"?}
+        """
+        response = self._request_with_retry(
+            "POST",
+            f"{self.base_url}/files/uploads/{upload_id}/complete",
+            idempotent=False,
+            timeout=_override_timeout(timeout, self.timeout),
+        )
+        return response.json()
+
+    def files_upload_abort(
+        self, upload_id: str, timeout: Optional[float] = None
+    ) -> None:
+        """
+        Abort the session and remove its temp file (executor v0.0.24+).
+
+        Args:
+            upload_id: The session to abort
+            timeout: Seconds without progress before this call fails
+                (default DEFAULT_HTTP_TIMEOUT — a control call)
+        """
+        self._request_with_retry(
+            "DELETE",
+            f"{self.base_url}/files/uploads/{upload_id}",
+            timeout=_override_timeout(timeout, self.timeout),
+        )
 
     def bind_port(self, port: int) -> Dict[str, Any]:
         """
@@ -1216,21 +1512,26 @@ class AsyncSandboxClient:
         )
         return response.json()
 
-    async def files_stat(self, path: str) -> Dict[str, Any]:
+    async def files_stat(self, path: str, hash: Optional[str] = None) -> Dict[str, Any]:
         """
         Stat a file on the streamed /files routes (executor v0.0.24+).
 
         Args:
             path: The file path to stat
+            hash: "sha256" to add the file's digest to the reply (regular
+                files only; the executor answers 400 otherwise)
 
         Returns:
             FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-            string), mtime (RFC 3339 UTC, nanoseconds)
+            string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
         """
+        params: Dict[str, Any] = {"path": path}
+        if hash is not None:
+            params["hash"] = hash
         response = await self._request_with_retry(
             "GET",
             f"{self.base_url}/files/stat",
-            params={"path": path},
+            params=params,
         )
         return response.json()
 
@@ -1241,6 +1542,7 @@ class AsyncSandboxClient:
         mode: Optional[str] = None,
         parents: bool = False,
         sha256: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Stream content to a file through PUT /files (executor v0.0.24+).
@@ -1260,6 +1562,8 @@ class AsyncSandboxClient:
             parents: Create missing parent directories
             sha256: Expected content digest; the executor verifies it while
                 streaming and fails with 400 on mismatch
+            timeout: Seconds without progress before the call fails
+                (default FILES_IDLE_TIMEOUT)
 
         Returns:
             {"size": received bytes, "sha256": content digest}
@@ -1285,12 +1589,12 @@ class AsyncSandboxClient:
             content=body,
             headers=headers,
             idempotent=False,
-            timeout=_FILES_TIMEOUT,
+            timeout=_override_timeout(timeout, _FILES_TIMEOUT),
         )
         return response.json()
 
     async def files_read(
-        self, path: str, chunk_size: int = 65536
+        self, path: str, chunk_size: int = 65536, timeout: Optional[float] = None
     ) -> AsyncIterator[bytes]:
         """
         Stream a file's bytes from GET /files (executor v0.0.24+).
@@ -1303,16 +1607,19 @@ class AsyncSandboxClient:
         Args:
             path: The file path to read
             chunk_size: Bytes per yielded chunk
+            timeout: Seconds without progress before the stream fails
+                (default FILES_IDLE_TIMEOUT)
 
         Yields:
             File content chunks
         """
+        bound = _override_timeout(timeout, _FILES_TIMEOUT)
         try:
             async with self._client.stream(
                 "GET",
                 f"{self.base_url}/files",
                 params={"path": path},
-                timeout=_FILES_TIMEOUT,
+                timeout=bound,
             ) as response:
                 if response.status_code >= 400:
                     await response.aread()
@@ -1321,7 +1628,7 @@ class AsyncSandboxClient:
                     yield chunk
         except httpx.TimeoutException as e:
             raise SandboxTimeoutError(
-                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+                f"Request timed out after {_timeout_seconds(bound):g}s"
             ) from e
         except httpx.RequestError as e:
             raise SandboxError(f"Request to sandbox executor failed: {e}") from e
@@ -1352,6 +1659,272 @@ class AsyncSandboxClient:
             else:
                 self._files_routes = True
         return self._files_routes
+
+    async def files_list(
+        self, path: str, recursive: bool = False
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """
+        Stream a directory listing from GET /files/list (executor v0.0.24+).
+
+        One JSON entry per line, yielded as the walk goes: a large tree is
+        never held in memory. An entry the executor could not read carries
+        an "error" field and the listing goes on. The timeout bounds idle
+        time, not total listing time.
+
+        Args:
+            path: The directory to list
+            recursive: Walk into subdirectories (a flat listing skips them)
+
+        Yields:
+            FileEntry dicts: path (relative, /-separated), type, size,
+            mode (octal string), mtime (RFC 3339 UTC, nanoseconds)
+        """
+        params: Dict[str, Any] = {"path": path}
+        if recursive:
+            params["recursive"] = "1"
+        try:
+            async with self._client.stream(
+                "GET",
+                f"{self.base_url}/files/list",
+                params=params,
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    await response.aread()
+                    _raise_for_status(response)
+                async for line in response.aiter_lines():
+                    if line.strip():
+                        yield json.loads(line)
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    async def files_archive_get(
+        self, path: str, exclude: Sequence[str] = ()
+    ) -> AsyncIterator[bytes]:
+        """
+        Stream a directory as a gzip'd tar from GET /files/archive
+        (executor v0.0.24+).
+
+        The root itself is not an entry; symlinks are archived as links and
+        special files are skipped. The timeout bounds idle time, not total
+        archive time.
+
+        Args:
+            path: The directory to archive
+            exclude: Glob patterns; a matching path (or any /-separated
+                suffix of it) is left out, a matching directory whole
+
+        Yields:
+            The archive's gzip bytes, chunk by chunk
+        """
+        params: Dict[str, Any] = {"path": path}
+        excludes = list(exclude)
+        if excludes:
+            params["exclude"] = excludes
+        try:
+            async with self._client.stream(
+                "GET",
+                f"{self.base_url}/files/archive",
+                params=params,
+                timeout=_FILES_TIMEOUT,
+            ) as response:
+                if response.status_code >= 400:
+                    await response.aread()
+                    _raise_for_status(response)
+                async for chunk in response.aiter_bytes(65536):
+                    yield chunk
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {_timeout_seconds(_FILES_TIMEOUT):g}s"
+            ) from e
+        except httpx.RequestError as e:
+            raise SandboxError(f"Request to sandbox executor failed: {e}") from e
+
+    async def files_archive_put(
+        self,
+        path: str,
+        content: Union[bytes, AsyncIterator[bytes], Iterator[bytes], BinaryIO],
+    ) -> Dict[str, Any]:
+        """
+        Extract a gzip'd tar into the directory at path (executor v0.0.24+).
+
+        The executor creates the directory when missing and refuses
+        members that escape it (absolute paths, '..', links leaving the
+        root). Entries already extracted stay in place when the stream
+        ends short. Not retried on network errors mid-stream: a streamed
+        body cannot be replayed; only a connect-time failure (the request
+        never left) is retried.
+
+        Args:
+            path: The destination directory
+            content: The archive's gzip bytes, streamed (constant memory)
+
+        Returns:
+            {"files": extracted file count, "bytes": extracted file bytes}
+        """
+        if isinstance(content, (bytes, bytearray, str)) or hasattr(
+            content, "__aiter__"
+        ):
+            body = content
+        else:
+            body = _async_stream(content)
+        response = await self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files/archive",
+            params={"path": path},
+            content=body,
+            headers={"Content-Type": "application/octet-stream"},
+            idempotent=False,
+            timeout=_FILES_TIMEOUT,
+        )
+        return response.json()
+
+    async def files_upload_open(
+        self,
+        path: str,
+        size: int,
+        mode: Optional[str] = None,
+        sha256: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """
+        Open a multipart upload session (executor v0.0.24+).
+
+        A file too large for one request uploads as offset-addressed parts:
+        the executor truncates a temp file to `size` up front, so parts land
+        in any order, in parallel, and a retried part overwrites the same
+        bytes. Sessions live in memory — an executor restart or an idle hour
+        loses them, and the upload starts over.
+
+        Args:
+            path: The destination path
+            size: The final size in bytes
+            mode: Octal permission string, e.g. "0644" (the existing
+                destination's mode is kept when omitted)
+            sha256: Expected whole-file digest, checked once at complete
+            timeout: Seconds without progress before this call fails
+                (default DEFAULT_HTTP_TIMEOUT — a control call)
+
+        Returns:
+            {"upload_id", "max_part_size"} — the cap for every part
+        """
+        payload: Dict[str, Any] = {"path": path, "size": size}
+        if mode is not None:
+            payload["mode"] = mode
+        if sha256:
+            payload["sha256"] = sha256
+        response = await self._request_with_retry(
+            "POST",
+            f"{self.base_url}/files/uploads",
+            json=payload,
+            idempotent=False,
+            timeout=_override_timeout(timeout, self.timeout),
+        )
+        return response.json()
+
+    async def files_upload_part(
+        self,
+        upload_id: str,
+        offset: int,
+        content: bytes,
+        sha256: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> None:
+        """
+        Write one part at its offset (executor v0.0.24+).
+
+        The timeout bounds idle time, not the part's total time. A part is
+        idempotent at the executor (a WriteAt of the same bytes), so
+        transient network errors retry — the bytes must be replayable:
+        callers pass the part's bytes, never a consumed stream.
+
+        Args:
+            upload_id: The session from files_upload_open
+            offset: The part's position in the final file
+            content: The part's bytes
+            sha256: The part's digest, verified while streaming
+            timeout: Seconds without progress before the part fails
+                (default FILES_IDLE_TIMEOUT)
+        """
+        headers = {"Content-Type": "application/octet-stream"}
+        if sha256:
+            headers["X-Content-SHA256"] = sha256
+        await self._request_with_retry(
+            "PUT",
+            f"{self.base_url}/files/uploads/{upload_id}",
+            params={"offset": offset},
+            content=content,
+            headers=headers,
+            idempotent=True,
+            timeout=_override_timeout(timeout, _FILES_TIMEOUT),
+        )
+
+    async def files_upload_status(
+        self, upload_id: str, timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        The ranges received so far (executor v0.0.24+): half-open
+        [start, end) spans, sorted and coalesced, so a live session can
+        resume by sending what is missing.
+
+        Args:
+            upload_id: The session to inspect
+
+        Returns:
+            {"size", "ranges": [{"start", "end"}, ...]}
+        """
+        response = await self._request_with_retry(
+            "GET",
+            f"{self.base_url}/files/uploads/{upload_id}",
+            timeout=_override_timeout(timeout, self.timeout),
+        )
+        return response.json()
+
+    async def files_upload_complete(
+        self, upload_id: str, timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Check coverage and commit (executor v0.0.24+).
+
+        A 409 carries the missing ranges in the error body — the session
+        stays live, so the caller can fill the gaps and complete again. On
+        success the temp file is fsynced and renamed onto the destination;
+        the whole-file sha256 from files_upload_open is checked here.
+
+        Args:
+            upload_id: The session to complete
+
+        Returns:
+            {"size", "sha256"?}
+        """
+        response = await self._request_with_retry(
+            "POST",
+            f"{self.base_url}/files/uploads/{upload_id}/complete",
+            idempotent=False,
+            timeout=_override_timeout(timeout, self.timeout),
+        )
+        return response.json()
+
+    async def files_upload_abort(
+        self, upload_id: str, timeout: Optional[float] = None
+    ) -> None:
+        """
+        Abort the session and remove its temp file (executor v0.0.24+).
+
+        Args:
+            upload_id: The session to abort
+            timeout: Seconds without progress before this call fails
+                (default DEFAULT_HTTP_TIMEOUT — a control call)
+        """
+        await self._request_with_retry(
+            "DELETE",
+            f"{self.base_url}/files/uploads/{upload_id}",
+            timeout=_override_timeout(timeout, self.timeout),
+        )
 
     async def bind_port(self, port: int) -> Dict[str, Any]:
         """
