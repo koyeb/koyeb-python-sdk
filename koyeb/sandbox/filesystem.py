@@ -41,10 +41,12 @@ from .sync import (
     SYNC_BATCH_BYTES,
     SyncDiff,
     build_archive,
+    clean_path,
     diff,
     extract_archive,
     hash_candidates,
     join_local,
+    open_nofollow,
     path_excluded,
     plan_batches,
     prune_descendants,
@@ -1080,7 +1082,7 @@ class SandboxFilesystem:
                 done = 0
                 renamed = False
                 try:
-                    with open(part_path, "wb") as out:
+                    with open_nofollow(part_path) as out:
                         for chunk in client.files_read(remote_path, timeout=timeout):
                             out.write(chunk)
                             done += len(chunk)
@@ -1179,7 +1181,9 @@ class SandboxFilesystem:
         batch go through upload_file/download_file instead (multipart
         on executors v0.0.24+, resumable downloads), and a pull's
         archive leaves them out so their bytes travel once.
-        Symlinks travel as links, modes are kept, owners are not.
+        Symlinks travel as links, modes are kept, owners are not. A pull
+        never writes outside local: a path that leaves it, or that goes
+        through a symlink, fails the sync.
 
         A no-op sync sends nothing: nothing is transferred or deleted;
         beyond the listing only ``checksum=True`` asks more — one sha256
@@ -1361,6 +1365,10 @@ class SandboxFilesystem:
         remote_entries = [
             e for e in remote_entries if not path_excluded(e["path"], exclude)
         ]
+        # The listing comes from the sandbox: refuse a path that would land
+        # outside local before anything is written.
+        for entry in remote_entries:
+            clean_path(entry["path"])
         hashes = self._sync_hashes(
             client, local, remote, checksum, True, remote_entries, local_entries
         )
@@ -1420,7 +1428,13 @@ class SandboxFilesystem:
         by_path = {e["path"]: e for e in result.deletes}
         count = 0
         for path in prune_descendants(list(by_path)):
-            target = join_local(local, path)
+            try:
+                target = join_local(local, path)
+            except ValueError:
+                # A type flip's extract replaced a parent with a symlink:
+                # the path is gone from the tree, never delete through it.
+                count += 1
+                continue
             try:
                 if os.path.isdir(target) and not os.path.islink(target):
                     shutil.rmtree(target)
@@ -2123,7 +2137,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                 done = 0
                 renamed = False
                 try:
-                    with open(part_path, "wb") as out:
+                    with open_nofollow(part_path) as out:
                         async for chunk in client.files_read(
                             remote_path, timeout=timeout
                         ):
@@ -2224,7 +2238,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         batch go through upload_file/download_file instead (multipart
         on executors v0.0.24+, resumable downloads), and a pull's
         archive leaves them out so their bytes travel once.
-        Symlinks travel as links, modes are kept, owners are not.
+        Symlinks travel as links, modes are kept, owners are not. A pull
+        never writes outside local: a path that leaves it, or that goes
+        through a symlink, fails the sync.
 
         A no-op sync sends nothing: nothing is transferred or deleted;
         beyond the listing only ``checksum=True`` asks more — one sha256
@@ -2350,6 +2366,10 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         remote_entries = [
             e for e in remote_entries if not path_excluded(e["path"], exclude)
         ]
+        # The listing comes from the sandbox: refuse a path that would land
+        # outside local before anything is written.
+        for entry in remote_entries:
+            clean_path(entry["path"])
         hashes = await self._sync_hashes(
             client, local, remote, checksum, True, remote_entries, local_entries
         )
@@ -2482,7 +2502,13 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         by_path = {e["path"]: e for e in result.deletes}
         count = 0
         for path in prune_descendants(list(by_path)):
-            target = join_local(local, path)
+            try:
+                target = join_local(local, path)
+            except ValueError:
+                # A type flip's extract replaced a parent with a symlink:
+                # the path is gone from the tree, never delete through it.
+                count += 1
+                continue
             try:
                 if os.path.isdir(target) and not os.path.islink(target):
                     shutil.rmtree(target)

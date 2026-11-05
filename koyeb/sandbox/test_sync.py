@@ -689,6 +689,79 @@ class TestBuildExtractArchive(unittest.TestCase):
         with self.assertRaises(ValueError):
             extract_archive(self.archive, self.dst)
 
+    def _raw_archive(self, *members):
+        """Write an archive of (name, kind, payload) members as sent."""
+        import tarfile
+
+        with tarfile.open(self.archive, "w:gz") as tar:
+            for name, kind, payload in members:
+                info = tarfile.TarInfo(name)
+                if kind == "dir":
+                    info.type = tarfile.DIRTYPE
+                    info.mode = payload
+                    tar.addfile(info)
+                elif kind == "sym":
+                    info.type = tarfile.SYMTYPE
+                    info.linkname = payload
+                    tar.addfile(info)
+                else:
+                    info.size = len(payload)
+                    tar.addfile(info, io.BytesIO(payload))
+
+    def _outside(self):
+        outside = os.path.join(self.root, "outside")
+        os.makedirs(outside)
+        os.chmod(outside, 0o755)
+        return outside
+
+    def test_member_through_symlink_member_refused(self):
+        outside = self._outside()
+        self._raw_archive(("a", "sym", outside), ("a/evil.txt", "file", b"hi"))
+
+        with self.assertRaises(ValueError):
+            extract_archive(self.archive, self.dst)
+        self.assertEqual(os.listdir(outside), [])
+
+    def test_member_through_existing_symlink_refused(self):
+        outside = self._outside()
+        os.symlink(outside, os.path.join(self.dst, "a"))
+        self._raw_archive(("a/sub", "dir", 0o755), ("a/sub/evil.txt", "file", b"hi"))
+
+        with self.assertRaises(ValueError):
+            extract_archive(self.archive, self.dst)
+        self.assertEqual(os.listdir(outside), [])
+
+    def test_file_member_replaces_symlink_without_following(self):
+        outside = self._outside()
+        victim = os.path.join(outside, "victim.txt")
+        with open(victim, "wb") as f:
+            f.write(b"keep")
+        os.symlink(victim, os.path.join(self.dst, "a.txt"))
+        self._raw_archive(("a.txt", "file", b"new"))
+
+        extract_archive(self.archive, self.dst)
+
+        with open(victim, "rb") as f:
+            self.assertEqual(f.read(), b"keep")
+        self.assertFalse(os.path.islink(os.path.join(self.dst, "a.txt")))
+
+    def test_dir_mode_not_applied_through_later_symlink(self):
+        outside = self._outside()
+        self._raw_archive(("d", "dir", 0o700), ("d", "sym", outside))
+
+        extract_archive(self.archive, self.dst)
+
+        self.assertEqual(os.stat(outside).st_mode & 0o777, 0o755)
+
+    def test_symlink_members_kept_as_sent(self):
+        # Links are data, like rsync -l: kept, never written through.
+        self._raw_archive(("abs", "sym", "/usr/bin/python3"), ("rel", "sym", "../up"))
+
+        extract_archive(self.archive, self.dst)
+
+        self.assertEqual(os.readlink(os.path.join(self.dst, "abs")), "/usr/bin/python3")
+        self.assertEqual(os.readlink(os.path.join(self.dst, "rel")), "../up")
+
 
 if __name__ == "__main__":
     unittest.main()
