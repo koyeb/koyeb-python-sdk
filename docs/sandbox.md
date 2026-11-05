@@ -22,6 +22,18 @@ seconds
 
 seconds
 
+<a id="koyeb.sandbox.sandbox.FAST_POLL_INTERVAL"></a>
+
+#### FAST\_POLL\_INTERVAL
+
+seconds
+
+<a id="koyeb.sandbox.sandbox.FAST_POLL_WINDOW"></a>
+
+#### FAST\_POLL\_WINDOW
+
+seconds after wait_ready() starts
+
 <a id="koyeb.sandbox.sandbox.ProcessInfo"></a>
 
 ## ProcessInfo Objects
@@ -442,7 +454,8 @@ Wait for sandbox to become ready with exponential backoff polling.
 First waits for the deployment status to become HEALTHY, then polls the
 sandbox health endpoint to confirm the executor is responsive.
 
-Starts polling at 0.1s intervals, doubling each time up to poll_interval.
+Polls every 0.1s for the first 10s, then doubles the interval each
+time up to poll_interval.
 
 **Arguments**:
 
@@ -1030,7 +1043,8 @@ Wait for sandbox to become ready with exponential backoff async polling.
 First waits for the deployment status to become HEALTHY, then polls the
 sandbox health endpoint to confirm the executor is responsive.
 
-Starts polling at 0.1s intervals, doubling each time up to poll_interval.
+Polls every 0.1s for the first 10s, then doubles the interval each
+time up to poll_interval.
 
 **Arguments**:
 
@@ -1579,6 +1593,253 @@ def create_service_payload(app_id: str) -> Dict[str, Any]
 
 CreateService payload. FULL snapshots omit the definition (the
 API infers it); every other shape pins one.
+
+<a id="koyeb.sandbox.sync"></a>
+
+# koyeb.sandbox.sync
+
+The pure diff engine behind filesystem.sync().
+
+sync() is one-way like ``rsync -r`` without deltas: list both sides (a
+local walk against GET /files/list NDJSON), diff on path/type/size/mtime
+(+sha256 with checksum=True), and send the changed set as ~50 MiB tar
+batches through /files/archive. This module holds the decisions — walking,
+matching, diffing, planning — with no executor I/O, so every rule is
+testable against plain data and tmpdir trees.
+
+The wire shape on both sides is the executor's FileEntry: ``path``
+(relative, /-separated), ``type`` (file|dir|symlink|other), ``size``,
+``mode`` (4-digit octal permission bits), ``mtime`` (RFC 3339 UTC with
+nanoseconds). Exclude patterns follow the executor's archive-route
+semantics exactly — Go's path.Match, tried against the relative path and
+every /-separated suffix of it — so the local walk and the remote
+archive agree on what is in the tree.
+
+<a id="koyeb.sandbox.sync.path_match"></a>
+
+#### path\_match
+
+```python
+def path_match(pattern: str, name: str) -> bool
+```
+
+Go's path.Match: '*', '?' and [...] never cross the '/' separator.
+
+<a id="koyeb.sandbox.sync.excluded"></a>
+
+#### excluded
+
+```python
+def excluded(rel: str, patterns: Sequence[str]) -> bool
+```
+
+The executor's exclude rule: pattern against rel and every suffix.
+
+A directory that matches is pruned whole by the walker, so its
+descendants never reach this test — matching the archive route, which
+answers SkipDir at the same point.
+
+<a id="koyeb.sandbox.sync.path_excluded"></a>
+
+#### path\_excluded
+
+```python
+def path_excluded(path: str, patterns: Sequence[str]) -> bool
+```
+
+A path, or any directory prefix of it, matches a pattern.
+
+The walker prunes a matching directory whole, so an entry under one
+is effectively excluded even when its own path does not match.
+
+<a id="koyeb.sandbox.sync.format_mtime"></a>
+
+#### format\_mtime
+
+```python
+def format_mtime(ns: int) -> str
+```
+
+Nanoseconds since the epoch as the executor formats mtime.
+
+<a id="koyeb.sandbox.sync.mtime_seconds"></a>
+
+#### mtime\_seconds
+
+```python
+def mtime_seconds(mtime: str) -> int
+```
+
+An RFC 3339 mtime as whole seconds since the epoch (floored).
+
+<a id="koyeb.sandbox.sync.walk_local"></a>
+
+#### walk\_local
+
+```python
+def walk_local(root: str, exclude: Sequence[str] = ()) -> List[Dict[str, Any]]
+```
+
+A local tree as FileEntry dicts, mirroring GET /files/list.
+
+Paths are relative to root and /-separated; the root itself is not an
+entry. Symlinks are listed, not followed (like the executor's walk),
+special files are skipped, and an excluded directory is pruned whole.
+
+<a id="koyeb.sandbox.sync.SyncDiff"></a>
+
+## SyncDiff Objects
+
+```python
+@dataclass
+class SyncDiff()
+```
+
+What sync() must do with one pair of trees, before any transfer.
+
+to_transfer holds source entries (walk order) to copy; deletes holds
+destination entries absent from the source; skipped counts entries
+examined and left alone; bytes is the content bytes to move.
+
+<a id="koyeb.sandbox.sync.diff"></a>
+
+#### diff
+
+```python
+def diff(
+        local_entries: Iterable[Dict[str, Any]],
+        remote_entries: Iterable[Dict[str, Any]],
+        *,
+        delete: bool = False,
+        local_hash: Optional[Callable[[str], str]] = None,
+        remote_hash: Optional[Callable[[str],
+                                       Optional[str]]] = None) -> SyncDiff
+```
+
+Diff two FileEntry trees and plan a one-way copy.
+
+An entry is unchanged when type, size and mtime (whole seconds) match
+on both sides. With hashing callables, files that pass that test are
+compared by sha256 too (checksum=True); a remote hash of None can't
+prove a change and skips. Unreadable remote entries (the ``error``
+field) and unarchivable types (``other``) are never transfer
+candidates.
+
+<a id="koyeb.sandbox.sync.hash_candidates"></a>
+
+#### hash\_candidates
+
+```python
+def hash_candidates(source_entries: Iterable[Dict[str, Any]],
+                    dest_entries: Iterable[Dict[str, Any]]) -> List[str]
+```
+
+Paths that only a sha256 comparison can settle.
+
+Files present on both sides, matching on type, size and mtime: the
+candidates checksum=True must hash. The caller prefetches the
+executor-side digests for these in one pass (async has no other way
+to feed the pure, synchronous diff).
+
+<a id="koyeb.sandbox.sync.plan_batches"></a>
+
+#### plan\_batches
+
+```python
+def plan_batches(
+        entries: Sequence[Dict[str, Any]], part_size: int
+) -> Tuple[List[List[Dict[str, Any]]], List[Dict[str, Any]]]
+```
+
+Cut the changed set into tar batches and oversized files.
+
+Batches accumulate raw file content up to part_size (~50 MiB): a
+file that would cross the boundary starts the next batch, so no file
+is ever split across archives. Files larger than one part go through
+upload_file/download_file instead. Directories and symlinks ride the
+next batch (their wire size is a header); a set of only those still
+produces one batch.
+
+<a id="koyeb.sandbox.sync.remote_join"></a>
+
+#### remote\_join
+
+```python
+def remote_join(remote: str, rel: str) -> str
+```
+
+A remote path for a relative entry path (remote paths are POSIX).
+
+<a id="koyeb.sandbox.sync.join_local"></a>
+
+#### join\_local
+
+```python
+def join_local(root: str, rel: str) -> str
+```
+
+A local path for a relative entry path, on any platform.
+
+<a id="koyeb.sandbox.sync.prune_descendants"></a>
+
+#### prune\_descendants
+
+```python
+def prune_descendants(paths: Sequence[str]) -> List[str]
+```
+
+Topmost paths only: deleting a directory takes its descendants.
+
+Input order is irrelevant; the result is sorted. A descendant of a
+kept path is already covered by its parent's recursive delete, and
+deleting it separately would just miss (it is already gone).
+
+<a id="koyeb.sandbox.sync.relative_remote"></a>
+
+#### relative\_remote
+
+```python
+def relative_remote(local: str) -> str
+```
+
+The remote path used when remote=None: local's relative form.
+
+A relative local path is kept as-is (resolved by the executor against
+the sandbox workdir); an absolute one contributes its basename,
+rsync-style.
+
+<a id="koyeb.sandbox.sync.build_archive"></a>
+
+#### build\_archive
+
+```python
+def build_archive(root: str, entries: Sequence[Dict[str, Any]],
+                  dest: str) -> None
+```
+
+Write the changed entries as a gzip'd tar spooled to dest.
+
+Members mirror the executor's archive: paths relative and
+/-separated, modes and whole-second mtimes kept, symlinks as links.
+
+<a id="koyeb.sandbox.sync.extract_archive"></a>
+
+#### extract\_archive
+
+```python
+def extract_archive(archive_path: str,
+                    dest: str,
+                    keep: Optional[Set[str]] = None) -> List[str]
+```
+
+Extract a spooled archive into dest, mirroring the executor.
+
+Missing parents are created; members in the way are replaced;
+directory modes and mtimes are applied after the contents (writing
+into a directory bumps its mtime, and a restrictive mode applied
+early would lock the contents out). With keep, only those members are
+extracted — the pull side's changed set. Returns the member paths
+extracted.
 
 <a id="koyeb.sandbox.control_plane"></a>
 
@@ -2218,7 +2479,7 @@ List the contents of a directory.
 #### files\_stat
 
 ```python
-def files_stat(path: str) -> Dict[str, Any]
+def files_stat(path: str, hash: Optional[str] = None) -> Dict[str, Any]
 ```
 
 Stat a file on the streamed /files routes (executor v0.0.24+).
@@ -2226,12 +2487,14 @@ Stat a file on the streamed /files routes (executor v0.0.24+).
 **Arguments**:
 
 - `path` - The file path to stat
+- `hash` - "sha256" to add the file's digest to the reply (regular
+  files only; the executor answers 400 otherwise)
   
 
 **Returns**:
 
   FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-  string), mtime (RFC 3339 UTC, nanoseconds)
+  string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
 
 <a id="koyeb.sandbox.executor_client.SandboxClient.files_put"></a>
 
@@ -2242,7 +2505,8 @@ def files_put(path: str,
               content: Union[bytes, Iterator[bytes], BinaryIO],
               mode: Optional[str] = None,
               parents: bool = False,
-              sha256: Optional[str] = None) -> Dict[str, Any]
+              sha256: Optional[str] = None,
+              timeout: Optional[float] = None) -> Dict[str, Any]
 ```
 
 Stream content to a file through PUT /files (executor v0.0.24+).
@@ -2263,6 +2527,8 @@ request never left) is retried.
 - `parents` - Create missing parent directories
 - `sha256` - Expected content digest; the executor verifies it while
   streaming and fails with 400 on mismatch
+- `timeout` - Seconds without progress before the call fails
+  (default FILES_IDLE_TIMEOUT)
   
 
 **Returns**:
@@ -2274,7 +2540,9 @@ request never left) is retried.
 #### files\_read
 
 ```python
-def files_read(path: str, chunk_size: int = 65536) -> Iterator[bytes]
+def files_read(path: str,
+               chunk_size: int = 65536,
+               timeout: Optional[float] = None) -> Iterator[bytes]
 ```
 
 Stream a file's bytes from GET /files (executor v0.0.24+).
@@ -2288,6 +2556,8 @@ the fs layer's to resume.
 
 - `path` - The file path to read
 - `chunk_size` - Bytes per yielded chunk
+- `timeout` - Seconds without progress before the stream fails
+  (default FILES_IDLE_TIMEOUT)
   
 
 **Yields**:
@@ -2315,6 +2585,215 @@ can surface as a Cloudflare 502 on Nomad.
 **Returns**:
 
   True if the streamed /files routes are available
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_list"></a>
+
+#### files\_list
+
+```python
+def files_list(path: str, recursive: bool = False) -> Iterator[Dict[str, Any]]
+```
+
+Stream a directory listing from GET /files/list (executor v0.0.24+).
+
+One JSON entry per line, yielded as the walk goes: a large tree is
+never held in memory. An entry the executor could not read carries
+an "error" field and the listing goes on. The timeout bounds idle
+time, not total listing time.
+
+**Arguments**:
+
+- `path` - The directory to list
+- `recursive` - Walk into subdirectories (a flat listing skips them)
+  
+
+**Yields**:
+
+  FileEntry dicts: path (relative, /-separated), type, size,
+  mode (octal string), mtime (RFC 3339 UTC, nanoseconds)
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_archive_get"></a>
+
+#### files\_archive\_get
+
+```python
+def files_archive_get(
+    path: str, exclude: Sequence[str] = ()) -> Iterator[bytes]
+```
+
+Stream a directory as a gzip'd tar from GET /files/archive
+(executor v0.0.24+).
+
+The root itself is not an entry; symlinks are archived as links and
+special files are skipped. The timeout bounds idle time, not total
+archive time.
+
+**Arguments**:
+
+- `path` - The directory to archive
+- `exclude` - Glob patterns; a matching path (or any /-separated
+  suffix of it) is left out, a matching directory whole
+  
+
+**Yields**:
+
+  The archive's gzip bytes, chunk by chunk
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_archive_put"></a>
+
+#### files\_archive\_put
+
+```python
+def files_archive_put(
+        path: str, content: Union[bytes, Iterator[bytes],
+                                  BinaryIO]) -> Dict[str, Any]
+```
+
+Extract a gzip'd tar into the directory at path (executor v0.0.24+).
+
+The executor creates the directory when missing and refuses
+members that escape it (absolute paths, '..', links leaving the
+root). Entries already extracted stay in place when the stream
+ends short. Not retried on network errors mid-stream: a streamed
+body cannot be replayed; only a connect-time failure (the request
+never left) is retried.
+
+**Arguments**:
+
+- `path` - The destination directory
+- `content` - The archive's gzip bytes, streamed (constant memory)
+  
+
+**Returns**:
+
+- `{"files"` - extracted file count, "bytes": extracted file bytes}
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_open"></a>
+
+#### files\_upload\_open
+
+```python
+def files_upload_open(path: str,
+                      size: int,
+                      mode: Optional[str] = None,
+                      sha256: Optional[str] = None,
+                      timeout: Optional[float] = None) -> Dict[str, Any]
+```
+
+Open a multipart upload session (executor v0.0.24+).
+
+A file too large for one request uploads as offset-addressed parts:
+the executor truncates a temp file to `size` up front, so parts land
+in any order, in parallel, and a retried part overwrites the same
+bytes. Sessions live in memory — an executor restart or an idle hour
+loses them, and the upload starts over.
+
+**Arguments**:
+
+- `path` - The destination path
+- `size` - The final size in bytes
+- `mode` - Octal permission string, e.g. "0644" (the existing
+  destination's mode is kept when omitted)
+- `sha256` - Expected whole-file digest, checked once at complete
+- `timeout` - Seconds without progress before this call fails
+  (default DEFAULT_HTTP_TIMEOUT — a control call)
+  
+
+**Returns**:
+
+  {"upload_id", "max_part_size"} — the cap for every part
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_part"></a>
+
+#### files\_upload\_part
+
+```python
+def files_upload_part(upload_id: str,
+                      offset: int,
+                      content: bytes,
+                      sha256: Optional[str] = None,
+                      timeout: Optional[float] = None) -> None
+```
+
+Write one part at its offset (executor v0.0.24+).
+
+The timeout bounds idle time, not the part's total time. A part is
+idempotent at the executor (a WriteAt of the same bytes), so
+transient network errors retry — the bytes must be replayable:
+callers pass the part's bytes, never a consumed stream.
+
+**Arguments**:
+
+- `upload_id` - The session from files_upload_open
+- `offset` - The part's position in the final file
+- `content` - The part's bytes
+- `sha256` - The part's digest, verified while streaming
+- `timeout` - Seconds without progress before the part fails
+  (default FILES_IDLE_TIMEOUT)
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_status"></a>
+
+#### files\_upload\_status
+
+```python
+def files_upload_status(upload_id: str,
+                        timeout: Optional[float] = None) -> Dict[str, Any]
+```
+
+The ranges received so far (executor v0.0.24+): half-open
+[start, end) spans, sorted and coalesced, so a live session can
+resume by sending what is missing.
+
+**Arguments**:
+
+- `upload_id` - The session to inspect
+  
+
+**Returns**:
+
+  {"size", "ranges": [{"start", "end"}, ...]}
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_complete"></a>
+
+#### files\_upload\_complete
+
+```python
+def files_upload_complete(upload_id: str,
+                          timeout: Optional[float] = None) -> Dict[str, Any]
+```
+
+Check coverage and commit (executor v0.0.24+).
+
+A 409 carries the missing ranges in the error body — the session
+stays live, so the caller can fill the gaps and complete again. On
+success the temp file is fsynced and renamed onto the destination;
+the whole-file sha256 from files_upload_open is checked here.
+
+**Arguments**:
+
+- `upload_id` - The session to complete
+  
+
+**Returns**:
+
+  {"size", "sha256"?}
+
+<a id="koyeb.sandbox.executor_client.SandboxClient.files_upload_abort"></a>
+
+#### files\_upload\_abort
+
+```python
+def files_upload_abort(upload_id: str,
+                       timeout: Optional[float] = None) -> None
+```
+
+Abort the session and remove its temp file (executor v0.0.24+).
+
+**Arguments**:
+
+- `upload_id` - The session to abort
+- `timeout` - Seconds without progress before this call fails
+  (default DEFAULT_HTTP_TIMEOUT — a control call)
 
 <a id="koyeb.sandbox.executor_client.SandboxClient.bind_port"></a>
 
@@ -2762,7 +3241,7 @@ List the contents of a directory.
 #### files\_stat
 
 ```python
-async def files_stat(path: str) -> Dict[str, Any]
+async def files_stat(path: str, hash: Optional[str] = None) -> Dict[str, Any]
 ```
 
 Stat a file on the streamed /files routes (executor v0.0.24+).
@@ -2770,12 +3249,14 @@ Stat a file on the streamed /files routes (executor v0.0.24+).
 **Arguments**:
 
 - `path` - The file path to stat
+- `hash` - "sha256" to add the file's digest to the reply (regular
+  files only; the executor answers 400 otherwise)
   
 
 **Returns**:
 
   FileEntry dict: type (file|dir|symlink|other), size, mode (octal
-  string), mtime (RFC 3339 UTC, nanoseconds)
+  string), mtime (RFC 3339 UTC, nanoseconds), sha256 when asked
 
 <a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_put"></a>
 
@@ -2787,7 +3268,8 @@ async def files_put(path: str,
                                    Iterator[bytes], BinaryIO],
                     mode: Optional[str] = None,
                     parents: bool = False,
-                    sha256: Optional[str] = None) -> Dict[str, Any]
+                    sha256: Optional[str] = None,
+                    timeout: Optional[float] = None) -> Dict[str, Any]
 ```
 
 Stream content to a file through PUT /files (executor v0.0.24+).
@@ -2808,6 +3290,8 @@ request never left) is retried.
 - `parents` - Create missing parent directories
 - `sha256` - Expected content digest; the executor verifies it while
   streaming and fails with 400 on mismatch
+- `timeout` - Seconds without progress before the call fails
+  (default FILES_IDLE_TIMEOUT)
   
 
 **Returns**:
@@ -2820,7 +3304,8 @@ request never left) is retried.
 
 ```python
 async def files_read(path: str,
-                     chunk_size: int = 65536) -> AsyncIterator[bytes]
+                     chunk_size: int = 65536,
+                     timeout: Optional[float] = None) -> AsyncIterator[bytes]
 ```
 
 Stream a file's bytes from GET /files (executor v0.0.24+).
@@ -2834,6 +3319,8 @@ the fs layer's to resume.
 
 - `path` - The file path to read
 - `chunk_size` - Bytes per yielded chunk
+- `timeout` - Seconds without progress before the stream fails
+  (default FILES_IDLE_TIMEOUT)
   
 
 **Yields**:
@@ -2861,6 +3348,219 @@ can surface as a Cloudflare 502 on Nomad.
 **Returns**:
 
   True if the streamed /files routes are available
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_list"></a>
+
+#### files\_list
+
+```python
+async def files_list(path: str,
+                     recursive: bool = False) -> AsyncIterator[Dict[str, Any]]
+```
+
+Stream a directory listing from GET /files/list (executor v0.0.24+).
+
+One JSON entry per line, yielded as the walk goes: a large tree is
+never held in memory. An entry the executor could not read carries
+an "error" field and the listing goes on. The timeout bounds idle
+time, not total listing time.
+
+**Arguments**:
+
+- `path` - The directory to list
+- `recursive` - Walk into subdirectories (a flat listing skips them)
+  
+
+**Yields**:
+
+  FileEntry dicts: path (relative, /-separated), type, size,
+  mode (octal string), mtime (RFC 3339 UTC, nanoseconds)
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_archive_get"></a>
+
+#### files\_archive\_get
+
+```python
+async def files_archive_get(
+    path: str, exclude: Sequence[str] = ()) -> AsyncIterator[bytes]
+```
+
+Stream a directory as a gzip'd tar from GET /files/archive
+(executor v0.0.24+).
+
+The root itself is not an entry; symlinks are archived as links and
+special files are skipped. The timeout bounds idle time, not total
+archive time.
+
+**Arguments**:
+
+- `path` - The directory to archive
+- `exclude` - Glob patterns; a matching path (or any /-separated
+  suffix of it) is left out, a matching directory whole
+  
+
+**Yields**:
+
+  The archive's gzip bytes, chunk by chunk
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_archive_put"></a>
+
+#### files\_archive\_put
+
+```python
+async def files_archive_put(
+    path: str, content: Union[bytes, AsyncIterator[bytes], Iterator[bytes],
+                              BinaryIO]
+) -> Dict[str, Any]
+```
+
+Extract a gzip'd tar into the directory at path (executor v0.0.24+).
+
+The executor creates the directory when missing and refuses
+members that escape it (absolute paths, '..', links leaving the
+root). Entries already extracted stay in place when the stream
+ends short. Not retried on network errors mid-stream: a streamed
+body cannot be replayed; only a connect-time failure (the request
+never left) is retried.
+
+**Arguments**:
+
+- `path` - The destination directory
+- `content` - The archive's gzip bytes, streamed (constant memory)
+  
+
+**Returns**:
+
+- `{"files"` - extracted file count, "bytes": extracted file bytes}
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_open"></a>
+
+#### files\_upload\_open
+
+```python
+async def files_upload_open(path: str,
+                            size: int,
+                            mode: Optional[str] = None,
+                            sha256: Optional[str] = None,
+                            timeout: Optional[float] = None) -> Dict[str, Any]
+```
+
+Open a multipart upload session (executor v0.0.24+).
+
+A file too large for one request uploads as offset-addressed parts:
+the executor truncates a temp file to `size` up front, so parts land
+in any order, in parallel, and a retried part overwrites the same
+bytes. Sessions live in memory — an executor restart or an idle hour
+loses them, and the upload starts over.
+
+**Arguments**:
+
+- `path` - The destination path
+- `size` - The final size in bytes
+- `mode` - Octal permission string, e.g. "0644" (the existing
+  destination's mode is kept when omitted)
+- `sha256` - Expected whole-file digest, checked once at complete
+- `timeout` - Seconds without progress before this call fails
+  (default DEFAULT_HTTP_TIMEOUT — a control call)
+  
+
+**Returns**:
+
+  {"upload_id", "max_part_size"} — the cap for every part
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_part"></a>
+
+#### files\_upload\_part
+
+```python
+async def files_upload_part(upload_id: str,
+                            offset: int,
+                            content: bytes,
+                            sha256: Optional[str] = None,
+                            timeout: Optional[float] = None) -> None
+```
+
+Write one part at its offset (executor v0.0.24+).
+
+The timeout bounds idle time, not the part's total time. A part is
+idempotent at the executor (a WriteAt of the same bytes), so
+transient network errors retry — the bytes must be replayable:
+callers pass the part's bytes, never a consumed stream.
+
+**Arguments**:
+
+- `upload_id` - The session from files_upload_open
+- `offset` - The part's position in the final file
+- `content` - The part's bytes
+- `sha256` - The part's digest, verified while streaming
+- `timeout` - Seconds without progress before the part fails
+  (default FILES_IDLE_TIMEOUT)
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_status"></a>
+
+#### files\_upload\_status
+
+```python
+async def files_upload_status(upload_id: str,
+                              timeout: Optional[float] = None
+                              ) -> Dict[str, Any]
+```
+
+The ranges received so far (executor v0.0.24+): half-open
+[start, end) spans, sorted and coalesced, so a live session can
+resume by sending what is missing.
+
+**Arguments**:
+
+- `upload_id` - The session to inspect
+  
+
+**Returns**:
+
+  {"size", "ranges": [{"start", "end"}, ...]}
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_complete"></a>
+
+#### files\_upload\_complete
+
+```python
+async def files_upload_complete(upload_id: str,
+                                timeout: Optional[float] = None
+                                ) -> Dict[str, Any]
+```
+
+Check coverage and commit (executor v0.0.24+).
+
+A 409 carries the missing ranges in the error body — the session
+stays live, so the caller can fill the gaps and complete again. On
+success the temp file is fsynced and renamed onto the destination;
+the whole-file sha256 from files_upload_open is checked here.
+
+**Arguments**:
+
+- `upload_id` - The session to complete
+  
+
+**Returns**:
+
+  {"size", "sha256"?}
+
+<a id="koyeb.sandbox.executor_client.AsyncSandboxClient.files_upload_abort"></a>
+
+#### files\_upload\_abort
+
+```python
+async def files_upload_abort(upload_id: str,
+                             timeout: Optional[float] = None) -> None
+```
+
+Abort the session and remove its temp file (executor v0.0.24+).
+
+**Arguments**:
+
+- `upload_id` - The session to abort
+- `timeout` - Seconds without progress before this call fails
+  (default DEFAULT_HTTP_TIMEOUT — a control call)
 
 <a id="koyeb.sandbox.executor_client.AsyncSandboxClient.bind_port"></a>
 
@@ -3120,6 +3820,9 @@ class FileStat()
 
 File metadata from the streamed /files/stat route (executor v0.0.24+).
 
+type is one of file|dir|symlink|other; mode is the octal permission
+string (e.g. "0644"); mtime is RFC 3339 UTC with nanoseconds.
+
 <a id="koyeb.sandbox.filesystem.SandboxFilesystem"></a>
 
 ## SandboxFilesystem Objects
@@ -3139,22 +3842,28 @@ For async usage, use AsyncSandboxFilesystem instead.
 
 ```python
 def write_file(path: str,
-               content: Union[str, bytes],
+               content: Union[str, bytes, BinaryIO, Iterable[bytes]],
                encoding: str = "utf-8",
+               *,
                mode: Optional[str] = None) -> None
 ```
 
 Write content to a file synchronously.
 
 On executors v0.0.24+ the content streams through PUT /files,
-binary-safe: any byte sequence lands on disk as-is, and
-encoding="base64" decodes to the real bytes. Older executors are
-detected once per handle and keep the legacy JSON behavior.
+binary-safe: any byte sequence lands on disk as-is.
+encoding="base64" decodes str and bytes content to the real
+bytes; BinaryIO and iterables stream as-is, ignoring it. Older
+executors are detected once per handle and keep the legacy JSON behavior —
+which cannot carry streamed content (BinaryIO, an iterable of
+chunks): that raises and names v0.0.24.
 
 **Arguments**:
 
 - `path` - Absolute path to the file
-- `content` - Content to write (string or bytes)
+- `content` - Content to write — string, bytes, a file object or an
+  iterable of bytes chunks (the last two require executor
+  v0.0.24+)
 - `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
 - `mode` - Octal permission string, e.g. "0644" (streamed routes only;
   the legacy routes keep the destination's mode)
@@ -3200,8 +3909,8 @@ def open_read(path: str) -> Iterator[bytes]
 Stream a file's bytes from the sandbox, chunk by chunk.
 
 Constant memory on both sides (executor v0.0.24+). On legacy
-executors the whole file is read at once and yielded as a single
-chunk.
+executors the file is read once as text and yielded as a single
+chunk — binary-safe streaming is not available there.
 
 **Arguments**:
 
@@ -3382,15 +4091,22 @@ def upload_file(local_path: str,
                 remote_path: str,
                 encoding: str = "utf-8",
                 *,
-                progress: Optional[Callable[[int, int], None]] = None) -> None
+                progress: Optional[Callable[[int, int], None]] = None,
+                timeout: Optional[float] = None,
+                part_size: int = UPLOAD_PART_SIZE,
+                concurrency: int = UPLOAD_CONCURRENCY) -> None
 ```
 
 Upload a local file to the sandbox synchronously.
 
 On executors v0.0.24+ the file streams from disk through PUT
 /files — binary-safe, constant memory — with optional progress
-callbacks. Older executors keep the legacy JSON behavior (the
-encoding parameter applies there only).
+callbacks. A file larger than part_size uploads as a multipart
+session: up to `concurrency` parts in flight, each read from disk
+at its offset, per-part sha256, timed-out parts split into
+halves, and a complete that reports missing ranges fills them
+and completes again. Older executors keep the legacy JSON
+behavior (the encoding parameter applies there only).
 
 **Arguments**:
 
@@ -3400,6 +4116,13 @@ encoding parameter applies there only).
   streamed routes are binary-safe and ignore it
 - `progress` - Optional callback(done, total), called at most every
   100 ms during the transfer plus a final call
+- `timeout` - Seconds without progress before the transfer's
+  requests fail (default: the 60 s idle bound)
+- `part_size` - Bytes per multipart part (default 50 MiB, capped by
+  the executor's max_part_size); a file at or below it takes
+  the single streamed PUT
+- `concurrency` - Parts in flight for a multipart upload (default 4;
+  memory holds at most part_size x concurrency)
   
 
 **Raises**:
@@ -3411,12 +4134,12 @@ encoding parameter applies there only).
 #### download\_file
 
 ```python
-def download_file(
-        remote_path: str,
-        local_path: str,
-        encoding: str = "utf-8",
-        *,
-        progress: Optional[Callable[[int, int], None]] = None) -> None
+def download_file(remote_path: str,
+                  local_path: str,
+                  encoding: str = "utf-8",
+                  *,
+                  progress: Optional[Callable[[int, int], None]] = None,
+                  timeout: Optional[float] = None) -> None
 ```
 
 Download a file from the sandbox to a local path synchronously.
@@ -3434,6 +4157,8 @@ Older executors keep the legacy JSON behavior.
   streamed routes are binary-safe and ignore it
 - `progress` - Optional callback(done, total), called at most every
   100 ms during the transfer plus a final call
+- `timeout` - Seconds without progress before the transfer's stream
+  fails (default: the 60 s idle bound)
   
 
 **Raises**:
@@ -3495,6 +4220,66 @@ Open a file in the sandbox synchronously.
 
 - `SandboxFileIO` - File handle
 
+<a id="koyeb.sandbox.filesystem.SandboxFilesystem.sync"></a>
+
+#### sync
+
+```python
+def sync(local: str,
+         remote: Optional[str] = None,
+         *,
+         direction: str = "push",
+         delete: bool = False,
+         exclude: Sequence[str] = (),
+         checksum: bool = False,
+         dry_run: bool = False) -> Dict[str, int]
+```
+
+Sync a directory with the sandbox, one way like ``rsync -r``.
+
+Both sides are listed (a local walk against the executor's
+NDJSON listing) and diffed on path, type, size and mtime —
+whole seconds, like rsync's default; ``checksum=True`` adds a
+sha256 comparison for files that pass that test. On push, the
+changed set travels as ~50 MiB gzip'd tar batches through
+/files/archive; on pull, the remote tree's archive streams down
+and only the changed set is extracted. Files larger than one
+batch go through upload_file/download_file instead (multipart
+on executors v0.0.24+, resumable downloads), and a pull's
+archive leaves them out so their bytes travel once.
+Symlinks travel as links, modes are kept, owners are not.
+
+A no-op sync sends nothing: nothing is transferred or deleted;
+beyond the listing only ``checksum=True`` asks more — one sha256
+stat per size-and-mtime-equal file. With ``delete=True`` the
+destination is pruned to match (a directory counts as one
+deletion); deletes ride the legacy routes, which every executor
+serves. ``dry_run=True`` computes the result without touching
+either side.
+
+**Arguments**:
+
+- `local` - Local directory path
+- `remote` - Destination path in the sandbox; relative paths
+  resolve under the sandbox workdir. None uses local's
+  relative form (its basename when absolute), rsync-style
+- `direction` - "push" (local → sandbox) or "pull" (sandbox → local)
+- `delete` - Remove destination entries absent from the source
+- `exclude` - Glob patterns; a matching path (or any /-separated
+  suffix of it) is skipped, a matching directory whole
+- `checksum` - Compare sha256 for size-and-mtime-equal files
+- `dry_run` - Compute the plan only, transfer nothing
+  
+
+**Returns**:
+
+  {"uploaded"|"downloaded", "deleted", "skipped", "bytes"}
+  
+
+**Raises**:
+
+- `SandboxFilesystemError` - On any failure, the filesystem taxonomy
+
 <a id="koyeb.sandbox.filesystem.AsyncSandboxFilesystem"></a>
 
 ## AsyncSandboxFilesystem Objects
@@ -3512,22 +4297,28 @@ Uses native async I/O via AsyncSandboxClient.
 
 ```python
 async def write_file(path: str,
-                     content: Union[str, bytes],
+                     content: Union[str, bytes, BinaryIO, Iterable[bytes]],
                      encoding: str = "utf-8",
+                     *,
                      mode: Optional[str] = None) -> None
 ```
 
 Write content to a file asynchronously.
 
 On executors v0.0.24+ the content streams through PUT /files,
-binary-safe: any byte sequence lands on disk as-is, and
-encoding="base64" decodes to the real bytes. Older executors are
-detected once per handle and keep the legacy JSON behavior.
+binary-safe: any byte sequence lands on disk as-is.
+encoding="base64" decodes str and bytes content to the real
+bytes; BinaryIO and iterables stream as-is, ignoring it. Older
+executors are detected once per handle and keep the legacy JSON behavior —
+which cannot carry streamed content (BinaryIO, an iterable of
+chunks): that raises and names v0.0.24.
 
 **Arguments**:
 
 - `path` - Absolute path to the file
-- `content` - Content to write (string or bytes)
+- `content` - Content to write — string, bytes, a file object or an
+  iterable of bytes chunks (the last two require executor
+  v0.0.24+)
 - `encoding` - File encoding (default: "utf-8"). Use "base64" for binary data.
 - `mode` - Octal permission string, e.g. "0644" (streamed routes only;
   the legacy routes keep the destination's mode)
@@ -3573,8 +4364,8 @@ async def open_read(path: str) -> AsyncIterator[bytes]
 Stream a file's bytes from the sandbox, chunk by chunk.
 
 Constant memory on both sides (executor v0.0.24+). On legacy
-executors the whole file is read at once and yielded as a single
-chunk.
+executors the file is read once as text and yielded as a single
+chunk — binary-safe streaming is not available there.
 
 **Arguments**:
 
@@ -3751,20 +4542,26 @@ Check if path is a directory asynchronously
 #### upload\_file
 
 ```python
-async def upload_file(
-        local_path: str,
-        remote_path: str,
-        encoding: str = "utf-8",
-        *,
-        progress: Optional[Callable[[int, int], None]] = None) -> None
+async def upload_file(local_path: str,
+                      remote_path: str,
+                      encoding: str = "utf-8",
+                      *,
+                      progress: Optional[Callable[[int, int], None]] = None,
+                      timeout: Optional[float] = None,
+                      part_size: int = UPLOAD_PART_SIZE,
+                      concurrency: int = UPLOAD_CONCURRENCY) -> None
 ```
 
 Upload a local file to the sandbox asynchronously.
 
 On executors v0.0.24+ the file streams from disk through PUT
 /files — binary-safe, constant memory — with optional progress
-callbacks. Older executors keep the legacy JSON behavior (the
-encoding parameter applies there only).
+callbacks. A file larger than part_size uploads as a multipart
+session: up to `concurrency` parts in flight, each read from disk
+at its offset, per-part sha256, timed-out parts split into
+halves, and a complete that reports missing ranges fills them
+and completes again. Older executors keep the legacy JSON
+behavior (the encoding parameter applies there only).
 
 **Arguments**:
 
@@ -3774,6 +4571,13 @@ encoding parameter applies there only).
   streamed routes are binary-safe and ignore it
 - `progress` - Optional callback(done, total), called at most every
   100 ms during the transfer plus a final call
+- `timeout` - Seconds without progress before the transfer's
+  requests fail (default: the 60 s idle bound)
+- `part_size` - Bytes per multipart part (default 50 MiB, capped by
+  the executor's max_part_size); a file at or below it takes
+  the single streamed PUT
+- `concurrency` - Parts in flight for a multipart upload (default 4;
+  memory holds at most part_size x concurrency)
   
 
 **Raises**:
@@ -3785,12 +4589,12 @@ encoding parameter applies there only).
 #### download\_file
 
 ```python
-async def download_file(
-        remote_path: str,
-        local_path: str,
-        encoding: str = "utf-8",
-        *,
-        progress: Optional[Callable[[int, int], None]] = None) -> None
+async def download_file(remote_path: str,
+                        local_path: str,
+                        encoding: str = "utf-8",
+                        *,
+                        progress: Optional[Callable[[int, int], None]] = None,
+                        timeout: Optional[float] = None) -> None
 ```
 
 Download a file from the sandbox to a local path asynchronously.
@@ -3808,6 +4612,8 @@ Older executors keep the legacy JSON behavior.
   streamed routes are binary-safe and ignore it
 - `progress` - Optional callback(done, total), called at most every
   100 ms during the transfer plus a final call
+- `timeout` - Seconds without progress before the transfer's stream
+  fails (default: the 60 s idle bound)
   
 
 **Raises**:
@@ -3870,6 +4676,66 @@ Open a file in the sandbox asynchronously.
 **Returns**:
 
 - `AsyncSandboxFileIO` - Async file handle
+
+<a id="koyeb.sandbox.filesystem.AsyncSandboxFilesystem.sync"></a>
+
+#### sync
+
+```python
+async def sync(local: str,
+               remote: Optional[str] = None,
+               *,
+               direction: str = "push",
+               delete: bool = False,
+               exclude: Sequence[str] = (),
+               checksum: bool = False,
+               dry_run: bool = False) -> Dict[str, int]
+```
+
+Sync a directory with the sandbox, one way like ``rsync -r``.
+
+Both sides are listed (a local walk against the executor's
+NDJSON listing) and diffed on path, type, size and mtime —
+whole seconds, like rsync's default; ``checksum=True`` adds a
+sha256 comparison for files that pass that test. On push, the
+changed set travels as ~50 MiB gzip'd tar batches through
+/files/archive; on pull, the remote tree's archive streams down
+and only the changed set is extracted. Files larger than one
+batch go through upload_file/download_file instead (multipart
+on executors v0.0.24+, resumable downloads), and a pull's
+archive leaves them out so their bytes travel once.
+Symlinks travel as links, modes are kept, owners are not.
+
+A no-op sync sends nothing: nothing is transferred or deleted;
+beyond the listing only ``checksum=True`` asks more — one sha256
+stat per size-and-mtime-equal file. With ``delete=True`` the
+destination is pruned to match (a directory counts as one
+deletion); deletes ride the legacy routes, which every executor
+serves. ``dry_run=True`` computes the result without touching
+either side.
+
+**Arguments**:
+
+- `local` - Local directory path
+- `remote` - Destination path in the sandbox; relative paths
+  resolve under the sandbox workdir. None uses local's
+  relative form (its basename when absolute), rsync-style
+- `direction` - "push" (local → sandbox) or "pull" (sandbox → local)
+- `delete` - Remove destination entries absent from the source
+- `exclude` - Glob patterns; a matching path (or any /-separated
+  suffix of it) is skipped, a matching directory whole
+- `checksum` - Compare sha256 for size-and-mtime-equal files
+- `dry_run` - Compute the plan only, transfer nothing
+  
+
+**Returns**:
+
+  {"uploaded"|"downloaded", "deleted", "skipped", "bytes"}
+  
+
+**Raises**:
+
+- `SandboxFilesystemError` - On any failure, the filesystem taxonomy
 
 <a id="koyeb.sandbox.filesystem.SandboxFileIO"></a>
 
@@ -3967,6 +4833,12 @@ same ``request_id`` returns the same claim), retrying transient failures
 #### DEFAULT\_CLAIM\_RETRY\_DELAY
 
 seconds; linear: delay * attempt number
+
+<a id="koyeb.sandbox.pool.DEFAULT_CLAIM_POLL_INTERVAL"></a>
+
+#### DEFAULT\_CLAIM\_POLL\_INTERVAL
+
+seconds; the backoff starts at 0.1
 
 <a id="koyeb.sandbox.pool.ClaimResult"></a>
 
@@ -4096,6 +4968,9 @@ General service-health polling: returns True on ready, False on
 timeout, and raises :class:`ServiceTerminalStateError` on terminal
 states. Transient Get Service failures are treated as in-progress and
 retried until the timeout (they dominate while a cold claim provisions).
+
+Polls after 0.1s, then doubles the interval each time up to
+``poll_interval``.
 
 <a id="koyeb.sandbox.pool.wait_claim_ready_async"></a>
 
