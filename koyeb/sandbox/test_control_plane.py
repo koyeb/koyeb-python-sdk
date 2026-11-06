@@ -2,7 +2,9 @@
 error mapping exactly where the orchestration contract demands it."""
 
 import asyncio
+import os
 import unittest
+from unittest import mock
 from types import SimpleNamespace
 
 from koyeb.api.exceptions import ApiException, NotFoundException
@@ -15,6 +17,8 @@ from koyeb.sandbox.control_plane import (
     DeploymentInfo,
     ServiceInfo,
     SyncControlPlane,
+    _deployment_info,
+    select_sandbox_url,
 )
 from koyeb.sandbox.errors import SandboxError
 
@@ -288,6 +292,50 @@ class TestAsyncControlPlane(unittest.TestCase):
         new_id = asyncio.run(cp.update_service("svc-1", {"env": []}))
         self.assertEqual(new_id, "depl-new")
         self.assertIsNotNone(sent[0].definition)
+
+
+class TestSelectSandboxUrl(unittest.TestCase):
+    PUBLIC = "https://sandboxes.example.com"
+    INTERNAL = "http://sandbox-gateway.koyeb.svc.cluster.local"
+
+    def _meta(self, internal=INTERNAL):
+        return SimpleNamespace(public_url=self.PUBLIC, internal_url=internal)
+
+    def _select(self, meta, resolves, extra_env=None):
+        env = {k: v for k, v in os.environ.items() if k != "KOYEB_SANDBOX_URL"}
+        env.update(extra_env or {})
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch(
+            "koyeb.sandbox.control_plane._resolves", return_value=resolves
+        ):
+            return select_sandbox_url(meta)
+
+    def test_no_internal_url_uses_public(self):
+        self.assertEqual(self._select(self._meta(internal=None), True), self.PUBLIC)
+
+    def test_old_model_without_field_uses_public(self):
+        meta = SimpleNamespace(public_url=self.PUBLIC)
+        self.assertEqual(self._select(meta, True), self.PUBLIC)
+
+    def test_in_cluster_uses_internal(self):
+        self.assertEqual(self._select(self._meta(), True), self.INTERNAL)
+
+    def test_outside_cluster_uses_public(self):
+        self.assertEqual(self._select(self._meta(), False), self.PUBLIC)
+
+    def test_env_forces_public(self):
+        env = {"KOYEB_SANDBOX_URL": "public"}
+        self.assertEqual(self._select(self._meta(), True, env), self.PUBLIC)
+
+    def test_env_forces_internal(self):
+        env = {"KOYEB_SANDBOX_URL": "internal"}
+        self.assertEqual(self._select(self._meta(), False, env), self.INTERNAL)
+
+    def test_deployment_info_uses_selected_url(self):
+        deployment = _fake_deployment()
+        deployment.metadata.sandbox.internal_url = self.INTERNAL
+        with mock.patch("koyeb.sandbox.control_plane._resolves", return_value=True):
+            info = _deployment_info(deployment)
+        self.assertEqual(info.sandbox_url, self.INTERNAL)
 
 
 if __name__ == "__main__":

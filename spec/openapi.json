@@ -19836,6 +19836,10 @@
         },
         "routing_key": {
           "type": "string"
+        },
+        "internal_url": {
+          "type": "string",
+          "title": "In-cluster url of the sandbox gateway, for clients running in the same k8s cluster"
         }
       }
     },
