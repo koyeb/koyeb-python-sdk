@@ -311,6 +311,60 @@ class _FakeAsyncExecutorTree(_FakeExecutorTree):
         return _FakeExecutorTree.files_upload_abort(self, upload_id)
 
 
+class _ScriptedExecutorTree(_FakeExecutorTree):
+    """An executor whose listing and archive are given verbatim: a pull
+    must stay inside its destination whatever the sandbox sends."""
+
+    def __init__(self, root, listing, members):
+        super().__init__(root)
+        self.listing = listing
+        self.members = members
+
+    def files_list(self, path, recursive=False):
+        self.calls.append(("files_list", path, recursive))
+        return iter(self.listing)
+
+    def files_archive_get(self, path, exclude=()):
+        import io
+        import tarfile
+
+        self.calls.append(("files_archive_get", path, tuple(exclude)))
+        out = io.BytesIO()
+        with tarfile.open(fileobj=out, mode="w:gz") as tar:
+            for name, linkname, payload in self.members:
+                info = tarfile.TarInfo(name)
+                if linkname is not None:
+                    info.type = tarfile.SYMTYPE
+                    info.linkname = linkname
+                    tar.addfile(info)
+                else:
+                    info.size = len(payload)
+                    tar.addfile(info, io.BytesIO(payload))
+        yield out.getvalue()
+
+    def files_stat(self, path, hash=None):
+        return {
+            "type": "file",
+            "size": 2,
+            "mode": "0644",
+            "mtime": "2026-10-27T10:00:00Z",
+        }
+
+    def files_read(self, path, chunk_size=65536, timeout=None):
+        self.calls.append(("files_read", path))
+        yield b"hi"
+
+
+def _listed(path, type_, size=0):
+    return {
+        "path": path,
+        "type": type_,
+        "size": size,
+        "mode": "0644",
+        "mtime": "2026-10-27T10:00:00Z",
+    }
+
+
 class _FakeLegacyExecutor:
     """An executor without the streamed /files routes."""
 
@@ -922,6 +976,94 @@ class TestSyncPull(SyncTestCase):
             with self.assertRaises(SandboxFileNotFoundError):
                 fs.sync(local, "missing", direction="pull")
 
+    def _outside(self):
+        outside = os.path.join(self.base, "outside")
+        _write(os.path.join(outside, "child.txt"), b"keep")
+        return outside
+
+    def test_pull_refuses_listing_path_outside_dest(self):
+        outside = self._outside()
+        fake = _ScriptedExecutorTree(
+            self.remote_root,
+            [_listed("../outside/evil.txt", "file", 2)],
+            [("../outside/evil.txt", None, b"hi")],
+        )
+        dest = os.path.join(self.base, "dest")
+
+        with _fs(fake) as fs:
+            with self.assertRaises(SandboxFilesystemError):
+                fs.sync(dest, "dst", direction="pull")
+
+        self.assertEqual(os.listdir(outside), ["child.txt"])
+        self.assertEqual([c for c in fake.calls if c[0] == "files_archive_get"], [])
+
+    def test_pull_refuses_member_through_symlink(self):
+        outside = self._outside()
+        fake = _ScriptedExecutorTree(
+            self.remote_root,
+            [_listed("a", "symlink"), _listed("a/evil.txt", "file", 2)],
+            [("a", outside, None), ("a/evil.txt", None, b"hi")],
+        )
+        dest = os.path.join(self.base, "dest")
+
+        with _fs(fake) as fs:
+            with self.assertRaises(SandboxFilesystemError):
+                fs.sync(dest, "dst", direction="pull")
+
+        self.assertEqual(os.listdir(outside), ["child.txt"])
+
+    def test_pull_refuses_oversized_download_through_symlink(self):
+        outside = self._outside()
+        fake = _ScriptedExecutorTree(
+            self.remote_root,
+            [
+                _listed("a", "symlink"),
+                _listed("a/big.bin", "file", SYNC_BATCH_BYTES + 1),
+            ],
+            [("a", outside, None)],
+        )
+        dest = os.path.join(self.base, "dest")
+
+        with _fs(fake) as fs:
+            with self.assertRaises(SandboxFilesystemError):
+                fs.sync(dest, "dst", direction="pull")
+
+        self.assertEqual(os.listdir(outside), ["child.txt"])
+        self.assertEqual([c for c in fake.calls if c[0] == "files_read"], [])
+
+    def test_pull_oversized_part_symlink_not_followed(self):
+        # The archive lands before the oversized downloads: a symlink at
+        # <name>.part must not carry the download's bytes elsewhere.
+        victim = os.path.join(self._outside(), "child.txt")
+        remote = os.path.join(self.remote_root, "dst")
+        big = os.path.join(remote, "big.bin")
+        _write(big, b"")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+        os.symlink(victim, os.path.join(remote, "big.bin.part"))
+        dest = os.path.join(self.base, "dest")
+
+        with _fs(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError):
+                fs.sync(dest, "dst", direction="pull")
+
+        with open(victim, "rb") as f:
+            self.assertEqual(f.read(), b"keep")
+
+    def test_pull_type_flip_to_symlink_deletes_nothing_through_it(self):
+        outside = self._outside()
+        os.makedirs(os.path.join(self.remote_root, "dst"))
+        os.symlink(outside, os.path.join(self.remote_root, "dst", "flip"))
+        dest = os.path.join(self.base, "dest")
+        _write(os.path.join(dest, "flip", "child.txt"))
+
+        with _fs(self.fake) as fs:
+            result = fs.sync(dest, "dst", direction="pull", delete=True)
+
+        self.assertTrue(os.path.islink(os.path.join(dest, "flip")))
+        self.assertEqual(os.listdir(outside), ["child.txt"])
+        self.assertEqual(result["deleted"], 1)
+
 
 class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -1289,6 +1431,39 @@ class TestAsyncSyncPush(unittest.IsolatedAsyncioTestCase):
         # Both file entries passed the size+mtime test, so both hashed.
         self.assertEqual(len([c for c in self.fake.calls if c[0] == "files_stat"]), 2)
 
+    async def test_pull_oversized_part_symlink_not_followed(self):
+        victim = os.path.join(self.base, "outside", "child.txt")
+        _write(victim, b"keep")
+        remote = os.path.join(self.remote_root, "dst")
+        big = os.path.join(remote, "big.bin")
+        _write(big, b"")
+        with open(big, "wb") as f:
+            f.truncate(SYNC_BATCH_BYTES + 1)
+        os.symlink(victim, os.path.join(remote, "big.bin.part"))
+        dest = os.path.join(self.base, "dest")
+
+        async with _async_ctx(self.fake) as fs:
+            with self.assertRaises(SandboxFilesystemError):
+                await fs.sync(dest, "dst", direction="pull")
+
+        with open(victim, "rb") as f:
+            self.assertEqual(f.read(), b"keep")
+
+    async def test_pull_type_flip_to_symlink_deletes_nothing_through_it(self):
+        outside = os.path.join(self.base, "outside")
+        _write(os.path.join(outside, "child.txt"), b"keep")
+        os.makedirs(os.path.join(self.remote_root, "dst"))
+        os.symlink(outside, os.path.join(self.remote_root, "dst", "flip"))
+        dest = os.path.join(self.base, "dest")
+        _write(os.path.join(dest, "flip", "child.txt"))
+
+        async with _async_ctx(self.fake) as fs:
+            result = await fs.sync(dest, "dst", direction="pull", delete=True)
+
+        self.assertTrue(os.path.islink(os.path.join(dest, "flip")))
+        self.assertEqual(os.listdir(outside), ["child.txt"])
+        self.assertEqual(result["deleted"], 1)
+
     async def test_pull_delete_removes_local_extras(self):
         source = _local_tree(self.base)
         async with _async_ctx(self.fake) as fs:
@@ -1329,6 +1504,15 @@ class TestJoinHelpers(unittest.TestCase):
         self.assertEqual(
             join_local("/base", "a/b.txt"), os.path.join("/base", "a", "b.txt")
         )
+
+    def test_join_local_refuses_paths_outside_root(self):
+        from koyeb.sandbox.sync import join_local
+
+        with tempfile.TemporaryDirectory() as root:
+            os.symlink(tempfile.gettempdir(), os.path.join(root, "link"))
+            for rel in ("../x", "/etc/x", "a/../../x", "link/x"):
+                with self.subTest(rel=rel), self.assertRaises(ValueError):
+                    join_local(root, rel)
 
 
 if __name__ == "__main__":
