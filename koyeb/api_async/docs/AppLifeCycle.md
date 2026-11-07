@@ -5,7 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**delete_when_empty** | **bool** |  | [optional] 
+**delete_when_empty** | **bool** | If true, the app is deleted once it has no service left: either when its last service is deleted or, for an app that never had a service, once it is older than 15 minutes. | [optional] 
 
 ## Example
 

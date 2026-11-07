@@ -5,7 +5,7 @@
 """
     Koyeb Rest API
 
-    The Koyeb API allows you to interact with the Koyeb platform in a simple, programmatic way using conventional HTTP requests. 
+    Welcome to the Koyeb API documentation.  The Koyeb API allows you to interact with the Koyeb platform in a simple, programmatic way using conventional HTTP requests. The API has predictable resource-oriented URLs, allowing you to request, retrieve and execute actions on resources efficiently.  The API returns JSON-encoded responses and uses standard HTTP response codes, and verbs.  All of the functionality available in the Koyeb Control Panel is also available via the API, allowing you to automate repetitive and complex actions as required.  All production API requests are made to:  - https://app.koyeb.com/<version>  All data is sent and received as JSON.  ## Constructing Requests  Requests are made of three components:  - Base URL: `https://app.koyeb.com` - API Version: `v1` - Resource path: `apps`  To construct a proper request, you need to format the URL as follows:  `https://app.koyeb.com/{version}/{resource}`  Example: `https://app.koyeb.com/v1/apps`  The following code is an example request to retrieve the list of Apps.  ``` $ curl -H 'Authorization: Bearer 1111-1111-1111-1111-1111' https://app.koyeb.com/v1/apps {   \"apps\": [     {       \"id\": \"e267e09d-a2ef-4672-95c7-bf88d787a274\",       \"name\": \"demo\",       \"organization_id\": \"c402bcad-d06d-4fd6-8af2-08b790c0e249\",       \"updated_at\": \"2021-04-26T08:28:59.221274Z\",       \"created_at\": \"2021-04-26T08:28:59.221274Z\",       \"domains\": [         {           \"name\": \"demo-koyeb.koyeb.app\",           \"deployment_group\": \"prod\"         }       ]     },     {       \"id\": \"e38caea5-5acb-4fec-aa65-81749546b470\",       \"name\": \"www\",       \"organization_id\": \"c402bcad-d06d-4fd6-8af2-08b790c0e249\",       \"updated_at\": \"2021-05-04T08:56:40.557792Z\",       \"created_at\": \"2021-05-04T08:56:40.557792Z\",       \"domains\": [         {           \"name\": \"www-koyeb.koyeb.app\",           \"deployment_group\": \"prod\"         }       ]     }   ],   \"limit\": 20,   \"offset\": 0,   \"count\": 2 } ```  # Authentication  The Koyeb API uses API keys to authenticate requests. You can view and manage your API keys in the Koyeb Control Panel.  Your API keys carry many privileges. Take care to keep them secure! Do not share your secret API keys in publicly accessible areas such as GitHub, Slack, client-side code, and so forth.  To make an authenticated request, include a bearer-type Authorization header containing your API key, prefixed with `Bearer `:  ``` Authorization: Bearer <your-api-key> ```  All API requests must be made over HTTPS. Calls made over plain HTTP will fail. API requests without authentication will also fail.  # Errors  We use conventional HTTP response codes to indicate the success or failure of an API request.  In general, codes in the 2xx range indicate success, codes in the 4xx range indicate an error that resulted from the provided information (e.g., a required parameter is missing, resource not found), and codes in the 5xx range indicate an error with our servers.  ## HTTP Status Code Summary  - `200 OK` - Everything worked as expected. - `400 Bad Request` - Often missing a required parameter. - `401 Unauthorized` - No valid API key provided. - `402 Request Failed` - Parameters were valid, but the request failed. - `403 Forbidden` - Insufficient privileges to access the requested resource. - `404 Not Found` - The requested item doesn't exist. - `50x` Server errors - Something went wrong on the API domain's end.  Input and output data must be valid JSON with the appropriate Content-Type header set.  ## Attributes  - code:    - `invalid_argument`: Occur when your request has invalid parameters.   - `unknown_resource`: Occur when the resource doesn't exist.   - `authentication_error`: Arise when there is a problem with authentication.   - `rate_limit_error`: Too many requests hit the API too quickly.   - `authorization_required`: You don't have sufficient right to access the resource.   - `api_error`: API errors use in case of a problem with api domain's servers (extremely uncommon).  - message:    - A human-readable error giving more details about the error  - status:    - The HTTP code returned by the server.  - fields (Optional):    - An array of parameters with a human-readable message giving more details about the error.  ## Errors responses example  Response 400 (application/json)  ``` {   \"status\": 400,   \"code\": \"invalid_argument\",   \"message\": \"Invalid argument\",   \"fields\": [     {       \"field\": \"definition.docker.image\",       \"description\": \"cannot be blank\"     }   ] } ```  Response 401 (application/json)  ``` {   \"status\": 401,   \"code\": \"authentication_error\",   \"message\": \"Request unauthenticated with bearer\" } ```  Response 403 (application/json)  ``` {   \"status\": 403,   \"code\": \"authentication_required\",   \"message\": \"You don't have the requested permission to access to resource.\" } ```   Response 404 (application/json)  ``` {   \"status\": 404,   \"code\": \"unknown_resource\",   \"message\": \"App not found\" } ```  # Pagination  All top-level API resources receive a paginated response. For instance, list Apps, list Services, and others share a standard structure, taking two parameters: limit and offset.  **Paginated request**  Requests against paginated endpoints accept two query string arguments:  * *limit*, a positive integer lower or equal to 100 to select the number of items to display. * *offset*, an integer to indicate the position to start at.  Paginated endpoints usually also accept filters to search and sort results. These filters are documented along with each endpoint documentation. 
 
     The version of the OpenAPI document: 1.0.0
     Generated by OpenAPI Generator (https://openapi-generator.tech)
@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.5.6"
+__version__ = "1.5.7"
 
 # Define package exports
 __all__ = [
@@ -51,6 +51,7 @@ __all__ = [
     "SearchApi",
     "SecretsApi",
     "ServicePoolsApi",
+    "ServiceViewsApi",
     "ServicesApi",
     "SessionsApi",
     "SnapshotsApi",
@@ -87,6 +88,7 @@ __all__ = [
     "Archive",
     "ArchiveDeploymentMetadata",
     "ArchiveSource",
+    "ArchiveStatus",
     "AutoRelease",
     "AutoReleaseGroup",
     "AutocompleteReply",
@@ -221,6 +223,7 @@ __all__ = [
     "GCPContainerRegistryConfiguration",
     "GRPCHealthCheck",
     "GetAppReply",
+    "GetArchiveReply",
     "GetBudgetReply",
     "GetCatalogInstanceReply",
     "GetCredentialReply",
@@ -306,6 +309,7 @@ __all__ = [
     "LifecycleQuotas",
     "ListAppEventsReply",
     "ListAppsReply",
+    "ListArchivesReply",
     "ListCatalogInstancesReply",
     "ListCredentialsReply",
     "ListDatacentersReply",
@@ -395,6 +399,11 @@ __all__ = [
     "PublicUser",
     "QueryLogsReply",
     "QueryLogsReplyPagination",
+    "QueryServicesViewFilters",
+    "QueryServicesViewReply",
+    "QueryServicesViewSort",
+    "QueryServicesViewSortDirection",
+    "QueryServicesViewSortField",
     "QuotaUsage",
     "Quotas",
     "ReactivateOrganizationReply",
@@ -441,6 +450,19 @@ __all__ = [
     "ServiceSummary",
     "ServiceType",
     "ServiceUsage",
+    "ServiceViewActiveDeployment",
+    "ServiceViewActiveDeploymentState",
+    "ServiceViewApp",
+    "ServiceViewFacet",
+    "ServiceViewFacetKind",
+    "ServiceViewFacetValue",
+    "ServiceViewGroup",
+    "ServiceViewGroupBy",
+    "ServiceViewLatestDeployment",
+    "ServiceViewLatestDeploymentState",
+    "ServiceViewRow",
+    "ServiceViewSource",
+    "ServiceViewSourceType",
     "Snapshot",
     "SnapshotStatus",
     "SnapshotType",
@@ -557,6 +579,7 @@ from koyeb.api_async.api.repositories_api import RepositoriesApi as Repositories
 from koyeb.api_async.api.search_api import SearchApi as SearchApi
 from koyeb.api_async.api.secrets_api import SecretsApi as SecretsApi
 from koyeb.api_async.api.service_pools_api import ServicePoolsApi as ServicePoolsApi
+from koyeb.api_async.api.service_views_api import ServiceViewsApi as ServiceViewsApi
 from koyeb.api_async.api.services_api import ServicesApi as ServicesApi
 from koyeb.api_async.api.sessions_api import SessionsApi as SessionsApi
 from koyeb.api_async.api.snapshots_api import SnapshotsApi as SnapshotsApi
@@ -601,6 +624,7 @@ from koyeb.api_async.models.archive_deployment_metadata import (
     ArchiveDeploymentMetadata as ArchiveDeploymentMetadata,
 )
 from koyeb.api_async.models.archive_source import ArchiveSource as ArchiveSource
+from koyeb.api_async.models.archive_status import ArchiveStatus as ArchiveStatus
 from koyeb.api_async.models.auto_release import AutoRelease as AutoRelease
 from koyeb.api_async.models.auto_release_group import (
     AutoReleaseGroup as AutoReleaseGroup,
@@ -919,6 +943,7 @@ from koyeb.api_async.models.gcp_container_registry_configuration import (
 )
 from koyeb.api_async.models.grpc_health_check import GRPCHealthCheck as GRPCHealthCheck
 from koyeb.api_async.models.get_app_reply import GetAppReply as GetAppReply
+from koyeb.api_async.models.get_archive_reply import GetArchiveReply as GetArchiveReply
 from koyeb.api_async.models.get_budget_reply import GetBudgetReply as GetBudgetReply
 from koyeb.api_async.models.get_catalog_instance_reply import (
     GetCatalogInstanceReply as GetCatalogInstanceReply,
@@ -1128,6 +1153,9 @@ from koyeb.api_async.models.list_app_events_reply import (
     ListAppEventsReply as ListAppEventsReply,
 )
 from koyeb.api_async.models.list_apps_reply import ListAppsReply as ListAppsReply
+from koyeb.api_async.models.list_archives_reply import (
+    ListArchivesReply as ListArchivesReply,
+)
 from koyeb.api_async.models.list_catalog_instances_reply import (
     ListCatalogInstancesReply as ListCatalogInstancesReply,
 )
@@ -1347,6 +1375,21 @@ from koyeb.api_async.models.query_logs_reply import QueryLogsReply as QueryLogsR
 from koyeb.api_async.models.query_logs_reply_pagination import (
     QueryLogsReplyPagination as QueryLogsReplyPagination,
 )
+from koyeb.api_async.models.query_services_view_filters import (
+    QueryServicesViewFilters as QueryServicesViewFilters,
+)
+from koyeb.api_async.models.query_services_view_reply import (
+    QueryServicesViewReply as QueryServicesViewReply,
+)
+from koyeb.api_async.models.query_services_view_sort import (
+    QueryServicesViewSort as QueryServicesViewSort,
+)
+from koyeb.api_async.models.query_services_view_sort_direction import (
+    QueryServicesViewSortDirection as QueryServicesViewSortDirection,
+)
+from koyeb.api_async.models.query_services_view_sort_field import (
+    QueryServicesViewSortField as QueryServicesViewSortField,
+)
 from koyeb.api_async.models.quota_usage import QuotaUsage as QuotaUsage
 from koyeb.api_async.models.quotas import Quotas as Quotas
 from koyeb.api_async.models.reactivate_organization_reply import (
@@ -1441,6 +1484,41 @@ from koyeb.api_async.models.service_status import ServiceStatus as ServiceStatus
 from koyeb.api_async.models.service_summary import ServiceSummary as ServiceSummary
 from koyeb.api_async.models.service_type import ServiceType as ServiceType
 from koyeb.api_async.models.service_usage import ServiceUsage as ServiceUsage
+from koyeb.api_async.models.service_view_active_deployment import (
+    ServiceViewActiveDeployment as ServiceViewActiveDeployment,
+)
+from koyeb.api_async.models.service_view_active_deployment_state import (
+    ServiceViewActiveDeploymentState as ServiceViewActiveDeploymentState,
+)
+from koyeb.api_async.models.service_view_app import ServiceViewApp as ServiceViewApp
+from koyeb.api_async.models.service_view_facet import (
+    ServiceViewFacet as ServiceViewFacet,
+)
+from koyeb.api_async.models.service_view_facet_kind import (
+    ServiceViewFacetKind as ServiceViewFacetKind,
+)
+from koyeb.api_async.models.service_view_facet_value import (
+    ServiceViewFacetValue as ServiceViewFacetValue,
+)
+from koyeb.api_async.models.service_view_group import (
+    ServiceViewGroup as ServiceViewGroup,
+)
+from koyeb.api_async.models.service_view_group_by import (
+    ServiceViewGroupBy as ServiceViewGroupBy,
+)
+from koyeb.api_async.models.service_view_latest_deployment import (
+    ServiceViewLatestDeployment as ServiceViewLatestDeployment,
+)
+from koyeb.api_async.models.service_view_latest_deployment_state import (
+    ServiceViewLatestDeploymentState as ServiceViewLatestDeploymentState,
+)
+from koyeb.api_async.models.service_view_row import ServiceViewRow as ServiceViewRow
+from koyeb.api_async.models.service_view_source import (
+    ServiceViewSource as ServiceViewSource,
+)
+from koyeb.api_async.models.service_view_source_type import (
+    ServiceViewSourceType as ServiceViewSourceType,
+)
 from koyeb.api_async.models.snapshot import Snapshot as Snapshot
 from koyeb.api_async.models.snapshot_status import SnapshotStatus as SnapshotStatus
 from koyeb.api_async.models.snapshot_type import SnapshotType as SnapshotType
