@@ -3,6 +3,7 @@ error mapping exactly where the orchestration contract demands it."""
 
 import asyncio
 import os
+import socket
 import unittest
 from unittest import mock
 from types import SimpleNamespace
@@ -17,8 +18,8 @@ from koyeb.sandbox.control_plane import (
     DeploymentInfo,
     ServiceInfo,
     SyncControlPlane,
-    _deployment_info,
     select_sandbox_url,
+    select_sandbox_url_async,
 )
 from koyeb.sandbox.errors import SandboxError
 
@@ -301,8 +302,14 @@ class TestSelectSandboxUrl(unittest.TestCase):
     def _meta(self, internal=INTERNAL):
         return SimpleNamespace(public_url=self.PUBLIC, internal_url=internal)
 
-    def _select(self, meta, resolves, extra_env=None):
-        env = {k: v for k, v in os.environ.items() if k != "KOYEB_SANDBOX_URL"}
+    def _select(self, meta, resolves, extra_env=None, in_pod=True):
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("KOYEB_SANDBOX_URL", "KUBERNETES_SERVICE_HOST")
+        }
+        if in_pod:
+            env["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
         env.update(extra_env or {})
         with mock.patch.dict(os.environ, env, clear=True), mock.patch(
             "koyeb.sandbox.control_plane._resolves", return_value=resolves
@@ -330,11 +337,88 @@ class TestSelectSandboxUrl(unittest.TestCase):
         env = {"KOYEB_SANDBOX_URL": "internal"}
         self.assertEqual(self._select(self._meta(), False, env), self.INTERNAL)
 
-    def test_deployment_info_uses_selected_url(self):
+    def test_outside_kubernetes_skips_lookup(self):
+        with mock.patch("koyeb.sandbox.control_plane.socket.getaddrinfo") as lookup:
+            url = self._select_real_dns(self._meta(), in_pod=False)
+        self.assertEqual(url, self.PUBLIC)
+        lookup.assert_not_called()
+
+    def test_env_url_override(self):
+        env = {"KOYEB_SANDBOX_URL": "https://gw.custom.example/"}
+        self.assertEqual(
+            self._select(self._meta(), True, env), "https://gw.custom.example"
+        )
+
+    def test_env_url_override_without_internal_url(self):
+        env = {"KOYEB_SANDBOX_URL": "https://gw.custom.example"}
+        self.assertEqual(
+            self._select(self._meta(internal=None), False, env, in_pod=False),
+            "https://gw.custom.example",
+        )
+
+    def test_failed_lookup_is_not_cached(self):
+        host = "sandbox-gateway.retry-test.svc"
+        meta = self._meta(internal=f"http://{host}")
+        calls = [socket.gaierror(), [("ok",)]]
+
+        def fake_lookup(*args, **kwargs):
+            result = calls.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        with mock.patch(
+            "koyeb.sandbox.control_plane.socket.getaddrinfo", side_effect=fake_lookup
+        ):
+            self.assertEqual(self._select_real_dns(meta), self.PUBLIC)
+            self.assertEqual(self._select_real_dns(meta), meta.internal_url)
+
+    def test_async_lookup_does_not_block(self):
+        host = "sandbox-gateway.async-test.svc"
+        meta = self._meta(internal=f"http://{host}")
+
+        async def run():
+            loop = asyncio.get_running_loop()
+            with mock.patch.object(
+                loop, "getaddrinfo", mock.AsyncMock(return_value=[("ok",)])
+            ) as lookup, mock.patch(
+                "koyeb.sandbox.control_plane.socket.getaddrinfo"
+            ) as blocking:
+                url = await select_sandbox_url_async(meta)
+            lookup.assert_awaited_once()
+            blocking.assert_not_called()
+            return url
+
+        with mock.patch.dict(
+            os.environ, {"KUBERNETES_SERVICE_HOST": "10.0.0.1", "KOYEB_SANDBOX_URL": ""}
+        ):
+            self.assertEqual(asyncio.run(run()), meta.internal_url)
+
+    def _select_real_dns(self, meta, in_pod=True):
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("KOYEB_SANDBOX_URL", "KUBERNETES_SERVICE_HOST")
+        }
+        if in_pod:
+            env["KUBERNETES_SERVICE_HOST"] = "10.0.0.1"
+        with mock.patch.dict(os.environ, env, clear=True):
+            return select_sandbox_url(meta)
+
+    def test_get_deployment_uses_selected_url(self):
         deployment = _fake_deployment()
         deployment.metadata.sandbox.internal_url = self.INTERNAL
-        with mock.patch("koyeb.sandbox.control_plane._resolves", return_value=True):
-            info = _deployment_info(deployment)
+        clients = SimpleNamespace(
+            deployments=SimpleNamespace(
+                get_deployment=lambda id: SimpleNamespace(deployment=deployment)
+            )
+        )
+        with mock.patch(
+            "koyeb.sandbox.control_plane._resolves", return_value=True
+        ), mock.patch.dict(
+            os.environ, {"KUBERNETES_SERVICE_HOST": "10.0.0.1", "KOYEB_SANDBOX_URL": ""}
+        ):
+            info = SyncControlPlane(clients).get_deployment("depl-1")
         self.assertEqual(info.sandbox_url, self.INTERNAL)
 
 

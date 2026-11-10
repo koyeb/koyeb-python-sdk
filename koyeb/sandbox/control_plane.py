@@ -14,7 +14,7 @@ propagates where callers clean up (create/delete/update).
 
 from __future__ import annotations
 
-import functools
+import asyncio
 import os
 import socket
 from dataclasses import dataclass
@@ -76,52 +76,102 @@ class DeploymentInfo:
 
 SANDBOX_URL_ENV = "KOYEB_SANDBOX_URL"
 
+# Hosts that resolved once. Failures are not cached: a DNS hiccup at pod start
+# must not pin the process to the public URL.
+_RESOLVED_HOSTS: set = set()
 
-@functools.lru_cache(maxsize=None)
+
 def _resolves(host: str) -> bool:
+    if host in _RESOLVED_HOSTS:
+        return True
     try:
         socket.getaddrinfo(host, None)
-        return True
     except (socket.gaierror, UnicodeError):
         return False
+    _RESOLVED_HOSTS.add(host)
+    return True
+
+
+async def _resolves_async(host: str) -> bool:
+    if host in _RESOLVED_HOSTS:
+        return True
+    try:
+        await asyncio.get_running_loop().getaddrinfo(host, None)
+    except (socket.gaierror, UnicodeError):
+        return False
+    _RESOLVED_HOSTS.add(host)
+    return True
+
+
+def _sandbox_url_without_lookup(
+    sandbox_metadata: Any,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Decide the sandbox URL when no DNS lookup is needed.
+
+    Returns (url, None) when decided, or (None, host) when the internal URL's
+    host must be resolved first.
+    """
+    public_url = getattr(sandbox_metadata, "public_url", None)
+    internal_url = getattr(sandbox_metadata, "internal_url", None)
+    override = os.getenv(SANDBOX_URL_ENV, "").strip()
+    if override.startswith(("http://", "https://")):
+        return override.rstrip("/"), None
+    mode = override.lower()
+    if not internal_url or mode == "public":
+        return public_url, None
+    if mode == "internal" or not public_url:
+        return internal_url, None
+    # Only pods can reach the in-cluster URL; elsewhere skip the lookup, which
+    # can be slow (e.g. mDNS for .local names on macOS).
+    if not os.getenv("KUBERNETES_SERVICE_HOST"):
+        return public_url, None
+    return None, urlparse(internal_url).hostname
 
 
 def select_sandbox_url(sandbox_metadata: Any) -> Optional[str]:
     """Pick which sandbox gateway URL to call.
 
     The API returns a public URL and, on self-hosted clusters, an in-cluster
-    one. The in-cluster URL is used when its host resolves (we run inside the
-    cluster); KOYEB_SANDBOX_URL=internal|public forces the choice.
+    one. Inside a Kubernetes pod the in-cluster URL is used when its host
+    resolves. KOYEB_SANDBOX_URL=internal|public|<url> forces the choice.
     """
-    public_url = getattr(sandbox_metadata, "public_url", None)
-    internal_url = getattr(sandbox_metadata, "internal_url", None)
-    if not internal_url:
-        return public_url
-    mode = os.getenv(SANDBOX_URL_ENV, "").strip().lower()
-    if mode == "public":
-        return public_url
-    if mode == "internal" or not public_url:
-        return internal_url
-    host = urlparse(internal_url).hostname
-    if host and _resolves(host):
-        return internal_url
-    return public_url
+    url, host = _sandbox_url_without_lookup(sandbox_metadata)
+    if host is None:
+        return url
+    if _resolves(host):
+        return sandbox_metadata.internal_url
+    return sandbox_metadata.public_url
 
 
-def _deployment_info(deployment: Any) -> DeploymentInfo:
-    """Model-flavor-agnostic conversion shared by both adapters."""
+async def select_sandbox_url_async(sandbox_metadata: Any) -> Optional[str]:
+    """select_sandbox_url without blocking the event loop on DNS."""
+    url, host = _sandbox_url_without_lookup(sandbox_metadata)
+    if host is None:
+        return url
+    if await _resolves_async(host):
+        return sandbox_metadata.internal_url
+    return sandbox_metadata.public_url
+
+
+def _sandbox_metadata(deployment: Any) -> Any:
+    metadata = getattr(deployment, "metadata", None)
+    return metadata.sandbox if metadata is not None else None
+
+
+def _deployment_info(deployment: Any, sandbox_url: Optional[str]) -> DeploymentInfo:
+    """Model-flavor-agnostic conversion shared by both adapters.
+
+    sandbox_url is picked by the caller (sync or async DNS lookup)."""
     definition = deployment.definition
     env: Dict[str, Optional[str]] = {}
     if definition is not None and definition.env:
         for env_var in definition.env:
             env[env_var.key] = env_var.value
-    sandbox_url = None
     routing_key = None
     proxy_ports: List[Dict[str, Any]] = []
     metadata = getattr(deployment, "metadata", None)
     if metadata is not None:
         if metadata.sandbox is not None:
-            sandbox_url = select_sandbox_url(metadata.sandbox)
             routing_key = metadata.sandbox.routing_key
         for port in metadata.proxy_ports or []:
             proxy_ports.append(
@@ -225,7 +275,9 @@ class SyncControlPlane:
         deployment = self._clients.deployments.get_deployment(
             id=deployment_id
         ).deployment
-        return _deployment_info(deployment)
+        sandbox = _sandbox_metadata(deployment)
+        url = select_sandbox_url(sandbox) if sandbox is not None else None
+        return _deployment_info(deployment, url)
 
     def deployment_definition(self, deployment_id: str) -> Dict[str, Any]:
         deployment = self._clients.deployments.get_deployment(
@@ -320,7 +372,9 @@ class AsyncControlPlane:
         deployment = (
             await self._clients.deployments.get_deployment(id=deployment_id)
         ).deployment
-        return _deployment_info(deployment)
+        sandbox = _sandbox_metadata(deployment)
+        url = await select_sandbox_url_async(sandbox) if sandbox is not None else None
+        return _deployment_info(deployment, url)
 
     async def deployment_definition(self, deployment_id: str) -> Dict[str, Any]:
         deployment = (

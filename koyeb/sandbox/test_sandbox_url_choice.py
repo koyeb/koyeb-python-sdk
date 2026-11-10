@@ -35,7 +35,10 @@ class TestSandboxUrlChoice(unittest.TestCase):
                 "koyeb.sandbox.clients.get_api_clients", return_value=_clients()
             ),
             mock.patch("koyeb.sandbox.control_plane._resolves", return_value=True),
-            mock.patch.dict("os.environ", {"KOYEB_SANDBOX_URL": ""}),
+            mock.patch.dict(
+                "os.environ",
+                {"KOYEB_SANDBOX_URL": "", "KUBERNETES_SERVICE_HOST": "10.0.0.1"},
+            ),
         ]
         for p in patches:
             p.start()
