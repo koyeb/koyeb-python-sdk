@@ -54,6 +54,12 @@ Optionally, set a default region for all sandbox deployments (defaults to `"na"`
 export KOYEB_REGION="fra"
 ```
 
+Optionally, send all sandbox commands and file operations to a specific sandbox gateway instead of the one the API returns (for example an in-cluster Service on a self-hosted cluster):
+
+```bash copy
+export KOYEB_SANDBOX_GATEWAY_URL="http://sandbox-gateway.<namespace>.svc"
+```
+
 ### Example sandbox code
 
 See the [examples](/examples) directory for more basic operations.

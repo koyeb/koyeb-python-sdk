@@ -1138,6 +1138,7 @@ class Sandbox:
     def _get_conn_info(self) -> ConnectionInfo:
         """
         Internal method to get the parameters needed to connect to the sandbox.
+        KOYEB_SANDBOX_GATEWAY_URL, when set, replaces the gateway URL.
 
         Returns:
             ConnectionInfo: the information needed to connect to the sandbox
@@ -1151,6 +1152,11 @@ class Sandbox:
                 "Sandbox URL is not available (the sandbox may no longer exist)"
             )
         sandbox_url, routing_key = url
+        gateway_url = os.getenv("KOYEB_SANDBOX_GATEWAY_URL")
+        if gateway_url:
+            # Full override of the gateway the API advertises, like
+            # KOYEB_API_HOST for the API (e.g. an in-cluster Service).
+            sandbox_url = f"{gateway_url.rstrip('/')}/koyeb-sandbox"
         return ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
 
     def _get_client(self) -> "SandboxClient":  # type: ignore[name-defined]
