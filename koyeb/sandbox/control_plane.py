@@ -14,12 +14,8 @@ propagates where callers clean up (create/delete/update).
 
 from __future__ import annotations
 
-import functools
-import os
-import socket
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlparse
 
 from koyeb.api.exceptions import ApiException, NotFoundException
 from koyeb.api.models.create_app import CreateApp
@@ -74,40 +70,6 @@ class DeploymentInfo:
     proxy_ports: List[Dict[str, Any]]
 
 
-SANDBOX_URL_ENV = "KOYEB_SANDBOX_URL"
-
-
-@functools.lru_cache(maxsize=None)
-def _resolves(host: str) -> bool:
-    try:
-        socket.getaddrinfo(host, None)
-        return True
-    except (socket.gaierror, UnicodeError):
-        return False
-
-
-def select_sandbox_url(sandbox_metadata: Any) -> Optional[str]:
-    """Pick which sandbox gateway URL to call.
-
-    The API returns a public URL and, on self-hosted clusters, an in-cluster
-    one. The in-cluster URL is used when its host resolves (we run inside the
-    cluster); KOYEB_SANDBOX_URL=internal|public forces the choice.
-    """
-    public_url = getattr(sandbox_metadata, "public_url", None)
-    internal_url = getattr(sandbox_metadata, "internal_url", None)
-    if not internal_url:
-        return public_url
-    mode = os.getenv(SANDBOX_URL_ENV, "").strip().lower()
-    if mode == "public":
-        return public_url
-    if mode == "internal" or not public_url:
-        return internal_url
-    host = urlparse(internal_url).hostname
-    if host and _resolves(host):
-        return internal_url
-    return public_url
-
-
 def _deployment_info(deployment: Any) -> DeploymentInfo:
     """Model-flavor-agnostic conversion shared by both adapters."""
     definition = deployment.definition
@@ -121,7 +83,7 @@ def _deployment_info(deployment: Any) -> DeploymentInfo:
     metadata = getattr(deployment, "metadata", None)
     if metadata is not None:
         if metadata.sandbox is not None:
-            sandbox_url = select_sandbox_url(metadata.sandbox)
+            sandbox_url = metadata.sandbox.public_url
             routing_key = metadata.sandbox.routing_key
         for port in metadata.proxy_ports or []:
             proxy_ports.append(
