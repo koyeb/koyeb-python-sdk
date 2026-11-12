@@ -23,12 +23,24 @@ import stat as stat_module
 import tarfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import (
+    Any,
+    BinaryIO,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 __all__ = [
     "SYNC_BATCH_BYTES",
     "SyncDiff",
     "build_archive",
+    "clean_path",
     "diff",
     "excluded",
     "extract_archive",
@@ -36,6 +48,7 @@ __all__ = [
     "hash_candidates",
     "join_local",
     "mtime_seconds",
+    "open_nofollow",
     "path_excluded",
     "path_match",
     "plan_batches",
@@ -550,8 +563,27 @@ def remote_join(remote: str, rel: str) -> str:
 
 
 def join_local(root: str, rel: str) -> str:
-    """A local path for a relative entry path, on any platform."""
-    return os.path.join(root, *rel.split("/"))
+    """A local path for a relative entry path, on any platform.
+
+    Paths come from the remote side on pull, so they get the archive
+    member check, and a symlink among the parents under root is refused:
+    writing through it would land outside root.
+    """
+    parts = clean_path(rel).split("/")
+    full = os.path.join(root, *parts)
+    # Windows separators and drives inside a name escape a POSIX check.
+    base = os.path.abspath(root)
+    if os.path.commonpath([base, os.path.abspath(full)]) != base:
+        raise ValueError(f"refusing path outside destination: {rel!r}")
+    path = root
+    for part in parts[:-1]:
+        path = os.path.join(path, part)
+        try:
+            if stat_module.S_ISLNK(os.lstat(path).st_mode):
+                raise ValueError(f"refusing path through a symlink: {rel!r}")
+        except (FileNotFoundError, NotADirectoryError):
+            break
+    return full
 
 
 def prune_descendants(paths: Sequence[str]) -> List[str]:
@@ -630,8 +662,8 @@ def build_archive(root: str, entries: Sequence[Dict[str, Any]], dest: str) -> No
                     tar.addfile(info, f)
 
 
-def _clean_member(name: str) -> str:
-    """A member path safe to write under the destination, or ValueError.
+def clean_path(name: str) -> str:
+    """A relative path safe to write under the destination, or ValueError.
 
     The same refusal the executor applies to archives it extracts:
     absolute paths and .. escapes never touch the filesystem.
@@ -640,6 +672,13 @@ def _clean_member(name: str) -> str:
     if normalized.startswith("/") or normalized == ".." or normalized.startswith("../"):
         raise ValueError(f"refusing archive member outside destination: {name!r}")
     return normalized
+
+
+def open_nofollow(path: str) -> BinaryIO:
+    """Open path for writing, refusing to follow a symlink at path."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
+    fd = os.open(path, flags | getattr(os, "O_NOFOLLOW", 0), 0o666)
+    return os.fdopen(fd, "wb")
 
 
 def _clear_member(path: str) -> None:
@@ -657,7 +696,7 @@ def _extract_file(tar: "tarfile.TarFile", member: "tarfile.TarInfo", path: str) 
     source = tar.extractfile(member)
     if source is None:
         return
-    with open(path, "wb") as out:
+    with open_nofollow(path) as out:
         shutil.copyfileobj(source, out, 1 << 20)
     os.chmod(path, member.mode)
     os.utime(path, (int(member.mtime), int(member.mtime)))
@@ -703,18 +742,25 @@ def extract_archive(
     dirs: List[Tuple[str, int, int]] = []
     with tarfile.open(archive_path, "r:gz") as tar:
         for member in tar:
-            name = _clean_member(member.name)
+            name = clean_path(member.name)
             if keep is not None and name not in keep:
                 continue
-            path = os.path.join(dest, *name.split("/"))
-            kind = _extract_member(tar, member, path)
+            kind = _extract_member(tar, member, join_local(dest, name))
             if kind == "skip":
                 continue
             if kind == "dir":
-                dirs.append((path, member.mode, int(member.mtime)))
+                dirs.append((name, member.mode, int(member.mtime)))
             extracted.append(name)
     # Directory modes and mtimes last, deepest first, like the executor.
-    for path, mode, mtime in sorted(dirs, key=lambda d: d[0], reverse=True):
+    for name, mode, mtime in sorted(dirs, key=lambda d: d[0], reverse=True):
+        # A later member may have replaced the directory or a parent with
+        # a symlink: chmod and utime would follow it.
+        path = join_local(dest, name)
+        try:
+            if not stat_module.S_ISDIR(os.lstat(path).st_mode):
+                continue
+        except (FileNotFoundError, NotADirectoryError):
+            continue
         os.chmod(path, mode)
         os.utime(path, (mtime, mtime))
     return extracted

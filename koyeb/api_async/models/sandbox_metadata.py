@@ -31,8 +31,7 @@ class SandboxMetadata(BaseModel):
 
     public_url: Optional[StrictStr] = None
     routing_key: Optional[StrictStr] = None
-    internal_url: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["public_url", "routing_key", "internal_url"]
+    __properties: ClassVar[List[str]] = ["public_url", "routing_key"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -83,10 +82,6 @@ class SandboxMetadata(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate(
-            {
-                "public_url": obj.get("public_url"),
-                "routing_key": obj.get("routing_key"),
-                "internal_url": obj.get("internal_url"),
-            }
+            {"public_url": obj.get("public_url"), "routing_key": obj.get("routing_key")}
         )
         return _obj

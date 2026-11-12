@@ -27,7 +27,6 @@ from .control_plane import (
     DeploymentInfo,
     ServiceInfo,
     SyncControlPlane,
-    select_sandbox_url,
 )
 from .spec import SandboxSpec
 from .clients import (
@@ -979,14 +978,9 @@ class Sandbox:
             # Caller-provided app: deleting it would destroy unrelated services.
             cp.delete_service(self.service_id)
 
-    def _get_url_and_header_from_metadata(
-        self, prefer_internal: bool = True
-    ) -> Optional[Tuple[str, str]]:
+    def _get_url_and_header_from_metadata(self) -> Optional[Tuple[str, str]]:
         """
-        Get the url of the sandbox and the routing key to use to reach it.
-
-        With prefer_internal=False, always returns the public URL: for URLs
-        handed to users, which must work from outside the cluster.
+        Get the public url of the sandbox and the routing key to use to reach it.
         """
         try:
             from koyeb.api.exceptions import ApiException
@@ -1001,12 +995,7 @@ class Sandbox:
             deployment = clients.deployments.get_deployment(deployment_id)
             metadata = deployment.deployment.metadata
             if metadata and metadata.sandbox:
-                url = (
-                    select_sandbox_url(metadata.sandbox)
-                    if prefer_internal
-                    else metadata.sandbox.public_url
-                )
-                return url, metadata.sandbox.routing_key
+                return metadata.sandbox.public_url, metadata.sandbox.routing_key
             return None
 
         except (NotFoundException, ApiException, Exception):
@@ -1050,7 +1039,7 @@ class Sandbox:
             Optional[str]: The full URL or None if unavailable
         """
         if self._url is None:
-            url_data = self._get_url_and_header_from_metadata(prefer_internal=False)
+            url_data = self._get_url_and_header_from_metadata()
             if url_data:
                 self._url = f"{url_data[0]}/r/{url_data[1]}/"
                 return self._url
@@ -1149,6 +1138,7 @@ class Sandbox:
     def _get_conn_info(self) -> ConnectionInfo:
         """
         Internal method to get the parameters needed to connect to the sandbox.
+        KOYEB_SANDBOX_GATEWAY_URL, when set, replaces the gateway URL.
 
         Returns:
             ConnectionInfo: the information needed to connect to the sandbox
@@ -1162,6 +1152,11 @@ class Sandbox:
                 "Sandbox URL is not available (the sandbox may no longer exist)"
             )
         sandbox_url, routing_key = url
+        gateway_url = os.getenv("KOYEB_SANDBOX_GATEWAY_URL")
+        if gateway_url:
+            # Full override of the gateway the API advertises, like
+            # KOYEB_API_HOST for the API (e.g. an in-cluster Service).
+            sandbox_url = f"{gateway_url.rstrip('/')}/koyeb-sandbox"
         return ConnectionInfo(sandbox_url, routing_key, self.sandbox_secret)
 
     def _get_client(self) -> "SandboxClient":  # type: ignore[name-defined]

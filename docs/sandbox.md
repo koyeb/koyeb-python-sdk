@@ -1780,6 +1780,10 @@ def join_local(root: str, rel: str) -> str
 
 A local path for a relative entry path, on any platform.
 
+Paths come from the remote side on pull, so they get the archive
+member check, and a symlink among the parents under root is refused:
+writing through it would land outside root.
+
 <a id="koyeb.sandbox.sync.prune_descendants"></a>
 
 #### prune\_descendants
@@ -1821,6 +1825,29 @@ Write the changed entries as a gzip'd tar spooled to dest.
 
 Members mirror the executor's archive: paths relative and
 /-separated, modes and whole-second mtimes kept, symlinks as links.
+
+<a id="koyeb.sandbox.sync.clean_path"></a>
+
+#### clean\_path
+
+```python
+def clean_path(name: str) -> str
+```
+
+A relative path safe to write under the destination, or ValueError.
+
+The same refusal the executor applies to archives it extracts:
+absolute paths and .. escapes never touch the filesystem.
+
+<a id="koyeb.sandbox.sync.open_nofollow"></a>
+
+#### open\_nofollow
+
+```python
+def open_nofollow(path: str) -> BinaryIO
+```
+
+Open path for writing, refusing to follow a symlink at path.
 
 <a id="koyeb.sandbox.sync.extract_archive"></a>
 
@@ -4247,7 +4274,9 @@ and only the changed set is extracted. Files larger than one
 batch go through upload_file/download_file instead (multipart
 on executors v0.0.24+, resumable downloads), and a pull's
 archive leaves them out so their bytes travel once.
-Symlinks travel as links, modes are kept, owners are not.
+Symlinks travel as links, modes are kept, owners are not. A pull
+never writes outside local: a path that leaves it, or that goes
+through a symlink, fails the sync.
 
 A no-op sync sends nothing: nothing is transferred or deleted;
 beyond the listing only ``checksum=True`` asks more — one sha256
@@ -4704,7 +4733,9 @@ and only the changed set is extracted. Files larger than one
 batch go through upload_file/download_file instead (multipart
 on executors v0.0.24+, resumable downloads), and a pull's
 archive leaves them out so their bytes travel once.
-Symlinks travel as links, modes are kept, owners are not.
+Symlinks travel as links, modes are kept, owners are not. A pull
+never writes outside local: a path that leaves it, or that goes
+through a symlink, fails the sync.
 
 A no-op sync sends nothing: nothing is transferred or deleted;
 beyond the listing only ``checksum=True`` asks more — one sha256
