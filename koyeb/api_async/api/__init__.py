@@ -36,6 +36,7 @@ from koyeb.api_async.api.repositories_api import RepositoriesApi
 from koyeb.api_async.api.search_api import SearchApi
 from koyeb.api_async.api.secrets_api import SecretsApi
 from koyeb.api_async.api.service_pools_api import ServicePoolsApi
+from koyeb.api_async.api.service_views_api import ServiceViewsApi
 from koyeb.api_async.api.services_api import ServicesApi
 from koyeb.api_async.api.sessions_api import SessionsApi
 from koyeb.api_async.api.snapshots_api import SnapshotsApi
