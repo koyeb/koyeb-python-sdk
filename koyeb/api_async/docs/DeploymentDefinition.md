@@ -21,6 +21,7 @@ Name | Type | Description | Notes
 **skip_cache** | **bool** |  | [optional] 
 **mesh** | [**DeploymentMesh**](DeploymentMesh.md) |  | [optional] [default to DeploymentMesh.DEPLOYMENT_MESH_AUTO]
 **network_policy** | [**NetworkPolicy**](NetworkPolicy.md) |  | [optional] 
+**kill_timeout_secs** | **int** |  | [optional] 
 **docker** | [**DockerSource**](DockerSource.md) |  | [optional] 
 **git** | [**GitSource**](GitSource.md) |  | [optional] 
 **database** | [**DatabaseSource**](DatabaseSource.md) |  | [optional] 

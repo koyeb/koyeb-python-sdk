@@ -1,16 +1,16 @@
 # koyeb.api-async
-The Koyeb API allows you to interact with the Koyeb platform in a simple, programmatic way using conventional HTTP requests. 
+Welcome to the Koyeb API documentation.  The Koyeb API allows you to interact with the Koyeb platform in a simple, programmatic way using conventional HTTP requests. The API has predictable resource-oriented URLs, allowing you to request, retrieve and execute actions on resources efficiently.  The API returns JSON-encoded responses and uses standard HTTP response codes, and verbs.  All of the functionality available in the Koyeb Control Panel is also available via the API, allowing you to automate repetitive and complex actions as required.  All production API requests are made to:  - https://app.koyeb.com/<version>  All data is sent and received as JSON.  ## Constructing Requests  Requests are made of three components:  - Base URL: `https://app.koyeb.com` - API Version: `v1` - Resource path: `apps`  To construct a proper request, you need to format the URL as follows:  `https://app.koyeb.com/{version}/{resource}`  Example: `https://app.koyeb.com/v1/apps`  The following code is an example request to retrieve the list of Apps.  ``` $ curl -H 'Authorization: Bearer 1111-1111-1111-1111-1111' https://app.koyeb.com/v1/apps {   \"apps\": [     {       \"id\": \"e267e09d-a2ef-4672-95c7-bf88d787a274\",       \"name\": \"demo\",       \"organization_id\": \"c402bcad-d06d-4fd6-8af2-08b790c0e249\",       \"updated_at\": \"2021-04-26T08:28:59.221274Z\",       \"created_at\": \"2021-04-26T08:28:59.221274Z\",       \"domains\": [         {           \"name\": \"demo-koyeb.koyeb.app\",           \"deployment_group\": \"prod\"         }       ]     },     {       \"id\": \"e38caea5-5acb-4fec-aa65-81749546b470\",       \"name\": \"www\",       \"organization_id\": \"c402bcad-d06d-4fd6-8af2-08b790c0e249\",       \"updated_at\": \"2021-05-04T08:56:40.557792Z\",       \"created_at\": \"2021-05-04T08:56:40.557792Z\",       \"domains\": [         {           \"name\": \"www-koyeb.koyeb.app\",           \"deployment_group\": \"prod\"         }       ]     }   ],   \"limit\": 20,   \"offset\": 0,   \"count\": 2 } ```  # Authentication  The Koyeb API uses API keys to authenticate requests. You can view and manage your API keys in the Koyeb Control Panel.  Your API keys carry many privileges. Take care to keep them secure! Do not share your secret API keys in publicly accessible areas such as GitHub, Slack, client-side code, and so forth.  To make an authenticated request, include a bearer-type Authorization header containing your API key, prefixed with `Bearer `:  ``` Authorization: Bearer <your-api-key> ```  All API requests must be made over HTTPS. Calls made over plain HTTP will fail. API requests without authentication will also fail.  # Errors  We use conventional HTTP response codes to indicate the success or failure of an API request.  In general, codes in the 2xx range indicate success, codes in the 4xx range indicate an error that resulted from the provided information (e.g., a required parameter is missing, resource not found), and codes in the 5xx range indicate an error with our servers.  ## HTTP Status Code Summary  - `200 OK` - Everything worked as expected. - `400 Bad Request` - Often missing a required parameter. - `401 Unauthorized` - No valid API key provided. - `402 Request Failed` - Parameters were valid, but the request failed. - `403 Forbidden` - Insufficient privileges to access the requested resource. - `404 Not Found` - The requested item doesn't exist. - `50x` Server errors - Something went wrong on the API domain's end.  Input and output data must be valid JSON with the appropriate Content-Type header set.  ## Attributes  - code:    - `invalid_argument`: Occur when your request has invalid parameters.   - `unknown_resource`: Occur when the resource doesn't exist.   - `authentication_error`: Arise when there is a problem with authentication.   - `rate_limit_error`: Too many requests hit the API too quickly.   - `authorization_required`: You don't have sufficient right to access the resource.   - `api_error`: API errors use in case of a problem with api domain's servers (extremely uncommon).  - message:    - A human-readable error giving more details about the error  - status:    - The HTTP code returned by the server.  - fields (Optional):    - An array of parameters with a human-readable message giving more details about the error.  ## Errors responses example  Response 400 (application/json)  ``` {   \"status\": 400,   \"code\": \"invalid_argument\",   \"message\": \"Invalid argument\",   \"fields\": [     {       \"field\": \"definition.docker.image\",       \"description\": \"cannot be blank\"     }   ] } ```  Response 401 (application/json)  ``` {   \"status\": 401,   \"code\": \"authentication_error\",   \"message\": \"Request unauthenticated with bearer\" } ```  Response 403 (application/json)  ``` {   \"status\": 403,   \"code\": \"authentication_required\",   \"message\": \"You don't have the requested permission to access to resource.\" } ```   Response 404 (application/json)  ``` {   \"status\": 404,   \"code\": \"unknown_resource\",   \"message\": \"App not found\" } ```  # Pagination  All top-level API resources receive a paginated response. For instance, list Apps, list Services, and others share a standard structure, taking two parameters: limit and offset.  **Paginated request**  Requests against paginated endpoints accept two query string arguments:  * *limit*, a positive integer lower or equal to 100 to select the number of items to display. * *offset*, an integer to indicate the position to start at.  Paginated endpoints usually also accept filters to search and sort results. These filters are documented along with each endpoint documentation. 
 
 The `koyeb.api_async` package is automatically generated by the [OpenAPI Generator](https://openapi-generator.tech) project:
 
 - API version: 1.0.0
-- Package version: 1.6.1
-- Generator version: 7.27.0-SNAPSHOT
+- Package version: 1.6.2
+- Generator version: 7.28.0-SNAPSHOT
 - Build package: org.openapitools.codegen.languages.PythonClientCodegen
 
 ## Requirements.
 
-Python 3.10+
+Python 3.11+
 
 ## Installation & Usage
 
@@ -86,6 +86,9 @@ Class | Method | HTTP request | Description
 *AppsApi* | [**update_app**](koyeb/api_async/docs/AppsApi.md#update_app) | **PUT** /v1/apps/{id} | Update App
 *AppsApi* | [**update_app2**](koyeb/api_async/docs/AppsApi.md#update_app2) | **PATCH** /v1/apps/{id} | Update App
 *ArchivesApi* | [**create_archive**](koyeb/api_async/docs/ArchivesApi.md#create_archive) | **POST** /v1/archives | Create Archive
+*ArchivesApi* | [**delete_archive**](koyeb/api_async/docs/ArchivesApi.md#delete_archive) | **DELETE** /v1/archives/{id} | Delete Archive
+*ArchivesApi* | [**get_archive**](koyeb/api_async/docs/ArchivesApi.md#get_archive) | **GET** /v1/archives/{id} | Get Archive
+*ArchivesApi* | [**list_archives**](koyeb/api_async/docs/ArchivesApi.md#list_archives) | **GET** /v1/archives | List Archives
 *CatalogDatacentersApi* | [**list_datacenters**](koyeb/api_async/docs/CatalogDatacentersApi.md#list_datacenters) | **GET** /v1/catalog/datacenters | List datacenters
 *CatalogInstanceUsageApi* | [**list_usage**](koyeb/api_async/docs/CatalogInstanceUsageApi.md#list_usage) | **GET** /v1/catalog/usage | 
 *CatalogInstancesApi* | [**get_catalog_instance**](koyeb/api_async/docs/CatalogInstancesApi.md#get_catalog_instance) | **GET** /v1/catalog/instances/{id} | Get Instance
@@ -182,6 +185,7 @@ Class | Method | HTTP request | Description
 *ProvisioningApi* | [**declare_stage_progress**](koyeb/api_async/docs/ProvisioningApi.md#declare_stage_progress) | **PATCH** /v1/provisioning/{deployment_id}/status/{stage}/{attempt} | Declare stage progress
 *ProvisioningApi* | [**declare_step_progress**](koyeb/api_async/docs/ProvisioningApi.md#declare_step_progress) | **PATCH** /v1/provisioning/{deployment_id}/status/{stage}/{attempt}/{step} | Declare step progress
 *QuotasApi* | [**get_organization_quotas_usage**](koyeb/api_async/docs/QuotasApi.md#get_organization_quotas_usage) | **GET** /v1/quotas/organizations/{organization_id}/usage | Return the organization&#39;s current quota usage alongside the plan&#39;s limits. Response is cached in Redis for 60s. Accept text/plain (or ?format&#x3D;prometheus) to receive the response rendered as Prometheus text exposition format (\&quot;koyeb_quota_&lt;x&gt;\&quot; for usage, \&quot;koyeb_quota_&lt;x&gt;_limit\&quot; for the plan limit) suitable for scraping into an external Prometheus.
+*QuotasApi* | [**get_organization_workspace_quotas**](koyeb/api_async/docs/QuotasApi.md#get_organization_workspace_quotas) | **GET** /v1/quotas/organizations/{organization_id}/{workspace_id}/quotas | 
 *QuotasApi* | [**review_organization_capacity**](koyeb/api_async/docs/QuotasApi.md#review_organization_capacity) | **POST** /v1/quotas/capacity | DEPRECATED: Review Organization Capacity
 *RegionalDeploymentsApi* | [**get_regional_deployment**](koyeb/api_async/docs/RegionalDeploymentsApi.md#get_regional_deployment) | **GET** /v1/regional_deployments/{id} | Get Regional Deployment
 *RegionalDeploymentsApi* | [**list_regional_deployment_events**](koyeb/api_async/docs/RegionalDeploymentsApi.md#list_regional_deployment_events) | **GET** /v1/regional_deployment_events | List Regional Deployment events
@@ -202,6 +206,7 @@ Class | Method | HTTP request | Description
 *ServicePoolsApi* | [**get_service_pool**](koyeb/api_async/docs/ServicePoolsApi.md#get_service_pool) | **GET** /v1/service_pools/{id} | Get a ServicePool
 *ServicePoolsApi* | [**list_service_pools**](koyeb/api_async/docs/ServicePoolsApi.md#list_service_pools) | **GET** /v1/service_pools | List ServicePools
 *ServicePoolsApi* | [**update_service_pool**](koyeb/api_async/docs/ServicePoolsApi.md#update_service_pool) | **PUT** /v1/service_pools/{id} | 
+*ServiceViewsApi* | [**query_services_view**](koyeb/api_async/docs/ServiceViewsApi.md#query_services_view) | **GET** /v1/views/services | Query the Services view
 *ServicesApi* | [**autocomplete**](koyeb/api_async/docs/ServicesApi.md#autocomplete) | **POST** /v1/services-autocomplete | Autocomplete definition
 *ServicesApi* | [**create_service**](koyeb/api_async/docs/ServicesApi.md#create_service) | **POST** /v1/services | Create Service
 *ServicesApi* | [**delete_service**](koyeb/api_async/docs/ServicesApi.md#delete_service) | **DELETE** /v1/services/{id} | Delete Service
@@ -280,6 +285,7 @@ Class | Method | HTTP request | Description
  - [Archive](koyeb/api_async/docs/Archive.md)
  - [ArchiveDeploymentMetadata](koyeb/api_async/docs/ArchiveDeploymentMetadata.md)
  - [ArchiveSource](koyeb/api_async/docs/ArchiveSource.md)
+ - [ArchiveStatus](koyeb/api_async/docs/ArchiveStatus.md)
  - [AutoRelease](koyeb/api_async/docs/AutoRelease.md)
  - [AutoReleaseGroup](koyeb/api_async/docs/AutoReleaseGroup.md)
  - [AutocompleteReply](koyeb/api_async/docs/AutocompleteReply.md)
@@ -414,6 +420,7 @@ Class | Method | HTTP request | Description
  - [GCPContainerRegistryConfiguration](koyeb/api_async/docs/GCPContainerRegistryConfiguration.md)
  - [GRPCHealthCheck](koyeb/api_async/docs/GRPCHealthCheck.md)
  - [GetAppReply](koyeb/api_async/docs/GetAppReply.md)
+ - [GetArchiveReply](koyeb/api_async/docs/GetArchiveReply.md)
  - [GetBudgetReply](koyeb/api_async/docs/GetBudgetReply.md)
  - [GetCatalogInstanceReply](koyeb/api_async/docs/GetCatalogInstanceReply.md)
  - [GetCredentialReply](koyeb/api_async/docs/GetCredentialReply.md)
@@ -486,6 +493,7 @@ Class | Method | HTTP request | Description
  - [KgitproxyListRepositoriesReply](koyeb/api_async/docs/KgitproxyListRepositoriesReply.md)
  - [KgitproxyRepository](koyeb/api_async/docs/KgitproxyRepository.md)
  - [KgitproxyRepositoryProvider](koyeb/api_async/docs/KgitproxyRepositoryProvider.md)
+ - [KmetaGetOrganizationWorkspaceQuotasReply](koyeb/api_async/docs/KmetaGetOrganizationWorkspaceQuotasReply.md)
  - [KsearchApp](koyeb/api_async/docs/KsearchApp.md)
  - [KsearchGlobalDeployment](koyeb/api_async/docs/KsearchGlobalDeployment.md)
  - [KsearchInstance](koyeb/api_async/docs/KsearchInstance.md)
@@ -499,6 +507,7 @@ Class | Method | HTTP request | Description
  - [LifecycleQuotas](koyeb/api_async/docs/LifecycleQuotas.md)
  - [ListAppEventsReply](koyeb/api_async/docs/ListAppEventsReply.md)
  - [ListAppsReply](koyeb/api_async/docs/ListAppsReply.md)
+ - [ListArchivesReply](koyeb/api_async/docs/ListArchivesReply.md)
  - [ListCatalogInstancesReply](koyeb/api_async/docs/ListCatalogInstancesReply.md)
  - [ListCredentialsReply](koyeb/api_async/docs/ListCredentialsReply.md)
  - [ListDatacentersReply](koyeb/api_async/docs/ListDatacentersReply.md)
@@ -588,6 +597,11 @@ Class | Method | HTTP request | Description
  - [PublicUser](koyeb/api_async/docs/PublicUser.md)
  - [QueryLogsReply](koyeb/api_async/docs/QueryLogsReply.md)
  - [QueryLogsReplyPagination](koyeb/api_async/docs/QueryLogsReplyPagination.md)
+ - [QueryServicesViewFilters](koyeb/api_async/docs/QueryServicesViewFilters.md)
+ - [QueryServicesViewReply](koyeb/api_async/docs/QueryServicesViewReply.md)
+ - [QueryServicesViewSort](koyeb/api_async/docs/QueryServicesViewSort.md)
+ - [QueryServicesViewSortDirection](koyeb/api_async/docs/QueryServicesViewSortDirection.md)
+ - [QueryServicesViewSortField](koyeb/api_async/docs/QueryServicesViewSortField.md)
  - [QuotaUsage](koyeb/api_async/docs/QuotaUsage.md)
  - [Quotas](koyeb/api_async/docs/Quotas.md)
  - [ReactivateOrganizationReply](koyeb/api_async/docs/ReactivateOrganizationReply.md)
@@ -634,6 +648,19 @@ Class | Method | HTTP request | Description
  - [ServiceSummary](koyeb/api_async/docs/ServiceSummary.md)
  - [ServiceType](koyeb/api_async/docs/ServiceType.md)
  - [ServiceUsage](koyeb/api_async/docs/ServiceUsage.md)
+ - [ServiceViewActiveDeployment](koyeb/api_async/docs/ServiceViewActiveDeployment.md)
+ - [ServiceViewActiveDeploymentState](koyeb/api_async/docs/ServiceViewActiveDeploymentState.md)
+ - [ServiceViewApp](koyeb/api_async/docs/ServiceViewApp.md)
+ - [ServiceViewFacet](koyeb/api_async/docs/ServiceViewFacet.md)
+ - [ServiceViewFacetKind](koyeb/api_async/docs/ServiceViewFacetKind.md)
+ - [ServiceViewFacetValue](koyeb/api_async/docs/ServiceViewFacetValue.md)
+ - [ServiceViewGroup](koyeb/api_async/docs/ServiceViewGroup.md)
+ - [ServiceViewGroupBy](koyeb/api_async/docs/ServiceViewGroupBy.md)
+ - [ServiceViewLatestDeployment](koyeb/api_async/docs/ServiceViewLatestDeployment.md)
+ - [ServiceViewLatestDeploymentState](koyeb/api_async/docs/ServiceViewLatestDeploymentState.md)
+ - [ServiceViewRow](koyeb/api_async/docs/ServiceViewRow.md)
+ - [ServiceViewSource](koyeb/api_async/docs/ServiceViewSource.md)
+ - [ServiceViewSourceType](koyeb/api_async/docs/ServiceViewSourceType.md)
  - [Snapshot](koyeb/api_async/docs/Snapshot.md)
  - [SnapshotStatus](koyeb/api_async/docs/SnapshotStatus.md)
  - [SnapshotType](koyeb/api_async/docs/SnapshotType.md)
