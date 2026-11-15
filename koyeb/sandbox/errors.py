@@ -103,6 +103,14 @@ class SandboxServiceError(SandboxRequestError):
         )
 
 
+class SandboxConnectionError(SandboxError):
+    """Raised when the executor cannot be reached at the network level.
+
+    Covers connection failures that persist through the retry budget and
+    connections lost mid-stream — mirroring the JS SDK's taxonomy.
+    """
+
+
 class EgressPolicyError(SandboxError):
     """Raised when egress policy arguments are invalid or conflicting"""
 

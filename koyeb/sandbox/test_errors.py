@@ -11,6 +11,7 @@ from koyeb.sandbox.errors import (
     InvalidPortError,
     MissingApiTokenError,
     NoSandboxSecretError,
+    SandboxConnectionError,
     SandboxError,
 )
 from koyeb.sandbox.sandbox import validate_port
@@ -37,6 +38,9 @@ class TestErrorHierarchy(unittest.TestCase):
     def test_no_sandbox_secret_error(self):
         self.assertTrue(issubclass(NoSandboxSecretError, SandboxError))
         self.assertFalse(issubclass(NoSandboxSecretError, ValueError))
+
+    def test_sandbox_connection_error(self):
+        self.assertTrue(issubclass(SandboxConnectionError, SandboxError))
 
 
 class TestMissingApiTokenRaiseSites(unittest.TestCase):
