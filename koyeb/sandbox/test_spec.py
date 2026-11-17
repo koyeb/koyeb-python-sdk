@@ -2,6 +2,7 @@
 consumed by every create flow (sync and async, Sandbox and ServicePool)."""
 
 import unittest
+from unittest import mock
 
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
 from koyeb.api.models.deployment_mesh import DeploymentMesh
@@ -81,6 +82,18 @@ class TestSandboxSpecPayloads(unittest.TestCase):
         async_app = AsyncCreateApp(**payload)
         self.assertTrue(app.life_cycle.delete_when_empty)
         self.assertTrue(async_app.life_cycle.delete_when_empty)
+
+    def test_app_name_differs_for_same_name_creates_in_the_same_second(self):
+        # the longest name that fit with the 10-digit seconds suffix
+        spec = _spec(name="n" * 41)
+
+        with mock.patch("koyeb.sandbox.spec.time.time", return_value=1_794_916_800.0):
+            names = {spec.app_payload()["name"] for _ in range(20)}
+
+        self.assertEqual(len(names), 20)
+        for name in names:
+            self.assertLessEqual(len(name), 64)
+            self.assertRegex(name, r"^[a-z0-9]+([.-][a-z0-9]+)*$")
 
     def test_full_snapshot_omits_definition(self):
         payload = _spec(
