@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import string
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -353,6 +354,23 @@ def create_deployment_definition(
     )
 
 
+_BASE36 = string.digits + string.ascii_lowercase
+
+
+def _app_name_suffix() -> str:
+    """Base-36 seconds plus 4 random characters.
+
+    App names are unique per organization, so two same-name creates in the
+    same second must still differ. Until 2038 it is 10 characters, like the
+    decimal seconds it replaced, so every name that fit the 64-character app
+    name limit still fits."""
+    seconds, digits = int(time.time()), ""
+    while seconds:
+        seconds, digit = divmod(seconds, 36)
+        digits = _BASE36[digit] + digits
+    return digits + "".join(secrets.choice(_BASE36) for _ in range(4))
+
+
 @dataclass
 class SandboxSpec:
     """The single definition of a sandbox deployment.
@@ -413,7 +431,7 @@ class SandboxSpec:
     def app_payload(self) -> Dict[str, Any]:
         """CreateApp payload for the app a create call owns."""
         return {
-            "name": f"sandbox-app-{self.name}-{int(time.time())}",
+            "name": f"sandbox-app-{self.name}-{_app_name_suffix()}",
             "life_cycle": {"delete_when_empty": True},
         }
 
