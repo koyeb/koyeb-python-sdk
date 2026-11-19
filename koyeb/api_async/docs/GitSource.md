@@ -16,6 +16,7 @@ Name | Type | Description | Notes
 **buildpack** | [**BuildpackBuilder**](BuildpackBuilder.md) |  | [optional] 
 **docker** | [**DockerBuilder**](DockerBuilder.md) |  | [optional] 
 **credential_source** | **str** | Credentials can come from a specific source or default to using Github (when unset or set to \&quot;github\&quot;). | [optional] 
+**skip_submodules** | **bool** | A flag to skip initializing git submodules when cloning the repository. | [optional] 
 
 ## Example
 

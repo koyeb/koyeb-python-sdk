@@ -6,7 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **pool_id** | **str** |  | [optional] 
-**request_id** | **str** |  | [optional] 
+**request_id** | **str** | Idempotency key scoped to the pool: retries with the same value return the same claim. A fresh id is generated when omitted. | [optional] 
 
 ## Example
 

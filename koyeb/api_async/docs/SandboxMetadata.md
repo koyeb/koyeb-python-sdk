@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **public_url** | **str** |  | [optional] 
 **routing_key** | **str** |  | [optional] 
+**internal_url** | **str** |  | [optional] 
 
 ## Example
 
