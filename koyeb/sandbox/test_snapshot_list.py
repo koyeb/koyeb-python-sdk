@@ -96,7 +96,16 @@ class TestSnapshotList(unittest.TestCase):
         params = set(inspect.signature(Snapshot.list).parameters)
         self.assertEqual(
             params,
-            {"service_id", "name", "snapshot_type", "status", "limit", "offset", "api_token", "host"},
+            {
+                "service_id",
+                "name",
+                "snapshot_type",
+                "status",
+                "limit",
+                "offset",
+                "api_token",
+                "host",
+            },
         )
 
 

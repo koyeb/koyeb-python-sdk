@@ -12,10 +12,8 @@ Name | Type | Description | Notes
 **status** | [**PoolClaimStatus**](PoolClaimStatus.md) |  | [optional] [default to PoolClaimStatus.UNSPECIFIED]
 **organization_id** | **str** |  | [optional] 
 **workspace_id** | **str** |  | [optional] 
-**customer_id** | **str** |  | [optional] 
 **created_at** | **datetime** |  | [optional] 
 **fulfilled_at** | **datetime** |  | [optional] 
-**released_at** | **datetime** |  | [optional] 
 **pool_generation** | **str** |  | [optional] 
 
 ## Example

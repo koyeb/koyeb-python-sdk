@@ -15,6 +15,8 @@
 
 * `SNAPSHOT_STATUS_DELETED` (value: `'SNAPSHOT_STATUS_DELETED'`)
 
+* `SNAPSHOT_STATUS_ERROR` (value: `'SNAPSHOT_STATUS_ERROR'`)
+
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
 
