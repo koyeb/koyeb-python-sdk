@@ -28,7 +28,7 @@ from __future__ import annotations
 import ipaddress
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
 from koyeb.api.models.deployment_health_check import DeploymentHealthCheck
@@ -37,8 +37,9 @@ from koyeb.api.models.mesh_scope import MeshScope
 from koyeb.api.models.tcp_health_check import TCPHealthCheck
 
 from .egress import build_egress_policy
-from .errors import EgressPolicyError, SidecarError
+from .errors import EgressPolicyError, SandboxTimeoutError, SidecarError
 from .spec import SandboxSpec
+from .status import classify_deployment_status
 
 # A DNS label the API accepts as a service name: the sandbox reaches the
 # sidecar at http://<name>:<port>. The API's slug rule allows no empty
@@ -249,3 +250,116 @@ def _check_disjoint(name: str, egress: Any) -> None:
                     f"Sidecar '{name}': outbound_allowlist entries must not "
                     f"overlap ({a} and {b})"
                 )
+
+
+@dataclass(frozen=True)
+class SidecarInfo:
+    """A sidecar created with a sandbox.
+
+    The sandbox reaches it at ``http://<name>:<port>``.
+    """
+
+    name: str
+    service_id: str
+    ports: Tuple[int, ...]
+
+    def __post_init__(self):
+        object.__setattr__(self, "ports", tuple(self.ports))
+
+    def url(self, port: Optional[int] = None, scheme: str = "http") -> str:
+        """URL the sandbox uses to reach this sidecar, on ``port`` (one of
+        its declared ports) or the first declared port.
+
+        Raises:
+            SidecarError: If ``port`` isn't one of the sidecar's ports
+        """
+        if port is None:
+            port = self.ports[0]
+        elif port not in self.ports:
+            raise SidecarError(
+                f"Sidecar '{self.name}' doesn't declare port {port} "
+                f"(ports: {list(self.ports)})"
+            )
+        return f"{scheme}://{self.name}:{port}"
+
+
+class SidecarTimeoutError(SidecarError, SandboxTimeoutError):
+    """A sidecar didn't become healthy in time. Also a
+    SandboxTimeoutError, so existing timeout handling catches it."""
+
+
+def prepare_sidecars(
+    sidecars: Optional[Iterable[Sidecar]],
+    *,
+    name: str,
+    app_id: Optional[str],
+    snapshot: Any,
+    block_network: bool,
+    outbound_allowlist: Optional[List[str]],
+    enable_mesh: Optional[bool],
+    mesh_scope: Any,
+) -> Optional[List[Sidecar]]:
+    """Validate Sandbox.create arguments when sidecars are given.
+
+    Returns None when there are no sidecars (create behaves as before),
+    otherwise the validated list. Fails before any API call.
+    """
+    if sidecars is None:
+        return None
+    sidecars = list(sidecars)
+    if not sidecars:
+        return None
+    if app_id is not None:
+        raise SidecarError(
+            "sidecars can't be combined with app_id: the sandbox needs its own "
+            "app so the mesh stays private to it and its sidecars"
+        )
+    if snapshot is not None:
+        raise SidecarError("sidecars can't be combined with snapshot yet")
+    if block_network or outbound_allowlist is not None:
+        raise SidecarError(EGRESS_WITH_SIDECARS)
+    if enable_mesh is False:
+        raise SidecarError("sidecars need the mesh; don't pass enable_mesh=False")
+    if mesh_scope not in (
+        None,
+        MeshScope.MESH_SCOPE_UNSPECIFIED,
+        "MESH_SCOPE_UNSPECIFIED",
+        MeshScope.MESH_SCOPE_APP,
+        "MESH_SCOPE_APP",
+    ):
+        raise SidecarError("sidecars use mesh_scope MESH_SCOPE_APP; don't set another")
+    return validate_sidecars(sidecars, name)
+
+
+def sidecar_service_payloads(
+    sidecars: List[Sidecar], app_id: str, sandbox_spec: SandboxSpec
+) -> List[Dict[str, Any]]:
+    """CreateService payloads for a sandbox's sidecars, with the sandbox's
+    region and delete delays."""
+    return [
+        s.service_spec(
+            region=sandbox_spec.region,
+            delete_after_delay=sandbox_spec.delete_after_delay,
+            delete_after_inactivity_delay=sandbox_spec.delete_after_inactivity_delay,
+        ).create_service_payload(app_id)
+        for s in sidecars
+    ]
+
+
+EGRESS_WITH_SIDECARS = (
+    "block_network and outbound_allowlist can't be used on a sandbox "
+    "with sidecars: they also block the mesh, so the sandbox couldn't "
+    "reach its sidecars. Set egress on each Sidecar instead"
+)
+
+
+def check_sidecar_deployment(info: SidecarInfo, status: Any) -> bool:
+    """True when ready, False while starting; raises SidecarError when the
+    sidecar won't become ready on its own."""
+    classification = classify_deployment_status(status)
+    if classification == "terminal_failure":
+        status_value = getattr(status, "value", status)
+        raise SidecarError(
+            f"Sidecar '{info.name}' failed to start (deployment status: {status_value})"
+        )
+    return classification == "ready"
