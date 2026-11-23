@@ -166,12 +166,11 @@ class TestSidecarServiceDefinition(unittest.TestCase):
         self.assertEqual(d.regions, ["fra"])
 
     def test_lifecycle_follows_the_sandbox(self):
-        spec = _sidecar().service_spec(
-            delete_after_delay=600, delete_after_inactivity_delay=60
-        )
+        # Sidecars never sleep, so only delete_after_create applies.
+        spec = _sidecar().service_spec(delete_after_delay=600)
         self.assertEqual(
             spec.service_life_cycle(),
-            {"delete_after_create": 600, "delete_after_sleep": 60},
+            {"delete_after_create": 600, "delete_after_sleep": 0},
         )
 
     def test_payload_coerces_into_both_model_flavors(self):

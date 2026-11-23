@@ -26,6 +26,8 @@ which may change when the platform runs sidecars natively.
 from __future__ import annotations
 
 import ipaddress
+import json
+import math
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -48,6 +50,12 @@ _NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 _MIN_PORT, _MAX_PORT = 1, 64999  # the API reserves ports above 65000
 _MAX_PORTS = 5
 _MIN_GRACE, _MAX_GRACE = 5, 900  # API bounds for health check grace_period
+
+# Set on the sandbox's env: its sidecars' names and ports, as JSON. Lets a
+# handle from get_from_id find the sidecars without extra API calls for
+# sandboxes that have none, and lets code in the sandbox discover them.
+# Names and ports only: nothing secret.
+SIDECARS_ENV = "KOYEB_SIDECARS"
 
 
 @dataclass
@@ -140,14 +148,13 @@ class Sidecar:
         self,
         region: Optional[str] = None,
         delete_after_delay: int = 0,
-        delete_after_inactivity_delay: int = 0,
     ) -> SandboxSpec:
         """The service spec for this sidecar.
 
         A web service with no route (not public), a TCP health check on the
         first port, the mesh enabled with app scope, and no scale-to-zero:
         mesh traffic from the sandbox does not wake a sleeping service.
-        ``region`` and the delete delays should match the sandbox's.
+        ``region`` and ``delete_after_delay`` should match the sandbox's.
         """
         return SandboxSpec(
             name=self.name,
@@ -161,7 +168,6 @@ class Sidecar:
             registry_secret=self.registry_secret,
             privileged=self.privileged,
             delete_after_delay=delete_after_delay,
-            delete_after_inactivity_delay=delete_after_inactivity_delay,
             enable_mesh=True,
             entrypoint=self.entrypoint,
             command=self.command,
@@ -298,12 +304,18 @@ def prepare_sidecars(
     outbound_allowlist: Optional[List[str]],
     enable_mesh: Optional[bool],
     mesh_scope: Any,
+    delete_after_inactivity_delay: int = 0,
+    env: Optional[Dict[str, Any]] = None,
 ) -> Optional[List[Sidecar]]:
     """Validate Sandbox.create arguments when sidecars are given.
 
     Returns None when there are no sidecars (create behaves as before),
     otherwise the validated list. Fails before any API call.
     """
+    if env and SIDECARS_ENV in env:
+        # Reserved even without sidecars: get_from_id trusts it to find a
+        # sandbox's sidecars, and update_lifecycle then writes to them.
+        raise SidecarError(f"env {SIDECARS_ENV} is reserved for sidecars")
     if sidecars is None:
         return None
     sidecars = list(sidecars)
@@ -328,19 +340,27 @@ def prepare_sidecars(
         "MESH_SCOPE_APP",
     ):
         raise SidecarError("sidecars use mesh_scope MESH_SCOPE_APP; don't set another")
+    if delete_after_inactivity_delay:
+        raise SidecarError(INACTIVITY_WITH_SIDECARS)
     return validate_sidecars(sidecars, name)
+
+
+INACTIVITY_WITH_SIDECARS = (
+    "delete_after_inactivity can't be used on a sandbox with sidecars: "
+    "sidecars never sleep, so the sandbox would be deleted and its sidecars "
+    "left running. Use delete_after_delay"
+)
 
 
 def sidecar_service_payloads(
     sidecars: List[Sidecar], app_id: str, sandbox_spec: SandboxSpec
 ) -> List[Dict[str, Any]]:
     """CreateService payloads for a sandbox's sidecars, with the sandbox's
-    region and delete delays."""
+    region and delete_after_delay."""
     return [
         s.service_spec(
             region=sandbox_spec.region,
             delete_after_delay=sandbox_spec.delete_after_delay,
-            delete_after_inactivity_delay=sandbox_spec.delete_after_inactivity_delay,
         ).create_service_payload(app_id)
         for s in sidecars
     ]
@@ -351,6 +371,77 @@ EGRESS_WITH_SIDECARS = (
     "with sidecars: they also block the mesh, so the sandbox couldn't "
     "reach its sidecars. Set egress on each Sidecar instead"
 )
+
+
+def sidecars_env_value(sidecars: List[Sidecar]) -> str:
+    """The SIDECARS_ENV value for a sandbox: names and ports as JSON."""
+    return json.dumps(
+        [{"name": s.name, "ports": list(s.ports)} for s in sidecars],
+        separators=(",", ":"),
+    )
+
+
+def parse_sidecars_env(value: Optional[str]) -> List[Dict[str, Any]]:
+    """Names and ports from a SIDECARS_ENV value; [] when unset.
+
+    Strict: anything that isn't a list of valid sidecar names with 1-5
+    valid ports raises SidecarError, so a damaged value is never half
+    trusted.
+    """
+    if not value:
+        return []
+    try:
+        entries = json.loads(value)
+    except ValueError as e:
+        raise SidecarError(f"Invalid {SIDECARS_ENV} value") from e
+    if not isinstance(entries, list):
+        raise SidecarError(f"Invalid {SIDECARS_ENV} value")
+    result, seen = [], set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise SidecarError(f"Invalid {SIDECARS_ENV} value")
+        name, ports = entry.get("name"), entry.get("ports")
+        try:
+            _validate_name(name)
+            ports = _validate_ports(name, ports)
+        except SidecarError as e:
+            raise SidecarError(f"Invalid {SIDECARS_ENV} value: {e}") from e
+        if name in seen:
+            raise SidecarError(f"Invalid {SIDECARS_ENV} value: duplicate '{name}'")
+        seen.add(name)
+        result.append({"name": name, "ports": ports})
+    return result
+
+
+def match_sidecars(
+    entries: List[Dict[str, Any]], services: Iterable[Any]
+) -> Tuple[List[SidecarInfo], List[str]]:
+    """Pair KOYEB_SIDECARS entries with the app's services by exact name.
+    Returns the matches and the names with no service."""
+    by_name = {s.name: s for s in services}
+    infos, missing = [], []
+    for entry in entries:
+        service = by_name.get(entry["name"])
+        if service is None:
+            missing.append(entry["name"])
+        else:
+            infos.append(SidecarInfo(entry["name"], service.id, entry["ports"]))
+    return infos, missing
+
+
+def aligned_delete_after(
+    delay: int, sandbox_created_at: Any, sidecar_created_at: Any
+) -> int:
+    """delete_after_create for a sidecar so it expires with its sandbox.
+
+    The platform counts the delay from each service's own creation, and
+    sidecars are created before the sandbox: add the gap. 0 (no expiry)
+    stays 0; unknown times fall back to ``delay``.
+    """
+    if not delay or sandbox_created_at is None or sidecar_created_at is None:
+        return delay
+    gap = (sandbox_created_at - sidecar_created_at).total_seconds()
+    return delay + max(0, math.ceil(gap))
 
 
 def check_sidecar_deployment(info: SidecarInfo, status: Any) -> bool:

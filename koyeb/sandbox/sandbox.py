@@ -49,12 +49,18 @@ from .errors import (
 )
 from .sidecar import (
     EGRESS_WITH_SIDECARS,
+    INACTIVITY_WITH_SIDECARS,
+    SIDECARS_ENV,
     Sidecar,
     SidecarInfo,
     SidecarTimeoutError,
     check_sidecar_deployment,
+    aligned_delete_after,
+    match_sidecars,
+    parse_sidecars_env,
     prepare_sidecars,
     sidecar_service_payloads,
+    sidecars_env_value,
 )
 from .status import classify_deployment_status
 
@@ -172,6 +178,97 @@ async def _sidecar_ready_async(cp: AsyncControlPlane, info: SidecarInfo) -> bool
         logger.debug(f"Could not poll sidecar '{info.name}': {e}")
         return False
     return check_sidecar_deployment(info, status)
+
+
+def _list_app_services(cp: SyncControlPlane, app_id: str) -> List["ServiceInfo"]:
+    """Every WEB service of an app (paginated). Names are matched exactly by
+    the caller: the API's name filter is a substring match."""
+    services: List["ServiceInfo"] = []
+    offset = 0
+    while True:
+        page, count = cp.list_services(
+            offset=offset, limit=100, app_id=app_id, types=["WEB"]
+        )
+        services.extend(page)
+        offset += 100
+        if offset >= count or not page:
+            return services
+
+
+async def _list_app_services_async(
+    cp: AsyncControlPlane, app_id: str
+) -> List["ServiceInfo"]:
+    """Async twin of _list_app_services."""
+    services: List["ServiceInfo"] = []
+    offset = 0
+    while True:
+        page, count = await cp.list_services(
+            offset=offset, limit=100, app_id=app_id, types=["WEB"]
+        )
+        services.extend(page)
+        offset += 100
+        if offset >= count or not page:
+            return services
+
+
+def _find_sidecars(
+    cp: SyncControlPlane, service: "ServiceInfo", env: Dict[str, Optional[str]]
+) -> List[SidecarInfo]:
+    """The sidecars listed in a sandbox's KOYEB_SIDECARS env, matched by
+    exact name to the services of the sandbox's app.
+
+    Raises SidecarError when the env is damaged, the lookup fails, or a
+    listed sidecar is missing: a partial list would make update_lifecycle
+    skip sidecars silently.
+    """
+    entries = parse_sidecars_env(env.get(SIDECARS_ENV))
+    if not entries:
+        return []
+    try:
+        services = _list_app_services(cp, service.app_id)
+    except Exception as e:
+        raise SidecarError(
+            f"Could not look up the sidecars of sandbox '{service.name}': {e}"
+        ) from e
+    infos, missing = match_sidecars(entries, services)
+    if missing:
+        raise SidecarError(_missing_sidecars(service, missing))
+    return infos
+
+
+async def _find_sidecars_async(
+    cp: AsyncControlPlane, service: "ServiceInfo", env: Dict[str, Optional[str]]
+) -> List[SidecarInfo]:
+    """Async twin of _find_sidecars."""
+    entries = parse_sidecars_env(env.get(SIDECARS_ENV))
+    if not entries:
+        return []
+    try:
+        services = await _list_app_services_async(cp, service.app_id)
+    except Exception as e:
+        raise SidecarError(
+            f"Could not look up the sidecars of sandbox '{service.name}': {e}"
+        ) from e
+    infos, missing = match_sidecars(entries, services)
+    if missing:
+        raise SidecarError(_missing_sidecars(service, missing))
+    return infos
+
+
+def _missing_sidecars(service: "ServiceInfo", missing: List[str]) -> str:
+    names = ", ".join(f"'{n}'" for n in missing)
+    return (
+        f"Sandbox '{service.name}' lists sidecar {names} but its app has no "
+        "such service (deleted?)"
+    )
+
+
+def _lists_sidecars(definition: Dict[str, Any]) -> bool:
+    """True when a deployment definition (dict) carries KOYEB_SIDECARS."""
+    return any(
+        e.get("key") == SIDECARS_ENV and e.get("value")
+        for e in definition.get("env") or []
+    )
 
 
 def _remaining(deadline: float) -> float:
@@ -567,10 +664,13 @@ class Sandbox:
             outbound_allowlist=outbound_allowlist,
             enable_mesh=enable_mesh,
             mesh_scope=mesh_scope,
+            delete_after_inactivity_delay=delete_after_inactivity_delay,
+            env=env,
         )
         if sidecars:
             enable_mesh = True
             mesh_scope = MeshScope.MESH_SCOPE_APP
+            env = {**(env or {}), SIDECARS_ENV: sidecars_env_value(sidecars)}
 
         snapshot_id, snapshot_type = _resolve_snapshot_reference(
             snapshot, api_token, host
@@ -734,6 +834,10 @@ class Sandbox:
         )
         sandbox._owns_app = created_app
         sandbox._sidecars = sidecar_infos
+        if sidecar_infos and spec.delete_after_delay:
+            # Sidecars were created first and the platform counts the delay
+            # from each service's creation: extend theirs to the sandbox's.
+            sandbox._align_sidecars_after_create(spec.delete_after_delay)
         return sandbox
 
     @classmethod
@@ -778,6 +882,9 @@ class Sandbox:
                 logger.debug(f"Could not get deployment {deployment_id}: {e}")
 
         sandbox = _hydrate_sandbox_handle(cls, service, deployment, api_token, host)
+        if deployment is not None:
+            # Raises rather than returning a partial list.
+            sandbox._sidecars = _find_sidecars(cp, service, deployment.env)
 
         if deployment is None or not deployment.sandbox_url:
             try:
@@ -1708,9 +1815,17 @@ class Sandbox:
         Raises:
             SandboxError: If updating life cycle fails
 
+        With sidecars, the sidecars are updated first, so they expire with
+        the sandbox (without redeploying them), and delete_after_inactivity
+        is rejected: sidecars never sleep, so they would outlive the
+        sandbox. The sidecars are read from the sandbox's current
+        deployment, so this also works on handles from list().
+
         Example:
             >>> sandbox.update_life_cycle(delete_after_delay=600, delete_after_inactivity=300)
         """
+        if self._sidecars and delete_after_inactivity:
+            raise SidecarError(INACTIVITY_WITH_SIDECARS)
         try:
             clients = get_api_clients(self.api_token, self.host)
             services_api = clients.services
@@ -1725,6 +1840,14 @@ class Sandbox:
                 service.latest_deployment_id
             )
             deployment = deployment_response.deployment
+
+            sidecars = self._lifecycle_sidecars(deployment)
+            if sidecars and delete_after_inactivity:
+                raise SidecarError(INACTIVITY_WITH_SIDECARS)
+            if sidecars and delete_after_delay is not None:
+                self._update_sidecars_delete_after(
+                    clients, sidecars, delete_after_delay, service.created_at
+                )
 
             # Update life cycle settings
             life_cycle = service.life_cycle or ServiceLifeCycle()
@@ -1763,6 +1886,65 @@ class Sandbox:
             if isinstance(e, SandboxError):
                 raise
             raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
+
+    def _align_sidecars_after_create(self, delay: int) -> None:
+        """Best effort: a failure only logs, the sidecars then expire a few
+        seconds before the sandbox."""
+        try:
+            clients = get_api_clients(self.api_token, self.host)
+            created = SyncControlPlane(clients).get_service(self.service_id).created_at
+            self._update_sidecars_delete_after(clients, self._sidecars, delay, created)
+        except Exception as e:
+            logger.warning(f"Could not align sidecar expiry with the sandbox: {e}")
+
+    def _lifecycle_sidecars(self, deployment: Any) -> List[SidecarInfo]:
+        """The sidecars to keep in step: from the live deployment's
+        KOYEB_SIDECARS (covers list() handles and stale handles)."""
+        env = {e.key: e.value for e in (deployment.definition.env or [])}
+        if not env.get(SIDECARS_ENV):
+            return list(self._sidecars)
+        cp = SyncControlPlane(get_api_clients(self.api_token, self.host))
+        info = cp.get_service(self.service_id)
+        sidecars = _find_sidecars(cp, info, env)
+        self._sidecars = sidecars
+        return sidecars
+
+    def _update_sidecars_delete_after(
+        self,
+        clients: Any,
+        sidecars: List[SidecarInfo],
+        delay: int,
+        sandbox_created_at: Any,
+    ) -> None:
+        """Set each sidecar's delete_after_create so it expires with the
+        sandbox, as a life-cycle-only update. Skips sidecars already set:
+        an update that changes nothing would redeploy them."""
+        cp = SyncControlPlane(clients)
+        failed = []
+        for info in sidecars:
+            try:
+                current = cp.get_service(info.service_id)
+                target = aligned_delete_after(
+                    delay, sandbox_created_at, current.created_at
+                )
+                if (current.delete_after_create or 0) == target:
+                    continue
+                clients.services.update_service(
+                    id=info.service_id,
+                    service=UpdateService(
+                        life_cycle=ServiceLifeCycle(delete_after_create=target)
+                    ),
+                    update_mask="life_cycle.delete_after_create",
+                )
+            except Exception as e:
+                logger.debug(f"Sidecar '{info.name}' life cycle update failed: {e}")
+                failed.append(info.name)
+        if failed:
+            raise SidecarError(
+                "Nothing was changed on the sandbox: the life cycle of sidecar "
+                + ", ".join(f"'{n}'" for n in failed)
+                + " could not be updated. Retry update_lifecycle."
+            )
 
     def update_network_policy(
         self,
@@ -1810,6 +1992,11 @@ class Sandbox:
             cp = SyncControlPlane(get_api_clients(self.api_token, self.host))
             service = cp.get_service(self.service_id)
             definition = cp.deployment_definition(service.latest_deployment_id)
+            if (block_network or outbound_allowlist is not None) and _lists_sidecars(
+                definition
+            ):
+                # Covers handles that don't know their sidecars (list()).
+                raise SidecarError(EGRESS_WITH_SIDECARS)
             definition["network_policy"] = _keep_mesh(
                 network_policy.to_dict(), definition.get("network_policy")
             )
@@ -1912,6 +2099,8 @@ class AsyncSandbox(Sandbox):
                 logger.debug(f"Could not get deployment {deployment_id}: {e}")
 
         sandbox = _hydrate_sandbox_handle(cls, service, deployment, api_token, host)
+        if deployment is not None:
+            sandbox._sidecars = await _find_sidecars_async(cp, service, deployment.env)
 
         if deployment is None or not deployment.sandbox_url:
             try:
@@ -2046,10 +2235,13 @@ class AsyncSandbox(Sandbox):
             outbound_allowlist=outbound_allowlist,
             enable_mesh=enable_mesh,
             mesh_scope=mesh_scope,
+            delete_after_inactivity_delay=delete_after_inactivity_delay,
+            env=env,
         )
         if sidecars:
             enable_mesh = True
             mesh_scope = MeshScope.MESH_SCOPE_APP
+            env = {**(env or {}), SIDECARS_ENV: sidecars_env_value(sidecars)}
 
         snapshot_id, snapshot_type = _resolve_snapshot_reference(
             snapshot, api_token, host
@@ -2151,6 +2343,8 @@ class AsyncSandbox(Sandbox):
         )
         sandbox._owns_app = created_app
         sandbox._sidecars = sidecar_infos
+        if sidecar_infos and spec.delete_after_delay:
+            await sandbox._align_sidecars_after_create(spec.delete_after_delay)
         if wait_ready:
             try:
                 is_ready = await sandbox.wait_ready(
@@ -2643,7 +2837,12 @@ class AsyncSandbox(Sandbox):
         delete_after_delay: Optional[int] = None,
         delete_after_inactivity: Optional[int] = None,
     ) -> None:
-        """Update the sandbox's life cycle settings asynchronously."""
+        """Update the sandbox's life cycle settings asynchronously.
+
+        See Sandbox.update_lifecycle, including the sidecar rules.
+        """
+        if self._sidecars and delete_after_inactivity:
+            raise SidecarError(INACTIVITY_WITH_SIDECARS)
         try:
             from .clients import get_async_api_clients
             from koyeb.api_async.models.create_service import (
@@ -2664,6 +2863,14 @@ class AsyncSandbox(Sandbox):
                 service.latest_deployment_id
             )
             deployment = deployment_response.deployment
+
+            sidecars = await self._lifecycle_sidecars_async(clients, deployment)
+            if sidecars and delete_after_inactivity:
+                raise SidecarError(INACTIVITY_WITH_SIDECARS)
+            if sidecars and delete_after_delay is not None:
+                await self._update_sidecars_delete_after(
+                    clients, sidecars, delete_after_delay, service.created_at
+                )
 
             life_cycle = service.life_cycle or AsyncServiceLifeCycle()
             if delete_after_delay is not None:
@@ -2708,6 +2915,74 @@ class AsyncSandbox(Sandbox):
                 raise
             raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
 
+    async def _align_sidecars_after_create(self, delay: int) -> None:
+        """Async twin of Sandbox._align_sidecars_after_create."""
+        try:
+            clients = get_async_api_clients(self.api_token, self.host)
+            created = (
+                await AsyncControlPlane(clients).get_service(self.service_id)
+            ).created_at
+            await self._update_sidecars_delete_after(
+                clients, self._sidecars, delay, created
+            )
+        except Exception as e:
+            logger.warning(f"Could not align sidecar expiry with the sandbox: {e}")
+
+    async def _lifecycle_sidecars_async(
+        self, clients: Any, deployment: Any
+    ) -> List[SidecarInfo]:
+        """Async twin of Sandbox._lifecycle_sidecars."""
+        env = {e.key: e.value for e in (deployment.definition.env or [])}
+        if not env.get(SIDECARS_ENV):
+            return list(self._sidecars)
+        cp = AsyncControlPlane(clients)
+        info = await cp.get_service(self.service_id)
+        sidecars = await _find_sidecars_async(cp, info, env)
+        self._sidecars = sidecars
+        return sidecars
+
+    async def _update_sidecars_delete_after(
+        self,
+        clients: Any,
+        sidecars: List[SidecarInfo],
+        delay: int,
+        sandbox_created_at: Any,
+    ) -> None:
+        """Async twin of Sandbox._update_sidecars_delete_after."""
+        from koyeb.api_async.models.create_service import (
+            ServiceLifeCycle as AsyncServiceLifeCycle,
+        )
+        from koyeb.api_async.models.update_service import (
+            UpdateService as AsyncUpdateService,
+        )
+
+        cp = AsyncControlPlane(clients)
+        failed = []
+        for info in sidecars:
+            try:
+                current = await cp.get_service(info.service_id)
+                target = aligned_delete_after(
+                    delay, sandbox_created_at, current.created_at
+                )
+                if (current.delete_after_create or 0) == target:
+                    continue
+                await clients.services.update_service(
+                    id=info.service_id,
+                    service=AsyncUpdateService(
+                        life_cycle=AsyncServiceLifeCycle(delete_after_create=target)
+                    ),
+                    update_mask="life_cycle.delete_after_create",
+                )
+            except Exception as e:
+                logger.debug(f"Sidecar '{info.name}' life cycle update failed: {e}")
+                failed.append(info.name)
+        if failed:
+            raise SidecarError(
+                "Nothing was changed on the sandbox: the life cycle of sidecar "
+                + ", ".join(f"'{n}'" for n in failed)
+                + " could not be updated. Retry update_lifecycle."
+            )
+
     async def update_network_policy(
         self,
         block_network: bool = False,
@@ -2742,6 +3017,10 @@ class AsyncSandbox(Sandbox):
             cp = AsyncControlPlane(get_async_api_clients(self.api_token, self.host))
             service = await cp.get_service(self.service_id)
             definition = await cp.deployment_definition(service.latest_deployment_id)
+            if (block_network or outbound_allowlist is not None) and _lists_sidecars(
+                definition
+            ):
+                raise SidecarError(EGRESS_WITH_SIDECARS)
             definition["network_policy"] = _keep_mesh(
                 network_policy.to_dict(), definition.get("network_policy")
             )
