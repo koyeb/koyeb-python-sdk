@@ -37,12 +37,14 @@ from .pool import (
     wait_claim_ready_async,
 )
 from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
+from .sidecar import Sidecar
 from .snapshot import DeclarativeSnapshot, Snapshot, SnapshotStatus, SnapshotType
 from .errors import (
     EgressPolicyError,
     PoolClaimError,
     ServicePoolError,
     ServiceTerminalStateError,
+    SidecarError,
     InvalidPortError,
     MissingApiTokenError,
     NoSandboxSecretError,
@@ -80,6 +82,8 @@ __all__ = [
     "PoolClaimError",
     "ServicePoolError",
     "ServiceTerminalStateError",
+    "Sidecar",
+    "SidecarError",
     "InvalidPortError",
     "MissingApiTokenError",
     "NoSandboxSecretError",

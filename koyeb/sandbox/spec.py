@@ -22,6 +22,7 @@ from koyeb.api.models.config_file import ConfigFile
 from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
 from koyeb.api.models.deployment_env import DeploymentEnv
+from koyeb.api.models.deployment_health_check import DeploymentHealthCheck
 from koyeb.api.models.deployment_instance_type import DeploymentInstanceType
 from koyeb.api.models.deployment_mesh import DeploymentMesh
 from koyeb.api.models.deployment_port import DeploymentPort
@@ -253,6 +254,7 @@ def create_deployment_definition(
     enable_mesh: Optional[bool] = None,
     config_files: Optional[List[ConfigFile]] = None,
     network_policy: Optional[NetworkPolicy] = None,
+    health_checks: Optional[List[DeploymentHealthCheck]] = None,
 ) -> DeploymentDefinition:
     """
     Create deployment definition for a sandbox service.
@@ -280,6 +282,7 @@ def create_deployment_definition(
             Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
         enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
         network_policy: Optional network policy restricting egress traffic
+        health_checks: Optional health checks (non-SANDBOX types only)
 
     Returns:
         DeploymentDefinition object
@@ -352,6 +355,7 @@ def create_deployment_definition(
         mesh=mesh,
         config_files=config_files if config_files else None,
         network_policy=network_policy,
+        health_checks=health_checks,
     )
 
 
@@ -423,6 +427,7 @@ class SandboxSpec:
     snapshot_id: Optional[str] = None
     snapshot_type: Optional["SnapshotType"] = None
     mesh_scope: Optional[MeshScope] = None
+    health_checks: Optional[List[DeploymentHealthCheck]] = None
 
     network_policy: Optional[NetworkPolicy] = field(default=None, init=False)
 
@@ -496,6 +501,7 @@ class SandboxSpec:
             enable_mesh=self.enable_mesh,
             config_files=build_config_files(self.config_files) or None,
             network_policy=self.network_policy,
+            health_checks=self.health_checks,
         )
 
     def deployment_definition_dict(self) -> Dict[str, Any]:

@@ -361,3 +361,8 @@ class TestSandboxSpecMeshScopeRules(unittest.TestCase):
         self.assertEqual(
             payload["definition"]["network_policy"]["mesh"]["scope"], "MESH_SCOPE_APP"
         )
+
+
+class TestSandboxSpecHealthChecks(unittest.TestCase):
+    def test_default_sends_no_health_checks(self):
+        self.assertIsNone(_spec().deployment_definition().health_checks)
