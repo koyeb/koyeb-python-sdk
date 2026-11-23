@@ -17,4 +17,5 @@ PYTHONPATH=. uv run pydoc-markdown \
   -m koyeb.sandbox.status \
   -m koyeb.sandbox.clients \
   -m koyeb.sandbox.egress \
+  -m koyeb.sandbox.sidecar \
   >docs/sandbox.md

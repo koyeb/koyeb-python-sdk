@@ -45,6 +45,10 @@ jobs:
             runner: 00_run_all.py
             flows: 28_,29_
             timeout: 1800
+          - name: sidecars
+            runner: 00_run_all.py
+            flows: 32_
+            timeout: 900
     name: ${{ matrix.name }}
     env:
       KOYEB_API_TOKEN: ${{ secrets.KOYEB_API_TOKEN }}

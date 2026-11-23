@@ -139,6 +139,31 @@ def id() -> str
 
 Get the service ID of the sandbox.
 
+<a id="koyeb.sandbox.sandbox.Sandbox.sidecars"></a>
+
+#### sidecars
+
+```python
+@property
+def sidecars() -> List[SidecarInfo]
+```
+
+Sidecars created with this sandbox.
+
+<a id="koyeb.sandbox.sandbox.Sandbox.sidecar"></a>
+
+#### sidecar
+
+```python
+def sidecar(name: str) -> SidecarInfo
+```
+
+The sidecar called ``name``.
+
+**Raises**:
+
+- `SidecarError` - If this sandbox has no sidecar with that name
+
 <a id="koyeb.sandbox.sandbox.Sandbox.create"></a>
 
 #### create
@@ -175,7 +200,9 @@ def create(cls,
            outbound_allowlist: Optional[List[str]] = None,
            snapshot: Optional[Union[str, "Snapshot"]] = None,
            sandbox_secret: Optional[str] = None,
-           cleanup_on_failure: bool = True) -> Sandbox
+           cleanup_on_failure: bool = True,
+           mesh_scope: Optional[Union[MeshScope, str]] = None,
+           sidecars: Optional[List[Sidecar]] = None) -> Sandbox
 ```
 
 Create a new sandbox instance.
@@ -213,6 +240,17 @@ Create a new sandbox instance.
   after this many seconds.
 - `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
 - `enable_mesh` - Mesh tri-state: None (default) = auto, True = enabled, False = disabled
+- `mesh_scope` - Which services share the sandbox's mesh: MESH_SCOPE_APP,
+  MESH_SCOPE_WORKSPACE or MESH_SCOPE_ORGANIZATION (a MeshScope or its
+  name). None keeps the organization default. Setting a scope turns
+  the mesh on (enable_mesh=False is rejected). Not available on free
+  instances or with a full snapshot.
+- `sidecars` - Trusted helper services to run next to the sandbox,
+  reached from it at http://<name>:<port>. They are created first and,
+  when wait_ready is True, the sandbox is created once they are healthy.
+  They share the sandbox's app (deleted with it) and a private app-scoped
+  mesh. Can't be combined with app_id, snapshot, block_network,
+  outbound_allowlist or enable_mesh=False.
 - `poll_interval` - Time between health checks in seconds when wait_ready is True (default: 0.5)
 - `entrypoint` - Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
 - `command` - Override the default command of the Docker image (e.g., "python app.py")
@@ -798,6 +836,12 @@ Update the sandbox's life cycle settings.
 
 - `SandboxError` - If updating life cycle fails
   
+  With sidecars, the sidecars are updated first, so they expire with
+  the sandbox (without redeploying them), and delete_after_inactivity
+  is rejected: sidecars never sleep, so they would outlive the
+  sandbox. The sidecars are read from the sandbox's current
+  deployment, so this also works on handles from list().
+  
 
 **Example**:
 
@@ -945,7 +989,9 @@ async def create(cls,
                  outbound_allowlist: Optional[List[str]] = None,
                  snapshot: Optional[Union[str, "Snapshot"]] = None,
                  sandbox_secret: Optional[str] = None,
-                 cleanup_on_failure: bool = True) -> AsyncSandbox
+                 cleanup_on_failure: bool = True,
+                 mesh_scope: Optional[Union[MeshScope, str]] = None,
+                 sidecars: Optional[List[Sidecar]] = None) -> AsyncSandbox
 ```
 
 Create a new sandbox instance with async support.
@@ -985,6 +1031,17 @@ Create a new sandbox instance with async support.
   after this many seconds.
 - `app_id` - If provided, create the sandbox service in an existing app instead of creating a new one.
 - `enable_mesh` - Mesh tri-state: None (default) = auto, True = enabled, False = disabled
+- `mesh_scope` - Which services share the sandbox's mesh: MESH_SCOPE_APP,
+  MESH_SCOPE_WORKSPACE or MESH_SCOPE_ORGANIZATION (a MeshScope or its
+  name). None keeps the organization default. Setting a scope turns
+  the mesh on (enable_mesh=False is rejected). Not available on free
+  instances or with a full snapshot.
+- `sidecars` - Trusted helper services to run next to the sandbox,
+  reached from it at http://<name>:<port>. They are created first and,
+  when wait_ready is True, the sandbox is created once they are healthy.
+  They share the sandbox's app (deleted with it) and a private app-scoped
+  mesh. Can't be combined with app_id, snapshot, block_network,
+  outbound_allowlist or enable_mesh=False.
 - `poll_interval` - Time between health checks in seconds when wait_ready is True (default: 0.5)
 - `entrypoint` - Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
 - `command` - Override the default command of the Docker image (e.g., "python app.py")
@@ -1265,6 +1322,8 @@ async def update_lifecycle(
 
 Update the sandbox's life cycle settings asynchronously.
 
+See Sandbox.update_lifecycle, including the sidecar rules.
+
 <a id="koyeb.sandbox.sandbox.AsyncSandbox.update_network_policy"></a>
 
 #### update\_network\_policy
@@ -1463,23 +1522,24 @@ Creates two routes:
 
 ```python
 def create_deployment_definition(
-        name: str,
-        docker_source: DockerSource,
-        env_vars: List[DeploymentEnv],
-        instance_type: str,
-        definition_type: DeploymentDefinitionType = DeploymentDefinitionType.
+    name: str,
+    docker_source: DockerSource,
+    env_vars: List[DeploymentEnv],
+    instance_type: str,
+    definition_type: DeploymentDefinitionType = DeploymentDefinitionType.
     SANDBOX,
-        ports: Optional[List[DeploymentPort]] = None,
-        exposed_port_protocol: Optional[str] = None,
-        region: Optional[str] = None,
-        routes: Optional[List[DeploymentRoute]] = None,
-        idle_timeout: int = 300,
-        enable_tcp_proxy: bool = False,
-        _experimental_enable_light_sleep: bool = False,
-        _experimental_deep_sleep_value: int = 3900,
-        enable_mesh: Optional[bool] = None,
-        config_files: Optional[List[ConfigFile]] = None,
-        network_policy: Optional[NetworkPolicy] = None
+    ports: Optional[List[DeploymentPort]] = None,
+    exposed_port_protocol: Optional[str] = None,
+    region: Optional[str] = None,
+    routes: Optional[List[DeploymentRoute]] = None,
+    idle_timeout: int = 300,
+    enable_tcp_proxy: bool = False,
+    _experimental_enable_light_sleep: bool = False,
+    _experimental_deep_sleep_value: int = 3900,
+    enable_mesh: Optional[bool] = None,
+    config_files: Optional[List[ConfigFile]] = None,
+    network_policy: Optional[NetworkPolicy] = None,
+    health_checks: Optional[List[DeploymentHealthCheck]] = None
 ) -> DeploymentDefinition
 ```
 
@@ -1509,6 +1569,7 @@ Create deployment definition for a sandbox service.
   Only used if _experimental_enable_light_sleep is True. Ignored otherwise.
 - `enable_mesh` - Mesh tri-state: None (default) = auto, True = enabled, False = disabled
 - `network_policy` - Optional network policy restricting egress traffic
+- `health_checks` - Optional health checks (non-SANDBOX types only)
   
 
 **Returns**:
@@ -5591,6 +5652,17 @@ class EgressPolicyError(SandboxError)
 
 Raised when egress policy arguments are invalid or conflicting
 
+<a id="koyeb.sandbox.errors.SidecarError"></a>
+
+## SidecarError Objects
+
+```python
+class SidecarError(SandboxError, ValueError)
+```
+
+Raised when sidecar arguments are invalid, or a sidecar fails to
+start
+
 <a id="koyeb.sandbox.errors.PoolClaimError"></a>
 
 ## PoolClaimError Objects
@@ -5816,8 +5888,8 @@ Outbound egress policy building and destination normalization.
 ```python
 def build_network_policy(
         block_network: bool = False,
-        outbound_allowlist: Optional[List[str]] = None
-) -> Optional[NetworkPolicy]
+        outbound_allowlist: Optional[List[str]] = None,
+        mesh_scope: Optional[MeshScope] = None) -> Optional[NetworkPolicy]
 ```
 
 Build a NetworkPolicy from sandbox network policy arguments.
@@ -5829,16 +5901,286 @@ Build a NetworkPolicy from sandbox network policy arguments.
   destinations; all other outbound traffic is blocked. Bare IPs
   are normalized to /32 (IPv4) or /128 (IPv6). An empty list
   blocks all outbound traffic.
+- `mesh_scope` - Which services share the mesh with this one. None keeps
+  the organization default. MESH_SCOPE_CUSTOM is not supported here
+  because it needs a mesh name.
   
 
 **Returns**:
 
-  NetworkPolicy, or None when both arguments are unset
-  (block_network=False and outbound_allowlist=None)
+  NetworkPolicy, or None when every argument is unset
   
 
 **Raises**:
 
-- `EgressPolicyError` - If both arguments are passed, or an allowlist
-  entry is not a valid IP address or CIDR
+- `EgressPolicyError` - If both egress arguments are passed, or an
+  allowlist entry is not a valid IP address or CIDR
+- `ValueError` - If mesh_scope is MESH_SCOPE_CUSTOM
+
+<a id="koyeb.sandbox.egress.build_egress_policy"></a>
+
+#### build\_egress\_policy
+
+```python
+def build_egress_policy(
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None
+) -> Optional[EgressPolicy]
+```
+
+Build the EgressPolicy part of a NetworkPolicy, or None when both
+arguments are unset. See build_network_policy for the arguments.
+
+<a id="koyeb.sandbox.sidecar"></a>
+
+# koyeb.sandbox.sidecar
+
+Sidecars: trusted helper services that run next to a sandbox.
+
+A sidecar is a separate service, with its own image, env,
+secrets and egress policy, that the sandbox reaches by name over a private
+mesh (``http://<name>:<port>``). Secrets given to a sidecar never enter the
+sandbox, so a sidecar can hold API keys, run a credential-injecting proxy,
+or host a helper service the agent should use but not touch.
+
+This module only describes sidecars and builds their service definitions.
+The create, wait and delete flow lives with the sandbox.
+
+Each sidecar runs as a web service with no public route, a TCP health check
+on its first port, and the mesh enabled with app scope. Since the sandbox
+owns its app, the app scope makes the mesh private to the sandbox and its
+sidecars.
+
+The ``Sidecar`` fields and the ``Sandbox`` sidecar API are stable. How
+sidecars are hosted is not: today they are services in the sandbox's app,
+which ``SidecarInfo.service_id`` and the ``KOYEB_SIDECARS`` env reflect and
+which may change when the platform runs sidecars natively.
+
+<a id="koyeb.sandbox.sidecar.Sidecar"></a>
+
+## Sidecar Objects
+
+```python
+@dataclass
+class Sidecar()
+```
+
+A trusted helper service that runs next to a sandbox.
+
+Pass sidecars to ``Sandbox.create(sidecars=[...])``. The sandbox reaches
+each one at ``http://<name>:<port>`` over a private mesh.
+
+**Arguments**:
+
+- `name` - DNS name the sandbox uses to reach the sidecar. Lowercase
+  letters, digits and dashes, 2-63 characters.
+- `image` - Docker image to run.
+- `ports` - TCP ports the sidecar listens on (1-5). The first port is
+- `health-checked` - the sandbox is created only once it accepts
+  connections.
+- `instance_type` - Instance type (default: nano).
+- `entrypoint` - Override the image entrypoint.
+- `command` - Override the image command.
+- `args` - Arguments for the command.
+- `env` - Environment variables. Use ``Secret(name=...)`` values so the
+  platform injects secrets at deploy time; they never reach the
+  sandbox.
+- `config_files` - Files to mount, as ``{path: content}`` or
+- ```{path` - ConfigFile(...)}``.
+- `registry_secret` - Secret holding registry credentials for a private
+  image.
+- `privileged` - Run the sidecar privileged (default: False), e.g. for a
+  VPN client that needs /dev/net/tun. Honoured where a privileged
+  sandbox is.
+- `startup_grace_period` - Seconds the sidecar may take to start listening
+  before failed health checks count (5-900, default: the platform's,
+  5). The platform then allows about two more minutes. Raise it for
+  images that install or configure things at boot.
+- `block_network` - Block all outbound traffic from the sidecar.
+- `outbound_allowlist` - IPs/CIDRs the sidecar may reach; everything else
+  is blocked. Mutually exclusive with block_network. Entries must
+  not overlap. With either option the sandbox can still reach the
+  sidecar and get replies, but the sidecar can't open new
+  connections to the sandbox.
+  
+
+**Example**:
+
+  >>> proxy = Sidecar(
+  ...     name="proxy",
+  ...     image="mitmproxy/mitmproxy:latest",
+  ...     ports=[8080],
+  ...     command="mitmdump",
+  ...     args=["--listen-port", "8080"],
+  ...     env={"API_KEY": Secret(name="my-api-key")},
+  ... )
+
+<a id="koyeb.sandbox.sidecar.Sidecar.service_spec"></a>
+
+#### service\_spec
+
+```python
+def service_spec(region: Optional[str] = None,
+                 delete_after_delay: int = 0) -> SandboxSpec
+```
+
+The service spec for this sidecar.
+
+A web service with no route (not public), a TCP health check on the
+first port, the mesh enabled with app scope, and no scale-to-zero:
+mesh traffic from the sandbox does not wake a sleeping service.
+``region`` and ``delete_after_delay`` should match the sandbox's.
+
+<a id="koyeb.sandbox.sidecar.validate_sidecars"></a>
+
+#### validate\_sidecars
+
+```python
+def validate_sidecars(sidecars: Iterable[Sidecar],
+                      sandbox_name: str) -> List[Sidecar]
+```
+
+Check a sandbox's sidecars as a set, before any API call.
+
+Names must be unique and differ from the sandbox's name: they share one
+app, and the sandbox reaches each sidecar by its service name.
+
+<a id="koyeb.sandbox.sidecar.SidecarInfo"></a>
+
+## SidecarInfo Objects
+
+```python
+@dataclass(frozen=True)
+class SidecarInfo()
+```
+
+A sidecar created with a sandbox.
+
+The sandbox reaches it at ``http://<name>:<port>``.
+
+<a id="koyeb.sandbox.sidecar.SidecarInfo.url"></a>
+
+#### url
+
+```python
+def url(port: Optional[int] = None, scheme: str = "http") -> str
+```
+
+URL the sandbox uses to reach this sidecar, on ``port`` (one of
+its declared ports) or the first declared port.
+
+**Raises**:
+
+- `SidecarError` - If ``port`` isn't one of the sidecar's ports
+
+<a id="koyeb.sandbox.sidecar.SidecarTimeoutError"></a>
+
+## SidecarTimeoutError Objects
+
+```python
+class SidecarTimeoutError(SidecarError, SandboxTimeoutError)
+```
+
+A sidecar didn't become healthy in time. Also a
+SandboxTimeoutError, so existing timeout handling catches it.
+
+<a id="koyeb.sandbox.sidecar.prepare_sidecars"></a>
+
+#### prepare\_sidecars
+
+```python
+def prepare_sidecars(
+        sidecars: Optional[Iterable[Sidecar]],
+        *,
+        name: str,
+        app_id: Optional[str],
+        snapshot: Any,
+        block_network: bool,
+        outbound_allowlist: Optional[List[str]],
+        enable_mesh: Optional[bool],
+        mesh_scope: Any,
+        delete_after_inactivity_delay: int = 0,
+        env: Optional[Dict[str, Any]] = None) -> Optional[List[Sidecar]]
+```
+
+Validate Sandbox.create arguments when sidecars are given.
+
+Returns None when there are no sidecars (create behaves as before),
+otherwise the validated list. Fails before any API call.
+
+<a id="koyeb.sandbox.sidecar.sidecar_service_payloads"></a>
+
+#### sidecar\_service\_payloads
+
+```python
+def sidecar_service_payloads(
+        sidecars: List[Sidecar], app_id: str,
+        sandbox_spec: SandboxSpec) -> List[Dict[str, Any]]
+```
+
+CreateService payloads for a sandbox's sidecars, with the sandbox's
+region and delete_after_delay.
+
+<a id="koyeb.sandbox.sidecar.sidecars_env_value"></a>
+
+#### sidecars\_env\_value
+
+```python
+def sidecars_env_value(sidecars: List[Sidecar]) -> str
+```
+
+The SIDECARS_ENV value for a sandbox: names and ports as JSON.
+
+<a id="koyeb.sandbox.sidecar.parse_sidecars_env"></a>
+
+#### parse\_sidecars\_env
+
+```python
+def parse_sidecars_env(value: Optional[str]) -> List[Dict[str, Any]]
+```
+
+Names and ports from a SIDECARS_ENV value; [] when unset.
+
+Strict: anything that isn't a list of valid sidecar names with 1-5
+valid ports raises SidecarError, so a damaged value is never half
+trusted.
+
+<a id="koyeb.sandbox.sidecar.match_sidecars"></a>
+
+#### match\_sidecars
+
+```python
+def match_sidecars(
+        entries: List[Dict[str, Any]],
+        services: Iterable[Any]) -> Tuple[List[SidecarInfo], List[str]]
+```
+
+Pair KOYEB_SIDECARS entries with the app's services by exact name.
+Returns the matches and the names with no service.
+
+<a id="koyeb.sandbox.sidecar.aligned_delete_after"></a>
+
+#### aligned\_delete\_after
+
+```python
+def aligned_delete_after(delay: int, sandbox_created_at: Any,
+                         sidecar_created_at: Any) -> int
+```
+
+delete_after_create for a sidecar so it expires with its sandbox.
+
+The platform counts the delay from each service's own creation, and
+sidecars are created before the sandbox: add the gap. 0 (no expiry)
+stays 0; unknown times fall back to ``delay``.
+
+<a id="koyeb.sandbox.sidecar.check_sidecar_deployment"></a>
+
+#### check\_sidecar\_deployment
+
+```python
+def check_sidecar_deployment(info: SidecarInfo, status: Any) -> bool
+```
+
+True when ready, False while starting; raises SidecarError when the
+sidecar won't become ready on its own.
 

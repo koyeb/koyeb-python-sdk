@@ -71,6 +71,8 @@ default project.
 - **30_sandbox_list_async.py** - List sandbox services with lazy handles (async variant)
 - **31_raise_on_error.py** - Opt-in exec errors: SandboxCommandError carries the failed CommandResult
 - **31_raise_on_error_async.py** - Opt-in exec errors (async variant)
+- **32_sidecar_proxy.py** - Sidecars: a proxy sidecar injects a credential the sandbox never holds
+- **32_sidecar_proxy_async.py** - Sidecars (async variant)
 
 ## Basic Usage
 
