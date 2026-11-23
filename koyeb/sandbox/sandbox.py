@@ -18,6 +18,7 @@ from koyeb.api.exceptions import ApiException
 from koyeb.api.models.create_service import ServiceLifeCycle
 from koyeb.api.models.egress_policy import EgressPolicy
 from koyeb.api.models.egress_policy_mode import EgressPolicyMode
+from koyeb.api.models.mesh_scope import MeshScope
 from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.update_service import UpdateService
 
@@ -120,6 +121,20 @@ async def _cleanup_after_failure_async(sandbox: "Sandbox") -> bool:
     except Exception as e:
         logger.warning(f"Cleanup failed, sandbox '{sandbox.name}' may still exist: {e}")
         return False
+
+
+def _keep_mesh(
+    new_policy: Dict[str, Any], current_policy: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Carry the current mesh scope into a new network policy.
+
+    update_network_policy only changes egress; replacing the whole
+    network_policy would silently move the sandbox to another mesh."""
+    mesh = (current_policy or {}).get("mesh")
+    if mesh:
+        new_policy = dict(new_policy)
+        new_policy["mesh"] = mesh
+    return new_policy
 
 
 def validate_port(port: int) -> None:
@@ -277,6 +292,7 @@ class Sandbox:
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
         cleanup_on_failure: bool = True,
+        mesh_scope: Optional[Union[MeshScope, str]] = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -313,6 +329,11 @@ class Sandbox:
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
                 enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
+                mesh_scope: Which services share the sandbox's mesh: MESH_SCOPE_APP,
+                    MESH_SCOPE_WORKSPACE or MESH_SCOPE_ORGANIZATION (a MeshScope or its
+                    name). None keeps the organization default. Setting a scope turns
+                    the mesh on (enable_mesh=False is rejected). Not available on free
+                    instances or with a full snapshot.
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
@@ -386,6 +407,7 @@ class Sandbox:
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
             enable_mesh=enable_mesh,
+            mesh_scope=mesh_scope,
             entrypoint=entrypoint,
             command=command,
             args=args,
@@ -1565,7 +1587,9 @@ class Sandbox:
             cp = SyncControlPlane(get_api_clients(self.api_token, self.host))
             service = cp.get_service(self.service_id)
             definition = cp.deployment_definition(service.latest_deployment_id)
-            definition["network_policy"] = network_policy.to_dict()
+            definition["network_policy"] = _keep_mesh(
+                network_policy.to_dict(), definition.get("network_policy")
+            )
 
             # Pin the sandbox to the new deployment so wait_ready() polls
             # the replacement; a failed id lookup must not surface as an
@@ -1712,6 +1736,7 @@ class AsyncSandbox(Sandbox):
         snapshot: Optional[Union[str, "Snapshot"]] = None,
         sandbox_secret: Optional[str] = None,
         cleanup_on_failure: bool = True,
+        mesh_scope: Optional[Union[MeshScope, str]] = None,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1750,6 +1775,11 @@ class AsyncSandbox(Sandbox):
                     after this many seconds.
                 app_id: If provided, create the sandbox service in an existing app instead of creating a new one.
                 enable_mesh: Mesh tri-state: None (default) = auto, True = enabled, False = disabled
+                mesh_scope: Which services share the sandbox's mesh: MESH_SCOPE_APP,
+                    MESH_SCOPE_WORKSPACE or MESH_SCOPE_ORGANIZATION (a MeshScope or its
+                    name). None keeps the organization default. Setting a scope turns
+                    the mesh on (enable_mesh=False is rejected). Not available on free
+                    instances or with a full snapshot.
                 poll_interval: Time between health checks in seconds when wait_ready is True (default: 0.5)
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
@@ -1797,6 +1827,7 @@ class AsyncSandbox(Sandbox):
             delete_after_delay=delete_after_delay,
             delete_after_inactivity_delay=delete_after_inactivity_delay,
             enable_mesh=enable_mesh,
+            mesh_scope=mesh_scope,
             entrypoint=entrypoint,
             command=command,
             args=args,
@@ -2436,7 +2467,9 @@ class AsyncSandbox(Sandbox):
             cp = AsyncControlPlane(get_async_api_clients(self.api_token, self.host))
             service = await cp.get_service(self.service_id)
             definition = await cp.deployment_definition(service.latest_deployment_id)
-            definition["network_policy"] = network_policy.to_dict()
+            definition["network_policy"] = _keep_mesh(
+                network_policy.to_dict(), definition.get("network_policy")
+            )
 
             # Pin the sandbox to the new deployment so wait_ready() polls
             # the replacement; a failed id lookup must not surface as an

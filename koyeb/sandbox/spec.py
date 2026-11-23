@@ -33,6 +33,7 @@ from koyeb.api.models.deployment_scaling_target_sleep_idle_delay import (
     DeploymentScalingTargetSleepIdleDelay,
 )
 from koyeb.api.models.docker_source import DockerSource
+from koyeb.api.models.mesh_scope import MeshScope
 from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.proxy_port_protocol import ProxyPortProtocol
 from koyeb.api.models.secret import Secret
@@ -371,6 +372,18 @@ def _app_name_suffix() -> str:
     return digits + "".join(secrets.choice(_BASE36) for _ in range(4))
 
 
+def _normalize_mesh_scope(scope: Any) -> Optional[MeshScope]:
+    """Accept a MeshScope or its name (e.g. "MESH_SCOPE_APP"); None and
+    UNSPECIFIED both mean "organization default"."""
+    if scope is None:
+        return None
+    try:
+        scope = MeshScope(scope)
+    except ValueError as e:
+        raise ValueError(f"Invalid mesh_scope: {scope!r}") from e
+    return None if scope == MeshScope.MESH_SCOPE_UNSPECIFIED else scope
+
+
 @dataclass
 class SandboxSpec:
     """The single definition of a sandbox deployment.
@@ -409,12 +422,34 @@ class SandboxSpec:
     outbound_allowlist: Optional[List[str]] = None
     snapshot_id: Optional[str] = None
     snapshot_type: Optional["SnapshotType"] = None
+    mesh_scope: Optional[MeshScope] = None
 
     network_policy: Optional[NetworkPolicy] = field(default=None, init=False)
 
     def __post_init__(self):
+        self.mesh_scope = _normalize_mesh_scope(self.mesh_scope)
+        if self.mesh_scope is not None:
+            if self.enable_mesh is False:
+                raise ValueError("mesh_scope can't be set when enable_mesh is False")
+            if self.instance_type == "free":
+                # The API only allows MESH_AUTO on free instances, and AUTO
+                # keeps the mesh off for them: the scope would do nothing.
+                raise ValueError("mesh_scope can't be used on free instances")
+            if self.snapshot_id and self.snapshot_type is not None:
+                from .snapshot import SnapshotType  # deferred: avoids import cycle
+
+                if self.snapshot_type is SnapshotType.FULL:
+                    # A FULL snapshot carries its own definition; the scope
+                    # would be silently dropped.
+                    raise ValueError(
+                        "mesh_scope can't be combined with a full snapshot"
+                    )
+            # A scope only takes effect with the mesh on, and AUTO keeps it
+            # off for sandboxes: asking for a scope turns the mesh on.
+            if self.enable_mesh is None:
+                self.enable_mesh = True
         self.network_policy = build_network_policy(
-            self.block_network, self.outbound_allowlist
+            self.block_network, self.outbound_allowlist, self.mesh_scope
         )
         if self.exposed_port_protocol is not None:
             _validate_port_protocol(self.exposed_port_protocol)
