@@ -6,6 +6,8 @@ from unittest import mock
 
 from koyeb.api.models.deployment_definition_type import DeploymentDefinitionType
 from koyeb.api.models.deployment_mesh import DeploymentMesh
+from koyeb.api.models.egress_policy_mode import EgressPolicyMode
+from koyeb.api.models.mesh_scope import MeshScope
 
 from koyeb.sandbox.snapshot import SnapshotType
 from koyeb.sandbox.spec import (
@@ -254,3 +256,113 @@ class TestDeploymentDefinitionMapping(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSandboxSpecMeshScope(unittest.TestCase):
+    """mesh_scope lands in network_policy.mesh, next to egress."""
+
+    def test_default_sends_no_mesh(self):
+        self.assertIsNone(_spec().deployment_definition().network_policy)
+
+    def test_app_scope(self):
+        policy = (
+            _spec(mesh_scope=MeshScope.MESH_SCOPE_APP)
+            .deployment_definition()
+            .network_policy
+        )
+        self.assertEqual(policy.mesh.scope, MeshScope.MESH_SCOPE_APP)
+        self.assertIsNone(policy.egress)
+
+    def test_scope_by_name(self):
+        policy = (
+            _spec(mesh_scope="MESH_SCOPE_WORKSPACE")
+            .deployment_definition()
+            .network_policy
+        )
+        self.assertEqual(policy.mesh.scope, MeshScope.MESH_SCOPE_WORKSPACE)
+
+    def test_unspecified_is_default(self):
+        spec = _spec(mesh_scope=MeshScope.MESH_SCOPE_UNSPECIFIED)
+        self.assertIsNone(spec.mesh_scope)
+        self.assertIsNone(spec.deployment_definition().network_policy)
+
+    def test_scope_combines_with_egress(self):
+        policy = (
+            _spec(mesh_scope=MeshScope.MESH_SCOPE_APP, outbound_allowlist=["1.2.3.4"])
+            .deployment_definition()
+            .network_policy
+        )
+        self.assertEqual(policy.mesh.scope, MeshScope.MESH_SCOPE_APP)
+        self.assertEqual(
+            policy.egress.mode, EgressPolicyMode.EGRESS_POLICY_MODE_DENY_ALL
+        )
+        self.assertEqual([d.cidr for d in policy.egress.allow_list], ["1.2.3.4/32"])
+
+    def test_custom_scope_rejected(self):
+        with self.assertRaises(ValueError):
+            _spec(mesh_scope=MeshScope.MESH_SCOPE_CUSTOM)
+
+    def test_unknown_scope_rejected(self):
+        with self.assertRaises(ValueError):
+            _spec(mesh_scope="MESH_SCOPE_GALAXY")
+
+    def test_scope_with_mesh_disabled_rejected(self):
+        with self.assertRaises(ValueError):
+            _spec(mesh_scope=MeshScope.MESH_SCOPE_APP, enable_mesh=False)
+
+    def test_wire_payload_coerces_into_both_model_flavors(self):
+        from koyeb.api_async.models.create_service import (
+            CreateService as AsyncCreateService,
+        )
+        from koyeb.api.models.create_service import CreateService
+
+        payload = _spec(
+            mesh_scope=MeshScope.MESH_SCOPE_APP, enable_mesh=True
+        ).create_service_payload("app-id")
+        self.assertEqual(
+            payload["definition"]["network_policy"]["mesh"]["scope"], "MESH_SCOPE_APP"
+        )
+        for model in (CreateService, AsyncCreateService):
+            service = model(**payload)
+            self.assertEqual(
+                service.definition.network_policy.mesh.scope.value, "MESH_SCOPE_APP"
+            )
+
+
+class TestSandboxSpecMeshScopeRules(unittest.TestCase):
+    def test_scope_turns_the_mesh_on(self):
+        d = _spec(mesh_scope=MeshScope.MESH_SCOPE_APP).deployment_definition()
+        self.assertEqual(d.mesh, DeploymentMesh.DEPLOYMENT_MESH_ENABLED)
+
+    def test_no_scope_keeps_mesh_auto(self):
+        self.assertEqual(
+            _spec().deployment_definition().mesh, DeploymentMesh.DEPLOYMENT_MESH_AUTO
+        )
+
+    def test_free_instance_rejected(self):
+        with self.assertRaises(ValueError):
+            _spec(mesh_scope=MeshScope.MESH_SCOPE_APP, instance_type="free")
+
+    def test_full_snapshot_rejected(self):
+        with self.assertRaises(ValueError):
+            _spec(
+                mesh_scope=MeshScope.MESH_SCOPE_APP,
+                snapshot_id="snap",
+                snapshot_type=SnapshotType.FULL,
+            )
+
+    def test_filesystem_snapshot_keeps_scope(self):
+        spec = _spec(
+            mesh_scope=MeshScope.MESH_SCOPE_APP,
+            snapshot_id="snap",
+            snapshot_type=SnapshotType.FILESYSTEM,
+        )
+        payload = spec.create_service_payload("app-id")
+        self.assertEqual(
+            payload["definition"]["network_policy"]["mesh"]["scope"], "MESH_SCOPE_APP"
+        )
+
+
+class TestSandboxSpecHealthChecks(unittest.TestCase):
+    def test_default_sends_no_health_checks(self):
+        self.assertIsNone(_spec().deployment_definition().health_checks)
