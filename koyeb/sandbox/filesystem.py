@@ -2537,6 +2537,7 @@ class SandboxFileIO:
         self.mode = mode
         self.encoding = encoding
         self._closed = False
+        self._written: Optional[Union[str, bytes]] = None
 
     def read(self) -> Union[str, bytes]:
         """Read file content synchronously"""
@@ -2569,7 +2570,17 @@ class SandboxFileIO:
             except SandboxFileNotFoundError:
                 pass
 
+        accumulate = "w" in self.mode and "a" not in self.mode
+        if accumulate:
+            # write_file replaces the whole file, so accumulate across writes.
+            if self._written is not None:
+                if isinstance(self._written, bytes) != isinstance(content, bytes):
+                    raise TypeError("Cannot mix bytes and str content in write mode")
+                content = self._written + content
+
         self.filesystem.write_file(self.path, content, encoding=self.encoding)
+        if accumulate:
+            self._written = content
 
     def close(self) -> None:
         """Close the file"""
@@ -2597,6 +2608,7 @@ class AsyncSandboxFileIO:
         self.mode = mode
         self.encoding = encoding
         self._closed = False
+        self._written: Optional[Union[str, bytes]] = None
 
     async def read(self) -> Union[str, bytes]:
         """Read file content asynchronously"""
@@ -2631,7 +2643,17 @@ class AsyncSandboxFileIO:
             except SandboxFileNotFoundError:
                 pass
 
+        accumulate = "w" in self.mode and "a" not in self.mode
+        if accumulate:
+            # write_file replaces the whole file, so accumulate across writes.
+            if self._written is not None:
+                if isinstance(self._written, bytes) != isinstance(content, bytes):
+                    raise TypeError("Cannot mix bytes and str content in write mode")
+                content = self._written + content
+
         await self.filesystem.write_file(self.path, content, encoding=self.encoding)
+        if accumulate:
+            self._written = content
 
     def close(self) -> None:
         """Close the file"""

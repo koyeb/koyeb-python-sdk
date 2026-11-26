@@ -341,6 +341,25 @@ class TestSandboxFileIO(unittest.TestCase):
                 handle.write("data")
         self.assertEqual(client.calls[0][0], "write_file")
 
+    def test_write_mode_accumulates_multiple_writes(self):
+        client = _FakeSyncClient()
+        with _fs(client) as fs:
+            with fs.open("/b", "w") as handle:
+                handle.write("first\n")
+                handle.write("second\n")
+        self.assertEqual(client.calls[-1], ("write_file", "/b", "first\nsecond\n"))
+
+    def test_write_mode_retry_after_failed_write_does_not_duplicate(self):
+        client = _FakeSyncClient()
+        with _fs(client) as fs:
+            with fs.open("/b", "w") as handle:
+                client.replies["write_file"] = RuntimeError("boom")
+                with self.assertRaises(Exception):
+                    handle.write("first")
+                del client.replies["write_file"]
+                handle.write("first")
+        self.assertEqual(client.calls[-1], ("write_file", "/b", "first"))
+
     def test_wrong_mode_raises(self):
         with _fs(_FakeSyncClient()) as fs:
             with self.assertRaises(ValueError):
@@ -355,6 +374,28 @@ class TestSandboxFileIO(unittest.TestCase):
             handle.close()
             with self.assertRaises(ValueError):
                 handle.read()
+
+
+class TestAsyncSandboxFileIO(unittest.IsolatedAsyncioTestCase):
+    async def test_write_mode_accumulates_multiple_writes(self):
+        client = _FakeAsyncClient()
+        with _async_fs(client) as fs:
+            async with fs.open("/b", "w") as handle:
+                await handle.write("first\n")
+                await handle.write("second\n")
+        self.assertEqual(client.calls[-1], ("write_file", "/b", "first\nsecond\n"))
+
+
+    async def test_write_mode_retry_after_failed_write_does_not_duplicate(self):
+        client = _FakeAsyncClient()
+        with _async_fs(client) as fs:
+            async with fs.open("/b", "w") as handle:
+                client.replies["write_file"] = RuntimeError("boom")
+                with self.assertRaises(Exception):
+                    await handle.write("first")
+                del client.replies["write_file"]
+                await handle.write("first")
+        self.assertEqual(client.calls[-1], ("write_file", "/b", "first"))
 
 
 class TestAsyncReplyInterpretation(unittest.TestCase):
