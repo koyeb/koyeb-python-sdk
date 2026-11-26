@@ -4798,6 +4798,18 @@ def write(content: Union[str, bytes]) -> None
 
 Write content to file synchronously
 
+In "w" mode writes are buffered and uploaded by flush() or close().
+
+<a id="koyeb.sandbox.filesystem.SandboxFileIO.flush"></a>
+
+#### flush
+
+```python
+def flush() -> None
+```
+
+Upload the content buffered by write() in "w" mode
+
 <a id="koyeb.sandbox.filesystem.SandboxFileIO.close"></a>
 
 #### close
@@ -4806,7 +4818,7 @@ Write content to file synchronously
 def close() -> None
 ```
 
-Close the file
+Upload buffered content and close the file
 
 <a id="koyeb.sandbox.filesystem.AsyncSandboxFileIO"></a>
 
@@ -4838,15 +4850,27 @@ async def write(content: Union[str, bytes]) -> None
 
 Write content to file asynchronously
 
+In "w" mode writes are buffered and uploaded by flush() or close().
+
+<a id="koyeb.sandbox.filesystem.AsyncSandboxFileIO.flush"></a>
+
+#### flush
+
+```python
+async def flush() -> None
+```
+
+Upload the content buffered by write() in "w" mode
+
 <a id="koyeb.sandbox.filesystem.AsyncSandboxFileIO.close"></a>
 
 #### close
 
 ```python
-def close() -> None
+async def close() -> None
 ```
 
-Close the file
+Upload buffered content and close the file
 
 <a id="koyeb.sandbox.pool"></a>
 
