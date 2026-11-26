@@ -2522,6 +2522,30 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
         return count
 
 
+def _buffer_write(
+    buffered: Optional[Union[str, bytes]], content: Union[str, bytes], encoding: str
+) -> Union[str, bytes]:
+    """Append a "w" mode write to a file handle's buffer.
+
+    base64 chunks are decoded first: encoded text cannot be concatenated
+    once a chunk ends with padding.
+    """
+    if encoding == "base64":
+        content = base64.b64decode(content)
+    if buffered is None:
+        return content
+    if isinstance(buffered, bytes) != isinstance(content, bytes):
+        raise TypeError("Cannot mix bytes and str content in write mode")
+    return buffered + content
+
+
+def _buffered_body(buffered: Union[str, bytes], encoding: str) -> Union[str, bytes]:
+    """write_file content for a "w" mode buffer, re-encoded once for base64."""
+    if encoding == "base64":
+        return base64.b64encode(buffered).decode("ascii")
+    return buffered
+
+
 class SandboxFileIO:
     """Synchronous file I/O handle for sandbox files"""
 
@@ -2538,6 +2562,7 @@ class SandboxFileIO:
         self.encoding = encoding
         self._closed = False
         self._written: Optional[Union[str, bytes]] = None
+        self._dirty = False
 
     def read(self) -> Union[str, bytes]:
         """Read file content synchronously"""
@@ -2551,39 +2576,49 @@ class SandboxFileIO:
         return file_info.content
 
     def write(self, content: Union[str, bytes]) -> None:
-        """Write content to file synchronously"""
+        """Write content to file synchronously
+
+        In "w" mode writes are buffered and uploaded by flush() or close().
+        """
         if "w" not in self.mode and "a" not in self.mode:
             raise ValueError("File not opened for writing")
 
         if self._closed:
             raise ValueError("File is closed")
 
-        if "a" in self.mode:
-            try:
-                existing = self.filesystem.read_file(self.path, encoding=self.encoding)
-                if isinstance(existing.content, bytes) and isinstance(content, bytes):
-                    content = existing.content + content
-                elif isinstance(existing.content, str) and isinstance(content, str):
-                    content = existing.content + content
-                else:
-                    raise TypeError("Cannot mix bytes and str content in append mode")
-            except SandboxFileNotFoundError:
-                pass
+        if "a" not in self.mode:
+            # write_file replaces the whole file: upload the buffer once.
+            self._written = _buffer_write(self._written, content, self.encoding)
+            self._dirty = True
+            return
 
-        accumulate = "w" in self.mode and "a" not in self.mode
-        if accumulate:
-            # write_file replaces the whole file, so accumulate across writes.
-            if self._written is not None:
-                if isinstance(self._written, bytes) != isinstance(content, bytes):
-                    raise TypeError("Cannot mix bytes and str content in write mode")
-                content = self._written + content
+        try:
+            existing = self.filesystem.read_file(self.path, encoding=self.encoding)
+            if isinstance(existing.content, bytes) and isinstance(content, bytes):
+                content = existing.content + content
+            elif isinstance(existing.content, str) and isinstance(content, str):
+                content = existing.content + content
+            else:
+                raise TypeError("Cannot mix bytes and str content in append mode")
+        except SandboxFileNotFoundError:
+            pass
 
         self.filesystem.write_file(self.path, content, encoding=self.encoding)
-        if accumulate:
-            self._written = content
+
+    def flush(self) -> None:
+        """Upload the content buffered by write() in "w" mode"""
+        if self._dirty:
+            self.filesystem.write_file(
+                self.path,
+                _buffered_body(self._written, self.encoding),
+                encoding=self.encoding,
+            )
+            self._dirty = False
 
     def close(self) -> None:
-        """Close the file"""
+        """Upload buffered content and close the file"""
+        if not self._closed:
+            self.flush()
         self._closed = True
 
     def __enter__(self):
@@ -2609,6 +2644,7 @@ class AsyncSandboxFileIO:
         self.encoding = encoding
         self._closed = False
         self._written: Optional[Union[str, bytes]] = None
+        self._dirty = False
 
     async def read(self) -> Union[str, bytes]:
         """Read file content asynchronously"""
@@ -2622,45 +2658,55 @@ class AsyncSandboxFileIO:
         return file_info.content
 
     async def write(self, content: Union[str, bytes]) -> None:
-        """Write content to file asynchronously"""
+        """Write content to file asynchronously
+
+        In "w" mode writes are buffered and uploaded by flush() or close().
+        """
         if "w" not in self.mode and "a" not in self.mode:
             raise ValueError("File not opened for writing")
 
         if self._closed:
             raise ValueError("File is closed")
 
-        if "a" in self.mode:
-            try:
-                existing = await self.filesystem.read_file(
-                    self.path, encoding=self.encoding
-                )
-                if isinstance(existing.content, bytes) and isinstance(content, bytes):
-                    content = existing.content + content
-                elif isinstance(existing.content, str) and isinstance(content, str):
-                    content = existing.content + content
-                else:
-                    raise TypeError("Cannot mix bytes and str content in append mode")
-            except SandboxFileNotFoundError:
-                pass
+        if "a" not in self.mode:
+            # write_file replaces the whole file: upload the buffer once.
+            self._written = _buffer_write(self._written, content, self.encoding)
+            self._dirty = True
+            return
 
-        accumulate = "w" in self.mode and "a" not in self.mode
-        if accumulate:
-            # write_file replaces the whole file, so accumulate across writes.
-            if self._written is not None:
-                if isinstance(self._written, bytes) != isinstance(content, bytes):
-                    raise TypeError("Cannot mix bytes and str content in write mode")
-                content = self._written + content
+        try:
+            existing = await self.filesystem.read_file(
+                self.path, encoding=self.encoding
+            )
+            if isinstance(existing.content, bytes) and isinstance(content, bytes):
+                content = existing.content + content
+            elif isinstance(existing.content, str) and isinstance(content, str):
+                content = existing.content + content
+            else:
+                raise TypeError("Cannot mix bytes and str content in append mode")
+        except SandboxFileNotFoundError:
+            pass
 
         await self.filesystem.write_file(self.path, content, encoding=self.encoding)
-        if accumulate:
-            self._written = content
 
-    def close(self) -> None:
-        """Close the file"""
+    async def flush(self) -> None:
+        """Upload the content buffered by write() in "w" mode"""
+        if self._dirty:
+            await self.filesystem.write_file(
+                self.path,
+                _buffered_body(self._written, self.encoding),
+                encoding=self.encoding,
+            )
+            self._dirty = False
+
+    async def close(self) -> None:
+        """Upload buffered content and close the file"""
+        if not self._closed:
+            await self.flush()
         self._closed = True
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        await self.close()
