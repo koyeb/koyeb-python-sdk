@@ -21,6 +21,8 @@ Name | Type | Description | Notes
 **skip_cache** | **bool** |  | [optional] 
 **mesh** | [**DeploymentMesh**](DeploymentMesh.md) |  | [optional] [default to DeploymentMesh.DEPLOYMENT_MESH_AUTO]
 **network_policy** | [**NetworkPolicy**](NetworkPolicy.md) |  | [optional] 
+**kill_timeout_secs** | **int** |  | [optional] 
+**container_runtime** | **str** | Container runtime of the workload: \&quot;runc\&quot;, \&quot;kata\&quot; or \&quot;gvisor\&quot;. Empty means the region default runtime. \&quot;runc\&quot; is the cluster default runtime. | [optional] 
 **docker** | [**DockerSource**](DockerSource.md) |  | [optional] 
 **git** | [**GitSource**](GitSource.md) |  | [optional] 
 **database** | [**DatabaseSource**](DatabaseSource.md) |  | [optional] 

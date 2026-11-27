@@ -1,6 +1,6 @@
 # coding: utf-8
 
-__version__ = "1.7.1"
+__version__ = "1.7.2"
 
 # Make Sandbox available at package level
 from .sandbox import Sandbox, AsyncSandbox, ConfigFile, Secret, Sidecar

@@ -27,6 +27,8 @@ Name | Type | Description | Notes
 **lifecycle** | [**LifecycleQuotas**](LifecycleQuotas.md) |  | [optional] 
 **max_projects** | **str** |  | [optional] 
 **instance_snapshots** | [**InstanceSnapshotQuotas**](InstanceSnapshotQuotas.md) |  | [optional] 
+**persistent_volumes_disabled** | **bool** | When true, persistent volumes are disabled for the organization regardless of persistent_volumes_by_region. kaccount&#39;s ComputeQuotas omits persistent_volumes_by_region when this is set, so the flag must travel explicitly — otherwise consumers cannot distinguish \&quot;disabled\&quot; from \&quot;no custom quotas\&quot;. | [optional] 
+**max_instances_per_service** | **int** | Max instances of one service per region: caps scalings min and max and manual scaling. Zero means unset: consumers fall back to the plan default. | [optional] 
 
 ## Example
 

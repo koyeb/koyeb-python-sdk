@@ -21,6 +21,8 @@ Name | Type | Description | Notes
 **skip_cache** | **bool** |  | [optional] 
 **mesh** | [**RegionalDeploymentMesh**](RegionalDeploymentMesh.md) |  | [optional] [default to RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO]
 **network_policy** | [**NetworkPolicy**](NetworkPolicy.md) |  | [optional] 
+**kill_timeout_secs** | **int** |  | [optional] 
+**container_runtime** | **str** | Container runtime resolved at fan-out: the workload value, or the region default runtime when the workload leaves it empty. Empty only on regional deployments created before the field existed. | [optional] 
 **docker** | [**DockerSource**](DockerSource.md) |  | [optional] 
 **git** | [**GitSource**](GitSource.md) |  | [optional] 
 **archive** | [**ArchiveSource**](ArchiveSource.md) |  | [optional] 

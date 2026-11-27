@@ -13,6 +13,7 @@ Name | Type | Description | Notes
 **datacenters** | **List[str]** |  | [optional] 
 **volumes_enabled** | **bool** |  | [optional] 
 **scope** | **str** | The scope of the region, continent, metropolitan area, etc. | [optional] 
+**container_runtimes** | **List[str]** | The container runtimes available in this region, in catalog order (the first one is the region default). Only populated when the runtime-choice feature is enabled. | [optional] 
 
 ## Example
 
