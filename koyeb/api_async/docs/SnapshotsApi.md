@@ -303,7 +303,7 @@ async with koyeb.api_async.ApiClient(configuration) as api_client:
     limit = 'limit_example' # str | (Optional) The number of items to return (optional)
     offset = 'offset_example' # str | (Optional) The offset in the list of item to return (optional)
     organization_id = 'organization_id_example' # str | (Optional) Filter by organization_id (optional)
-    statuses = ['statuses_example'] # List[str] | (Optional) Filter by status   - SNAPSHOT_STATUS_INVALID: zero value, invalid  - SNAPSHOT_STATUS_CREATING: the snapshot is being created  - SNAPSHOT_STATUS_AVAILABLE: the snapshot is complete and available  - SNAPSHOT_STATUS_MIGRATING: the snapshot is being migrated  - SNAPSHOT_STATUS_DELETING: the snapshot is being deleted  - SNAPSHOT_STATUS_DELETED: the snapshot is deleted (optional)
+    statuses = ['statuses_example'] # List[str] | (Optional) Filter by status   - SNAPSHOT_STATUS_INVALID: zero value, invalid  - SNAPSHOT_STATUS_CREATING: the snapshot is being created  - SNAPSHOT_STATUS_AVAILABLE: the snapshot is complete and available  - SNAPSHOT_STATUS_MIGRATING: the snapshot is being migrated  - SNAPSHOT_STATUS_DELETING: the snapshot is being deleted  - SNAPSHOT_STATUS_DELETED: the snapshot is deleted  - SNAPSHOT_STATUS_ERROR: the snapshot could not be created (optional)
     region = 'region_example' # str | (Optional) A filter for the region (optional)
     ids = ['ids_example'] # List[str] | (Optional) Filter on snapshot ids (optional)
 
@@ -326,7 +326,7 @@ Name | Type | Description  | Notes
  **limit** | **str**| (Optional) The number of items to return | [optional] 
  **offset** | **str**| (Optional) The offset in the list of item to return | [optional] 
  **organization_id** | **str**| (Optional) Filter by organization_id | [optional] 
- **statuses** | [**List[str]**](str.md)| (Optional) Filter by status   - SNAPSHOT_STATUS_INVALID: zero value, invalid  - SNAPSHOT_STATUS_CREATING: the snapshot is being created  - SNAPSHOT_STATUS_AVAILABLE: the snapshot is complete and available  - SNAPSHOT_STATUS_MIGRATING: the snapshot is being migrated  - SNAPSHOT_STATUS_DELETING: the snapshot is being deleted  - SNAPSHOT_STATUS_DELETED: the snapshot is deleted | [optional] 
+ **statuses** | [**List[str]**](str.md)| (Optional) Filter by status   - SNAPSHOT_STATUS_INVALID: zero value, invalid  - SNAPSHOT_STATUS_CREATING: the snapshot is being created  - SNAPSHOT_STATUS_AVAILABLE: the snapshot is complete and available  - SNAPSHOT_STATUS_MIGRATING: the snapshot is being migrated  - SNAPSHOT_STATUS_DELETING: the snapshot is being deleted  - SNAPSHOT_STATUS_DELETED: the snapshot is deleted  - SNAPSHOT_STATUS_ERROR: the snapshot could not be created | [optional] 
  **region** | **str**| (Optional) A filter for the region | [optional] 
  **ids** | [**List[str]**](str.md)| (Optional) Filter on snapshot ids | [optional] 
 

@@ -5,6 +5,9 @@ All URIs are relative to *https://app.koyeb.com*
 Method | HTTP request | Description
 ------------- | ------------- | -------------
 [**create_archive**](ArchivesApi.md#create_archive) | **POST** /v1/archives | Create Archive
+[**delete_archive**](ArchivesApi.md#delete_archive) | **DELETE** /v1/archives/{id} | Delete Archive
+[**get_archive**](ArchivesApi.md#get_archive) | **GET** /v1/archives/{id} | Get Archive
+[**list_archives**](ArchivesApi.md#list_archives) | **GET** /v1/archives | List Archives
 
 
 # **create_archive**
@@ -69,6 +72,271 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**CreateArchiveReply**](CreateArchiveReply.md)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: */*
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+**200** | A successful response. |  -  |
+**400** | Validation error |  -  |
+**401** | Returned when the token is not valid. |  -  |
+**403** | Returned when the user does not have permission to access the resource. |  -  |
+**404** | Returned when the resource does not exist. |  -  |
+**500** | Returned in case of server error. |  -  |
+**503** | Service is unavailable. |  -  |
+**0** | An unexpected error response. |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **delete_archive**
+> object delete_archive(id)
+
+Delete Archive
+
+Mark an archive for deletion. Its status becomes deleting, and it is
+deleted along with its file shortly after. Deployments already built from
+it keep running, but nothing can be built from it any more.
+
+### Example
+
+* Api Key Authentication (Bearer):
+
+```python
+import koyeb.api_async
+from koyeb.api_async.rest import ApiException
+from pprint import pprint
+
+# Defining the host is optional and defaults to https://app.koyeb.com
+# See configuration.py for a list of all supported configuration parameters.
+configuration = koyeb.api_async.Configuration(
+    host = "https://app.koyeb.com"
+)
+
+# The client must configure the authentication and authorization parameters
+# in accordance with the API server security policy.
+# Examples for each auth method are provided below, use the example that
+# satisfies your auth use case.
+
+# Configure API key authorization: Bearer
+configuration.api_key['Bearer'] = os.environ["API_KEY"]
+
+# Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
+# configuration.api_key_prefix['Bearer'] = 'Bearer'
+
+# Enter a context with an instance of the API client
+async with koyeb.api_async.ApiClient(configuration) as api_client:
+    # Create an instance of the API class
+    api_instance = koyeb.api_async.ArchivesApi(api_client)
+    id = 'id_example' # str | The id of the archive.
+
+    try:
+        # Delete Archive
+        api_response = await api_instance.delete_archive(id)
+        print("The response of ArchivesApi->delete_archive:\n")
+        pprint(api_response)
+    except Exception as e:
+        print("Exception when calling ArchivesApi->delete_archive: %s\n" % e)
+```
+
+
+
+### Parameters
+
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **id** | **str**| The id of the archive. | 
+
+### Return type
+
+**object**
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: */*
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+**200** | A successful response. |  -  |
+**400** | Validation error |  -  |
+**401** | Returned when the token is not valid. |  -  |
+**403** | Returned when the user does not have permission to access the resource. |  -  |
+**404** | Returned when the resource does not exist. |  -  |
+**500** | Returned in case of server error. |  -  |
+**503** | Service is unavailable. |  -  |
+**0** | An unexpected error response. |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **get_archive**
+> GetArchiveReply get_archive(id)
+
+Get Archive
+
+Get an archive, with a signed URL to download it.
+
+### Example
+
+* Api Key Authentication (Bearer):
+
+```python
+import koyeb.api_async
+from koyeb.api_async.models.get_archive_reply import GetArchiveReply
+from koyeb.api_async.rest import ApiException
+from pprint import pprint
+
+# Defining the host is optional and defaults to https://app.koyeb.com
+# See configuration.py for a list of all supported configuration parameters.
+configuration = koyeb.api_async.Configuration(
+    host = "https://app.koyeb.com"
+)
+
+# The client must configure the authentication and authorization parameters
+# in accordance with the API server security policy.
+# Examples for each auth method are provided below, use the example that
+# satisfies your auth use case.
+
+# Configure API key authorization: Bearer
+configuration.api_key['Bearer'] = os.environ["API_KEY"]
+
+# Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
+# configuration.api_key_prefix['Bearer'] = 'Bearer'
+
+# Enter a context with an instance of the API client
+async with koyeb.api_async.ApiClient(configuration) as api_client:
+    # Create an instance of the API class
+    api_instance = koyeb.api_async.ArchivesApi(api_client)
+    id = 'id_example' # str | The id of the archive.
+
+    try:
+        # Get Archive
+        api_response = await api_instance.get_archive(id)
+        print("The response of ArchivesApi->get_archive:\n")
+        pprint(api_response)
+    except Exception as e:
+        print("Exception when calling ArchivesApi->get_archive: %s\n" % e)
+```
+
+
+
+### Parameters
+
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **id** | **str**| The id of the archive. | 
+
+### Return type
+
+[**GetArchiveReply**](GetArchiveReply.md)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: */*
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+**200** | A successful response. |  -  |
+**400** | Validation error |  -  |
+**401** | Returned when the token is not valid. |  -  |
+**403** | Returned when the user does not have permission to access the resource. |  -  |
+**404** | Returned when the resource does not exist. |  -  |
+**500** | Returned in case of server error. |  -  |
+**503** | Service is unavailable. |  -  |
+**0** | An unexpected error response. |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **list_archives**
+> ListArchivesReply list_archives(limit=limit, offset=offset, ids=ids, statuses=statuses)
+
+List Archives
+
+List the archives of the organization, most recent first.
+
+### Example
+
+* Api Key Authentication (Bearer):
+
+```python
+import koyeb.api_async
+from koyeb.api_async.models.list_archives_reply import ListArchivesReply
+from koyeb.api_async.rest import ApiException
+from pprint import pprint
+
+# Defining the host is optional and defaults to https://app.koyeb.com
+# See configuration.py for a list of all supported configuration parameters.
+configuration = koyeb.api_async.Configuration(
+    host = "https://app.koyeb.com"
+)
+
+# The client must configure the authentication and authorization parameters
+# in accordance with the API server security policy.
+# Examples for each auth method are provided below, use the example that
+# satisfies your auth use case.
+
+# Configure API key authorization: Bearer
+configuration.api_key['Bearer'] = os.environ["API_KEY"]
+
+# Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
+# configuration.api_key_prefix['Bearer'] = 'Bearer'
+
+# Enter a context with an instance of the API client
+async with koyeb.api_async.ApiClient(configuration) as api_client:
+    # Create an instance of the API class
+    api_instance = koyeb.api_async.ArchivesApi(api_client)
+    limit = 'limit_example' # str | (Optional) The number of items to return (optional)
+    offset = 'offset_example' # str | (Optional) The offset in the list of items to return (optional)
+    ids = ['ids_example'] # List[str] | (Optional) Filter on archive ids (optional)
+    statuses = ['statuses_example'] # List[str] | (Optional) Filter by archive status   - ARCHIVE_STATUS_INVALID: zero value, invalid  - ARCHIVE_STATUS_HEALTHY: the archive can be deployed and downloaded  - ARCHIVE_STATUS_DELETING: the archive is waiting for its file to be removed  - ARCHIVE_STATUS_DELETED: the archive and its file are deleted (optional)
+
+    try:
+        # List Archives
+        api_response = await api_instance.list_archives(limit=limit, offset=offset, ids=ids, statuses=statuses)
+        print("The response of ArchivesApi->list_archives:\n")
+        pprint(api_response)
+    except Exception as e:
+        print("Exception when calling ArchivesApi->list_archives: %s\n" % e)
+```
+
+
+
+### Parameters
+
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **limit** | **str**| (Optional) The number of items to return | [optional] 
+ **offset** | **str**| (Optional) The offset in the list of items to return | [optional] 
+ **ids** | [**List[str]**](str.md)| (Optional) Filter on archive ids | [optional] 
+ **statuses** | [**List[str]**](str.md)| (Optional) Filter by archive status   - ARCHIVE_STATUS_INVALID: zero value, invalid  - ARCHIVE_STATUS_HEALTHY: the archive can be deployed and downloaded  - ARCHIVE_STATUS_DELETING: the archive is waiting for its file to be removed  - ARCHIVE_STATUS_DELETED: the archive and its file are deleted | [optional] 
+
+### Return type
+
+[**ListArchivesReply**](ListArchivesReply.md)
 
 ### Authorization
 
